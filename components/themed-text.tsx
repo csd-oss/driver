@@ -13,6 +13,8 @@ export function ThemedText({
   lightColor,
   darkColor,
   type = 'default',
+  allowFontScaling = true,
+  maxFontSizeMultiplier = 1.5,
   ...rest
 }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
@@ -28,6 +30,8 @@ export function ThemedText({
         type === 'link' ? styles.link : undefined,
         style,
       ]}
+      allowFontScaling={allowFontScaling}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       {...rest}
     />
   );

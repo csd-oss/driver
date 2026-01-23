@@ -21,6 +21,8 @@ export const Button = ({
   textClassName = '',
   style,
   textStyle,
+  allowFontScaling = true,
+  maxFontSizeMultiplier = 1.5,
 }) => {
   const baseClasses = 'px-6 py-3 rounded-lg items-center justify-center min-h-[44px]';
   const variantClass = variantStyles[variant] || variantStyles.default;
@@ -36,6 +38,8 @@ export const Button = ({
       <Text
         className={`font-semibold text-base ${textStyles[variant]} ${textClassName}`}
         style={textStyle}
+        allowFontScaling={allowFontScaling}
+        maxFontSizeMultiplier={maxFontSizeMultiplier}
       >
         {children}
       </Text>

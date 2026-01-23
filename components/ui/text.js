@@ -7,11 +7,25 @@ const variantStyles = {
   caption: 'text-sm text-gray-600 dark:text-gray-400',
 };
 
-export const UIText = ({ children, variant = 'body', className = '', style }) => {
+export const UIText = ({ 
+  children, 
+  variant = 'body', 
+  className = '', 
+  style,
+  allowFontScaling = true,
+  maxFontSizeMultiplier = 1.5,
+  ...rest 
+}) => {
   const variantClass = variantStyles[variant] || variantStyles.body;
   
   return (
-    <Text className={`${variantClass} ${className}`} style={style}>
+    <Text 
+      className={`${variantClass} ${className}`} 
+      style={style}
+      allowFontScaling={allowFontScaling}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
+      {...rest}
+    >
       {children}
     </Text>
   );
