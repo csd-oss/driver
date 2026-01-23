@@ -39,9 +39,6 @@ export default function SettingsScreen() {
       <View className="flex-1 gap-6 mt-1">
         <View className="items-start mt-2">
           <UIText variant="title">{t('settings.languageTitle', lang)}</UIText>
-          <UIText variant="body" className="text-slate-500 dark:text-slate-400 mt-1">
-            {t('settings.currentLanguage', lang)}: {lang}
-          </UIText>
         </View>
 
         <Card className="gap-3">
