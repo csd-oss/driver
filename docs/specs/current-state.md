@@ -1,7 +1,7 @@
 # CURRENT STATE SPECIFICATION — Driver SK (Slovakia Driving Exam App)
 
 **Last Updated:** January 23, 2026  
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **Status:** Production MVP
 
 ---
@@ -25,13 +25,14 @@
   - Realistic mock exam simulation
 
 ### 1.2 Core Features (Implemented)
-1. **Study Mode** - Random question practice with immediate feedback
-2. **Mistakes Review** - Focused practice on incorrectly answered questions
-3. **Mock Exams** - Full exam simulation with timer and scoring
+1. **Study Mode** - Random question practice with immediate feedback and enhanced visual clarity
+2. **Mistakes Review** - Focused practice on incorrectly answered questions with clear answer indicators
+3. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
 4. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
 5. **Progress Tracking** - Mistake tracking with mastery system (2 correct answers removes from mistakes)
 6. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
 7. **Offline Operation** - All data and images stored locally
+8. **Question Detail Modal** - Interactive review of wrong answers with full question context
 
 ### 1.3 Business Rules
 - **Scoring:** Each question has point value (`body`), exam pass threshold is `minbody` points
@@ -95,8 +96,19 @@ App Launch
 7. Results screen shows:
    - Pass/Fail status
    - Score breakdown
-   - Per-question correctness
-8. Options:
+   - Per-question correctness list (large, button-like items)
+8. Interactive wrong answers:
+   - Wrong answer items are clickable (Pressable)
+   - Tapping opens detail modal showing:
+     - Original question text and image
+     - All answer options with visual indicators:
+       - Green background for correct answer (labeled "✓ Correct Answer")
+       - Red/purple background for user's wrong answer (labeled "✗ Your Answer")
+       - Neutral styling for other incorrect options
+   - Modal respects safe zones (notch area)
+   - Images fill full modal width
+   - Smooth scrolling for long content
+9. Options:
    - "Add wrong to mistakes" → adds incorrect answers to mistakes list
    - "New mock exam" → starts fresh exam
 
@@ -286,6 +298,13 @@ driver/
 - **Variants:** Button (default, outline, secondary), Text (title, subtitle, body, caption)
 - **Accessibility:** Font scaling support via FontScaleContext
 - **Dark Mode:** Automatic via system preference
+- **Visual Clarity Enhancements:**
+  - Answer buttons use color-coded backgrounds for clarity:
+    - Correct: `bg-emerald-500 dark:bg-emerald-600` (green)
+    - Wrong (user's selection): `bg-rose-500 dark:bg-rose-600` (red/purple)
+    - Neutral: Outline variant with slate colors
+  - Consistent visual language across Study, Mistakes, and Mock Exam modes
+  - Modal components respect safe areas using `useSafeAreaInsets()`
 
 #### 3.4.8 Storage (`src/lib/storage.js`)
 - **Keys:**
@@ -315,10 +334,14 @@ driver/
   - Category selector
   - Random question display
   - Image rendering (if available)
-  - Answer buttons with feedback
+  - Answer buttons with enhanced visual feedback:
+    - Correct answer: Green background (emerald-500/600)
+    - Wrong selected answer: Red/purple background (rose-500/600) with white text
+    - Other answers: Neutral outline styling
   - Points display
   - Next button (appears after answer)
 - **Logic:** Category filtering, progress tracking, auto-scroll
+- **Visual Clarity:** Clear distinction between correct and incorrect answers with color-coded backgrounds
 
 #### Mistakes (`app/mistakes.tsx`)
 - **Features:**
@@ -327,7 +350,12 @@ driver/
   - Shuffled question order
   - Mastery streak display
   - Empty state handling
+  - Answer buttons with enhanced visual feedback (same as Study mode):
+    - Correct answer: Green background (emerald-500/600)
+    - Wrong selected answer: Red/purple background (rose-500/600) with white text
+    - Other answers: Neutral outline styling
 - **Logic:** Category filtering, dynamic list updates, graceful navigation
+- **Visual Clarity:** Consistent visual language with Study mode for unified user experience
 
 #### Mock (`app/mock.tsx`)
 - **Features:**
@@ -337,8 +365,19 @@ driver/
   - Answer selection
   - Previous/Next navigation
   - Finish button
-  - Results screen with score breakdown
-- **Logic:** Score calculation, pass/fail determination, wrong answer collection
+  - Results screen with score breakdown:
+    - Large, button-like question items (min-height 56px, increased padding)
+    - Wrong answers are clickable (Pressable)
+    - Correct answers remain non-interactive (View)
+  - Question Detail Modal:
+    - Opens when tapping wrong answer items
+    - Displays full question context (text, image, all answers)
+    - Visual indicators: green for correct, red/purple for user's wrong answer
+    - Respects safe zones (notch area)
+    - Images fill full modal width
+    - Smooth scrolling with proper height constraints
+    - Close button at bottom
+- **Logic:** Score calculation, pass/fail determination, wrong answer collection, modal state management
 
 #### Settings (`app/settings.tsx`)
 - **Features:** Language selection buttons
@@ -404,6 +443,8 @@ driver/
 - **Web:** Static output, favicon support
 - **Dark Mode:** Automatic via system preference
 - **Safe Areas:** Handled via SafeAreaView and SafeAreaProvider
+  - Modal components use `useSafeAreaInsets()` to respect notch/dynamic island areas
+  - Proper padding applied to prevent content overlap with system UI
 
 ---
 
@@ -500,6 +541,11 @@ npm run reset-project
 - ✅ Progress persistence
 - ✅ Image loading
 - ✅ Dark mode support
+- ✅ Mock exam results: Wrong answers clickable, detail modal functional
+- ✅ Visual clarity: Correct/wrong answer indicators work in Study and Mistakes modes
+- ✅ Modal scrolling: Smooth scrolling with proper height constraints
+- ✅ Safe zones: Modals respect notch/dynamic island areas
+- ✅ Image display: Images fill full width in modals
 
 **Automated Testing:**
 - Not implemented (future consideration)
@@ -508,4 +554,13 @@ npm run reset-project
 
 ## END OF CURRENT STATE SPECIFICATION
 
-This document reflects the current implementation state as of January 23, 2026. For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`.
+This document reflects the current implementation state as of January 23, 2026. 
+
+**Recent Updates (v1.1.0):**
+- Enhanced Mock Exam Results: Wrong answers are now clickable, opening a detail modal
+- Improved Visual Clarity: Study and Mistakes modes use color-coded answer backgrounds (green for correct, red/purple for wrong)
+- Question Detail Modal: Interactive review of wrong answers with full context and clear visual indicators
+- UI Improvements: Larger, more button-like question items in results list
+- Modal Enhancements: Proper safe zone handling, full-width images, smooth scrolling
+
+For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`.
