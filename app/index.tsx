@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, Animated, Platform } from 'react-native';
+import { View, Text, Animated, Platform, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/ui/screen';
 import { getSettings } from '@/src/lib/settings';
@@ -11,44 +11,65 @@ export default function IntroAnimationScreen() {
   const letters = text.split('');
   
   // Create animated values for each letter
-  // One for fade/initial position, one for jump animation
+  // One for fade/initial position, one for lift animation, one for scale
   const fadeAnims = useRef(
     letters.map(() => new Animated.Value(0))
   ).current;
   const jumpAnims = useRef(
     letters.map(() => new Animated.Value(0))
   ).current;
+  const scaleAnims = useRef(
+    letters.map(() => new Animated.Value(0.92))
+  ).current;
 
-  // Colors for each letter - vibrant and playful
+  // Colors for each letter - cooler palette to match the app
   const colors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', // Cool
-    '#98D8C8', '#FFD700', '#FF6B9D', '#C44569', // Auto
-    '#6C5CE7', '#A29BFE', '#FD79A8', '#FDCB6E', // School
-    '#00B894', '#00CEC9', '#E17055', '#F39C12', '#E84393'
+    '#818CF8', '#60A5FA', '#38BDF8', '#22D3EE',
+    '#A78BFA', '#C4B5FD', '#5EEAD4', '#34D399',
+    '#F472B6', '#FB7185', '#FBBF24', '#F59E0B',
+    '#93C5FD', '#67E8F9', '#A7F3D0', '#E879F9', '#C7D2FE'
   ];
 
   useEffect(() => {
     // Create animations for each letter - longer animation
     const animations = letters.map((_, index) => {
       return Animated.sequence([
-        Animated.delay(index * 180), // Longer stagger between letters
+        Animated.delay(index * 150),
         Animated.parallel([
-          // Fade in and slide up - longer duration
+          // Fade in and slide up
           Animated.timing(fadeAnims[index], {
             toValue: 1,
-            duration: 600,
+            duration: 520,
+            easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
-          // Jump animation - longer and more bouncy
+          // Lift animation - subtle and smooth
           Animated.sequence([
             Animated.timing(jumpAnims[index], {
-              toValue: -30,
-              duration: 300,
+              toValue: -18,
+              duration: 280,
+              easing: Easing.out(Easing.quad),
               useNativeDriver: true,
             }),
             Animated.timing(jumpAnims[index], {
               toValue: 0,
-              duration: 400,
+              duration: 360,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }),
+          ]),
+          // Scale in for a soft reveal
+          Animated.sequence([
+            Animated.timing(scaleAnims[index], {
+              toValue: 1.03,
+              duration: 260,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }),
+            Animated.timing(scaleAnims[index], {
+              toValue: 1,
+              duration: 320,
+              easing: Easing.out(Easing.quad),
               useNativeDriver: true,
             }),
           ]),
@@ -81,7 +102,7 @@ export default function IntroAnimationScreen() {
   });
 
   return (
-    <Screen className="items-center justify-center" style={{ backgroundColor: '#6366f1' }}>
+    <Screen className="items-center justify-center" style={{ backgroundColor: '#0f172a' }}>
       <View 
         style={{ 
           position: 'absolute',
@@ -113,23 +134,24 @@ export default function IntroAnimationScreen() {
                   <Animated.Text
                     key={index}
                     style={{
-                      fontSize: 52,
-                      fontWeight: '900',
+                      fontSize: 50,
+                      fontWeight: '800',
                       color: colors[index % colors.length],
                       opacity: opacity,
                       transform: [
                         { translateY: Animated.add(translateY, jumpAnims[index]) },
+                        { scale: scaleAnims[index] },
                       ],
                       fontFamily: Platform.select({
-                        ios: 'Marker Felt',
-                        android: 'sans-serif-condensed',
-                        default: 'Arial Rounded MT Bold',
+                        ios: 'Avenir Next',
+                        android: 'sans-serif-medium',
+                        default: 'Helvetica Neue',
                       }),
-                      textShadowColor: 'rgba(0, 0, 0, 0.4)',
-                      textShadowOffset: { width: 3, height: 3 },
-                      textShadowRadius: 5,
-                      marginHorizontal: 3,
-                      letterSpacing: 1,
+                      textShadowColor: 'rgba(15, 23, 42, 0.35)',
+                      textShadowOffset: { width: 2, height: 4 },
+                      textShadowRadius: 8,
+                      marginHorizontal: 2,
+                      letterSpacing: 0.6,
                     }}
                   >
                     {letter}
