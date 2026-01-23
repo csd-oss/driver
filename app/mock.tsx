@@ -201,14 +201,14 @@ export default function MockScreen() {
           <Card className="gap-4">
             <View className="items-center gap-2">
               <View
-                className={`px-4 py-1.5 rounded-full border ${
+                className={`px-4 py-2 rounded-full border ${
                   passed
                     ? 'bg-emerald-100 dark:bg-emerald-900/60 border-emerald-200 dark:border-emerald-700'
                     : 'bg-rose-100 dark:bg-rose-900/60 border-rose-200 dark:border-rose-700'
                 }`}
               >
                 <UIText
-                  variant="caption"
+                  variant="subtitle"
                   className={`uppercase tracking-[0.12em] ${
                     passed ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'
                   }`}
@@ -217,15 +217,30 @@ export default function MockScreen() {
                 </UIText>
               </View>
 
-              <UIText variant="title">{t('mock.score', lang)}</UIText>
-              <UIText variant="subtitle" className="text-slate-700 dark:text-slate-200">
+              <UIText variant="title" className="text-slate-900 dark:text-slate-50">
                 {score} / {maxScore}
               </UIText>
               <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                {t('mock.pass', lang)}: {test.minbody} {t('study.points', lang)}
+                {t('mock.passingScore', lang)} {test.minbody} {t('study.points', lang)}
               </UIText>
             </View>
           </Card>
+
+          <Button
+            onPress={handleAddWrongToMistakes}
+            variant="outline"
+            className="w-full"
+          >
+            {t('mock.addWrong', lang)}
+          </Button>
+
+          <Button
+            onPress={() => startNewTest(lang)}
+            variant="default"
+            className="w-full"
+          >
+            {t('mock.new', lang)}
+          </Button>
 
           <Card className="gap-3">
             <View className="flex-row items-center justify-between">
@@ -265,22 +280,6 @@ export default function MockScreen() {
               })}
             </View>
           </Card>
-
-          <Button
-            onPress={handleAddWrongToMistakes}
-            variant="outline"
-            className="w-full"
-          >
-            {t('mock.addWrong', lang)}
-          </Button>
-
-          <Button
-            onPress={() => startNewTest(lang)}
-            variant="default"
-            className="w-full"
-          >
-            {t('mock.new', lang)}
-          </Button>
         </ScrollView>
       </Screen>
     );

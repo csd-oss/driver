@@ -92,6 +92,11 @@ export const STR = {
     2: 'Failed',
     3: 'Sikertelen',
   },
+  'mock.passingScore': {
+    1: 'Pre úspešné absolvovanie:',
+    2: 'Passing Score:',
+    3: 'Sikeres teljesítéshez:',
+  },
   'mock.addWrong': {
     1: 'Pridať chyby do zoznamu',
     2: 'Add wrong to mistakes',
