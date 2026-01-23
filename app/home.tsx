@@ -68,6 +68,9 @@ export default function HomeScreen() {
     }, [loadData])
   );
 
+  const accuracyValue = typeof recentAccuracy === 'number' ? recentAccuracy : null;
+  const accuracyWidth = `${Math.min(accuracyValue ?? 0, 100)}%`;
+
   const handleResetProgress = () => {
     Alert.alert(
       t('home.reset', lang),
@@ -90,21 +93,60 @@ export default function HomeScreen() {
     <Screen>
       <View className="flex-1 gap-6">
         <Pressable onPress={() => router.push('/stats')}>
-          <Card className="mt-2">
-            <View className="items-start gap-2">
-              <UIText variant="caption" className="uppercase tracking-[0.12em] text-indigo-500">
-                YOUR PROGRESS
-              </UIText>
-              <View className="gap-1">
-                <UIText variant="body" className="text-slate-700 dark:text-slate-300">
-                  Mistakes left: {mistakeCount}
+          <Card className="mt-2 overflow-hidden bg-gradient-to-r from-indigo-500/15 via-sky-500/10 to-emerald-500/10 border-indigo-200/60 dark:border-indigo-700/40">
+            <View className="gap-4">
+              <View className="flex-row items-center justify-between">
+                <UIText variant="caption" className="uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-300">
+                  Your progress
                 </UIText>
-                <UIText variant="body" className="text-slate-700 dark:text-slate-300">
-                  Accuracy (7d): {recentAccuracy}{typeof recentAccuracy === 'number' ? '%' : ''}
-                </UIText>
-                <UIText variant="body" className="text-slate-700 dark:text-slate-300">
-                  Streak: {streak} days
-                </UIText>
+                <View className="rounded-full border border-indigo-200/80 dark:border-indigo-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-1">
+                  <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200">
+                    View stats →
+                  </UIText>
+                </View>
+              </View>
+
+              <View className="flex-row items-end justify-between">
+                <View>
+                  <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                    Accuracy (7d)
+                  </UIText>
+                  <UIText variant="title" className="text-slate-900 dark:text-slate-50">
+                    {recentAccuracy}{accuracyValue !== null ? '%' : ''}
+                  </UIText>
+                </View>
+                <View className="items-end">
+                  <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                    Current streak
+                  </UIText>
+                  <UIText variant="subtitle" className="text-emerald-600 dark:text-emerald-300">
+                    {streak} days
+                  </UIText>
+                </View>
+              </View>
+
+              <View className="gap-2">
+                <View className="flex-row items-center justify-between">
+                  <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2">
+                    <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                      Mistakes left
+                    </UIText>
+                    <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+                      {mistakeCount}
+                    </UIText>
+                  </View>
+                  <View className="flex-1 ml-3">
+                    <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                      Weekly accuracy
+                    </UIText>
+                    <View className="mt-2 h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
+                      <View
+                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500"
+                        style={{ width: accuracyWidth }}
+                      />
+                    </View>
+                  </View>
+                </View>
               </View>
             </View>
           </Card>

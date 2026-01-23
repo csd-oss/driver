@@ -89,6 +89,7 @@ export default function StatsScreen() {
   });
   
   const accuracy7d = calculateAccuracy(totalAttempts7d, totalCorrect7d);
+  const maxAttempts7d = Math.max(...dailyData.map((day) => day.attempts), 1);
   
   // Calculate mock exam metrics
   const passRate = stats.mock.examsTaken > 0
@@ -129,40 +130,104 @@ export default function StatsScreen() {
     return date.toLocaleDateString();
   };
 
+  const getAccuracyBadgeClass = (value) => {
+    if (typeof value !== 'number') {
+      return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+    }
+    if (value >= 85) {
+      return 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200';
+    }
+    if (value >= 70) {
+      return 'bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200';
+    }
+    return 'bg-rose-500/15 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200';
+  };
+
   return (
     <Screen header={<Header title={t('stats.title', lang)} />}>
       <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4 pb-2">
         {/* Overview Card */}
-        <Card className="gap-4">
-          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
-            {t('stats.yourProgress', lang)}
-          </UIText>
-          <View className="gap-2">
-            <View className="flex-row justify-between">
-              <UIText variant="body">{t('stats.mistakesRemaining', lang)}</UIText>
-              <UIText variant="body" className="font-semibold">{mistakeCount}</UIText>
+        <Card className="gap-4 overflow-hidden bg-gradient-to-r from-indigo-500/10 via-sky-500/10 to-emerald-500/10 border-indigo-200/60 dark:border-indigo-700/40">
+          <View className="gap-3">
+            <View className="flex-row items-center justify-between">
+              <UIText variant="subtitle" className="text-indigo-700 dark:text-indigo-200">
+                {t('stats.yourProgress', lang)}
+              </UIText>
+              <View className="rounded-full border border-indigo-200/70 dark:border-indigo-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-1">
+                <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200">
+                  {coverage}% coverage
+                </UIText>
+              </View>
             </View>
-            <View className="flex-row justify-between">
-              <UIText variant="body">{t('stats.studyAttempts', lang)}</UIText>
-              <UIText variant="body" className="font-semibold">{stats.study.attempts}</UIText>
+
+            <View className="flex-row items-end justify-between">
+              <View>
+                <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                  {t('stats.accuracy7d', lang)}
+                </UIText>
+                <UIText variant="title" className="text-slate-900 dark:text-slate-50">
+                  {accuracy7d}{typeof accuracy7d === 'number' ? '%' : ''}
+                </UIText>
+              </View>
+              <View className="items-end">
+                <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                  {t('stats.accuracyLifetime', lang)}
+                </UIText>
+                <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+                  {lifetimeAccuracy}{typeof lifetimeAccuracy === 'number' ? '%' : ''}
+                </UIText>
+              </View>
             </View>
-            <View className="flex-row justify-between">
-              <UIText variant="body">{t('stats.accuracyLifetime', lang)}</UIText>
-              <UIText variant="body" className="font-semibold">
-                {lifetimeAccuracy}{typeof lifetimeAccuracy === 'number' ? '%' : ''}
+
+            <View className="mt-1">
+              <View className="h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
+                <View
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500"
+                  style={{ width: `${coverage}%` }}
+                />
+              </View>
+              <UIText variant="caption" className="mt-2 text-slate-600 dark:text-slate-300">
+                {questionsSeen.length} {t('stats.ofTotal', lang).replace('{total}', String(totalUniqueQuestions))}
               </UIText>
             </View>
-            <View className="flex-row justify-between">
-              <UIText variant="body">{t('stats.accuracy7d', lang)}</UIText>
-              <UIText variant="body" className="font-semibold">
-                {accuracy7d}{typeof accuracy7d === 'number' ? '%' : ''}
-              </UIText>
-            </View>
-            <View className="flex-row justify-between">
-              <UIText variant="body">{t('stats.questionCoverage', lang)}</UIText>
-              <UIText variant="body" className="font-semibold">
-                {questionsSeen.length} {t('stats.ofTotal', lang).replace('{total}', String(totalUniqueQuestions))} ({coverage}%)
-              </UIText>
+
+            <View className="gap-3">
+              <View className="flex-row gap-3">
+                <View className="flex-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2">
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    {t('stats.mistakesRemaining', lang)}
+                  </UIText>
+                  <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+                    {mistakeCount}
+                  </UIText>
+                </View>
+                <View className="flex-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2">
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    {t('stats.studyAttempts', lang)}
+                  </UIText>
+                  <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+                    {stats.study.attempts}
+                  </UIText>
+                </View>
+              </View>
+              <View className="flex-row gap-3">
+                <View className="flex-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2">
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    {t('stats.currentStreak', lang)}
+                  </UIText>
+                  <UIText variant="subtitle" className="text-emerald-600 dark:text-emerald-300">
+                    {stats.engagement.currentStreak} days
+                  </UIText>
+                </View>
+                <View className="flex-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2">
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    {t('stats.questionCoverage', lang)}
+                  </UIText>
+                  <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+                    {coverage}%
+                  </UIText>
+                </View>
+              </View>
             </View>
           </View>
         </Card>
@@ -177,20 +242,33 @@ export default function StatsScreen() {
               {t('stats.noData', lang)}
             </UIText>
           ) : (
-            <View className="gap-2">
-              {dailyData.map((day) => (
-                <View key={day.dateKey} className="flex-row justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700">
-                  <UIText variant="body">{day.dayLabel}</UIText>
-                  <View className="flex-row gap-4">
-                    <UIText variant="body" className="text-slate-600 dark:text-slate-400">
-                      {day.attempts} {day.attempts === 1 ? 'attempt' : 'attempts'}
-                    </UIText>
-                    <UIText variant="body" className="font-semibold">
-                      {day.accuracy}{typeof day.accuracy === 'number' ? '%' : ''}
-                    </UIText>
+            <View className="gap-3">
+              {dailyData.map((day) => {
+                const barWidth = `${Math.round((day.attempts / maxAttempts7d) * 100)}%`;
+                return (
+                  <View key={day.dateKey} className="gap-2">
+                    <View className="flex-row items-center justify-between">
+                      <UIText variant="body">{day.dayLabel}</UIText>
+                      <View className={`rounded-full px-2 py-1 ${getAccuracyBadgeClass(day.accuracy)}`}>
+                        <UIText variant="caption" className="font-semibold">
+                          {day.accuracy}{typeof day.accuracy === 'number' ? '%' : ''}
+                        </UIText>
+                      </View>
+                    </View>
+                    <View className="flex-row items-center gap-3">
+                      <View className="flex-1 h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
+                        <View
+                          className="h-full rounded-full bg-gradient-to-r from-indigo-500/80 to-emerald-500/80"
+                          style={{ width: barWidth }}
+                        />
+                      </View>
+                      <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+                        {day.attempts} {day.attempts === 1 ? 'attempt' : 'attempts'}
+                      </UIText>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </Card>

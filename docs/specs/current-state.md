@@ -30,7 +30,7 @@
 3. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
 4. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
 5. **Progress Tracking** - Mistake tracking with mastery system (2 correct answers removes from mistakes)
-6. **Statistics Dashboard** - Comprehensive statistics tracking including study performance, mock exam history, engagement streaks, and question coverage
+6. **Statistics Dashboard** - Comprehensive statistics tracking with visual emphasis (hero progress summary, coverage bar, and 7-day activity bars)
 7. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
 8. **Offline Operation** - All data and images stored locally
 9. **Question Detail Modal** - Interactive review of wrong answers with full question context
@@ -55,7 +55,7 @@ App Launch
   │   └─ true → Home (direct)
   │
   └─ Home Screen
-      ├─ Your Progress Card → StatisticsScreen (tap to view detailed stats)
+      ├─ Your Progress Card (hero KPI summary + accuracy bar) → StatisticsScreen
       ├─ Study → StudyScreen (random questions)
       ├─ Mistakes → MistakesScreen (review incorrect answers)
       ├─ Mock Exam → MockScreen (full exam simulation)
