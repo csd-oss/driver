@@ -26,7 +26,7 @@
   - Realistic mock exam simulation
 
 ### 1.2 Core Features (Implemented)
-1. **Study Mode** - Smart Practice Mode with adaptive question selection prioritizing mistakes, unseen questions, and weak categories
+1. **Smart Study** - Adaptive question selection prioritizing mistakes, unseen questions, and weak categories
 2. **Mistakes Review** - Focused practice on incorrectly answered questions with clear answer indicators
 3. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
 4. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
@@ -58,7 +58,7 @@ App Launch
   │
   └─ Home Screen
       ├─ Your Progress Card (hero KPI summary + accuracy bar) → StatisticsScreen
-      ├─ Study → StudyScreen (smart practice with adaptive question selection)
+      ├─ Smart Study → StudyScreen (adaptive question selection)
       ├─ Mistakes → MistakesScreen (review incorrect answers)
       ├─ Mock Exam → MockScreen (full exam simulation)
       ├─ Settings → SettingsScreen (language selection)
@@ -66,10 +66,10 @@ App Launch
 ```
 
 ### 2.2 Study Mode Flow
-1. User selects Study from Home
+1. User selects Smart Study from Home
 2. Screen loads current language and progress
 3. Category selector displayed (default: "All")
-4. Smart Practice algorithm selects question using priority system:
+4. Smart Study algorithm selects question using priority system:
    - **Priority 1:** Questions from mistakes list (if any)
    - **Priority 2:** Unseen questions (never displayed before)
    - **Priority 3:** Questions from weakest category (lowest accuracy)

@@ -151,7 +151,7 @@ export default function StudyScreen() {
   const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
 
   return (
-    <Screen header={<Header title={t('nav.study', lang)} />}>
+    <Screen header={<Header title={t('study.smartTitle', lang)} />}>
       <ScrollView 
         ref={scrollViewRef}
         className="flex-1 mt-1" 

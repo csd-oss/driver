@@ -154,17 +154,17 @@ export default function HomeScreen() {
 
         <Card className="gap-3">
           <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
-            {t('home.study', lang)}
+            {t('study.smartTitle', lang)}
           </UIText>
           <UIText variant="body">
-            Quick access to keep your streak and reduce mistakes.
+            {t('home.smartStudyBlurb', lang)}
           </UIText>
           <Button
             onPress={() => router.push('/study')}
             variant="default"
             className="w-full"
           >
-            {t('home.study', lang)}
+            {t('home.smartStudyCta', lang)}
           </Button>
         </Card>
 

@@ -12,6 +12,16 @@ export const STR = {
     2: 'Study',
     3: 'Tanulás',
   },
+  'home.smartStudyBlurb': {
+    1: 'Tvoj personalizovaný plán, ktorý sa najprv zameria na chyby a potom posilňuje slabé okruhy.',
+    2: 'Your personalized plan that fixes mistakes first and then strengthens weak areas.',
+    3: 'A személyre szabott terv, amely először a hibákat javítja, majd erősíti a gyenge területeket.',
+  },
+  'home.smartStudyCta': {
+    1: 'Začať štúdium',
+    2: 'Start now',
+    3: 'Kezdés most',
+  },
   'home.mistakes': {
     1: 'Chyby',
     2: 'Mistakes',
@@ -56,6 +66,11 @@ export const STR = {
     1: 'Body',
     2: 'Points',
     3: 'Pontok',
+  },
+  'study.smartTitle': {
+    1: 'Inteligentné štúdium',
+    2: 'Smart Study',
+    3: 'Okos tanulás',
   },
   'mistakes.empty': {
     1: 'Žiadne chyby',

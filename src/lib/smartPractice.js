@@ -247,7 +247,7 @@ const pickFromWeakCategory = ({ lang, selectedCategory, recentIds, stats }) => {
     const randomIndex = Math.floor(Math.random() * finalCandidates.length);
     const selectedQid = finalCandidates[randomIndex];
     
-    return findQuestionById(lang, selectedQid);
+    return { question: findQuestionById(lang, selectedQid), category };
   }
   
   return null;
@@ -281,6 +281,15 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
   const seenSet = new Set(questionsSeen);
   
   // Priority 1: Mistakes
+  const withReason = (question, reason, meta) => {
+    if (!question) return null;
+    return {
+      ...question,
+      smartReason: reason,
+      smartMeta: meta,
+    };
+  };
+
   const q1 = pickFromMistakes({
     lang,
     selectedCategory,
@@ -288,7 +297,7 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
     mistakes,
     seenSet,
   });
-  if (q1) return q1;
+  if (q1) return withReason(q1, 'mistakes');
   
   // Priority 2: Unseen questions
   const q2 = pickUnseen({
@@ -297,7 +306,7 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
     recentIds,
     seenSet,
   });
-  if (q2) return q2;
+  if (q2) return withReason(q2, 'unseen');
   
   // Priority 3: Weakest category
   const q3 = pickFromWeakCategory({
@@ -306,12 +315,12 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
     recentIds,
     stats: langStats,
   });
-  if (q3) return q3;
+  if (q3?.question) return withReason(q3.question, 'weakCategory', { category: q3.category });
   
   // Priority 4: Random fallback
   // Note: flattenRandomQuestion doesn't respect category, so we need to handle that
   if (selectedCategory === 'all') {
-    return flattenRandomQuestion(lang);
+    return withReason(flattenRandomQuestion(lang), 'random');
   }
   
   // For specific category, try to find a random question in that category
@@ -327,7 +336,7 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
     if (test) {
       const category = getCategoryForQuestion(test, q.qNo);
       if (category === selectedCategory) {
-        return q;
+        return withReason(q, 'random', { category: selectedCategory });
       }
     }
     
@@ -335,5 +344,5 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
   }
   
   // Final fallback: return any random question
-  return flattenRandomQuestion(lang);
+  return withReason(flattenRandomQuestion(lang), 'random');
 };
