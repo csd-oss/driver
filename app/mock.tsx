@@ -303,7 +303,7 @@ export default function MockScreen() {
           onRequestClose={() => setSelectedQuestionDetail(null)}
         >
           <Pressable
-            className="flex-1 bg-black/50"
+            className="flex-1 bg-black/50 dark:bg-black/50"
             onPress={() => setSelectedQuestionDetail(null)}
             style={{ paddingTop: insets.top }}
           >
@@ -320,7 +320,10 @@ export default function MockScreen() {
                 const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
                 
                 return (
-                  <Card className="flex-1 bg-white dark:bg-slate-900">
+                  <Card 
+                    className="flex-1 bg-white dark:bg-slate-900" 
+                    style={{ backgroundColor: colorScheme === 'dark' ? '#0f172a' : '#ffffff' }}
+                  >
                     <View className="flex-1" style={{ minHeight: 0 }}>
                       <ScrollView 
                         style={{ flex: 1 }}
