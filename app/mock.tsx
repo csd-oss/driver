@@ -13,8 +13,9 @@ import { Header } from '@/components/ui/header';
 import { getLanguage } from '@/src/lib/settings';
 import { loadProgress, saveProgress } from '@/src/lib/storage';
 import { getRandomTestWithIndex, getQuestionFromTest } from '@/src/lib/bank';
+import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
-import { recordMockResult, recordAddedToMistakes, recordQuestionSeen, updateStreak } from '@/src/lib/stats';
+import { recordMockResult, recordAddedToMistakes, recordQuestionSeen, recordStudyAttempt, updateStreak } from '@/src/lib/stats';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
 
@@ -116,6 +117,27 @@ export default function MockScreen() {
     setPassed(testPassed);
     setResults(questionResults);
     setIsFinished(true);
+    
+    // Record each question as a study attempt for accuracy tracking
+    for (let qNo = 1; qNo <= test.pocet; qNo++) {
+      const qNoStr = String(qNo);
+      const questionData = test.otazky[qNoStr];
+      if (!questionData || !questionData[0]) continue;
+      
+      const q = questionData[0];
+      const userAnswer = answers[qNoStr];
+      const isCorrect = userAnswer === q.platna;
+      
+      // Get category for the question
+      const questionCategory = getCategoryForQuestion(test, qNo);
+      
+      // Record as study attempt (category will be null if not categorized)
+      await recordStudyAttempt({
+        lang,
+        category: questionCategory || null,
+        isCorrect,
+      });
+    }
     
     // Record mock exam result
     const testId = `L${lang}-T${testIndex}`;
