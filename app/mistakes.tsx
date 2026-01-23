@@ -14,12 +14,23 @@ import { applyAnswer } from '@/src/lib/engine';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
 
+// Fisher-Yates shuffle algorithm
+const shuffleArray = (array) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 export default function MistakesScreen() {
   const router = useRouter();
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
   const [lang, setLang] = useState(1);
   const [mistakes, setMistakes] = useState([]);
+  const [shuffledMistakes, setShuffledMistakes] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [question, setQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -39,11 +50,15 @@ export default function MistakesScreen() {
       setMistakes(mistakeList);
       
       if (mistakeList.length > 0) {
-        loadQuestion(mistakeList[0], currentLang);
+        // Shuffle the mistakes list for random order
+        const shuffled = shuffleArray(mistakeList);
+        setShuffledMistakes(shuffled);
+        loadQuestion(shuffled[0], currentLang);
         setCurrentIndex(0);
       } else {
         setQuestion(null);
         setCurrentIndex(0);
+        setShuffledMistakes([]);
       }
     }
   }, []);
@@ -85,6 +100,23 @@ export default function MistakesScreen() {
     const langStr = String(lang);
     const updatedMistakes = updatedProgress.mistakesByLang?.[langStr] || [];
     setMistakes(updatedMistakes);
+    
+    // Re-shuffle the remaining mistakes
+    if (updatedMistakes.length > 0) {
+      const shuffled = shuffleArray(updatedMistakes);
+      setShuffledMistakes(shuffled);
+      // Update current index if current question was removed
+      if (!updatedMistakes.includes(question.qid)) {
+        setCurrentIndex(0);
+      } else {
+        const newIndex = shuffled.indexOf(question.qid);
+        if (newIndex !== -1) {
+          setCurrentIndex(newIndex);
+        }
+      }
+    } else {
+      setShuffledMistakes([]);
+    }
   };
 
   const handleNext = () => {
@@ -93,25 +125,37 @@ export default function MistakesScreen() {
     if (updatedMistakes.length === 0) {
       setQuestion(null);
       setCurrentIndex(0);
+      setShuffledMistakes([]);
       return;
     }
     
-    // Find next available question
-    let nextIndex = currentIndex;
-    if (nextIndex >= updatedMistakes.length) {
+    // Use shuffled mistakes list, re-shuffle if needed
+    let currentShuffled = shuffledMistakes;
+    
+    // If shuffled list is empty or doesn't match current mistakes, re-shuffle
+    if (currentShuffled.length === 0 || 
+        currentShuffled.length !== updatedMistakes.length ||
+        !currentShuffled.every(qid => updatedMistakes.includes(qid))) {
+      currentShuffled = shuffleArray(updatedMistakes);
+      setShuffledMistakes(currentShuffled);
+    }
+    
+    // Pick a random next question from the shuffled list
+    // Avoid picking the same question if there are multiple options
+    let nextIndex;
+    if (currentShuffled.length === 1) {
       nextIndex = 0;
+    } else {
+      // Pick a random index, but avoid the current one
+      do {
+        nextIndex = Math.floor(Math.random() * currentShuffled.length);
+      } while (currentShuffled.length > 1 && 
+               question && 
+               currentShuffled[nextIndex] === question.qid);
     }
     
-    // Make sure the current question is still in the list
-    if (question && updatedMistakes.includes(question.qid)) {
-      const currentQidIndex = updatedMistakes.indexOf(question.qid);
-      if (currentQidIndex !== -1) {
-        nextIndex = (currentQidIndex + 1) % updatedMistakes.length;
-      }
-    }
-    
-    if (updatedMistakes[nextIndex]) {
-      loadQuestion(updatedMistakes[nextIndex], lang);
+    if (currentShuffled[nextIndex]) {
+      loadQuestion(currentShuffled[nextIndex], lang);
       setCurrentIndex(nextIndex);
       setMistakes(updatedMistakes);
     } else {
