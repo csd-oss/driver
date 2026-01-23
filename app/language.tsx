@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Screen } from '@/components/ui/screen';
 import { Button } from '@/components/ui/button';
 import { UIText } from '@/components/ui/text';
+import { Card } from '@/components/ui/card';
 import { updateSettings } from '@/src/lib/settings';
 import { t } from '@/src/i18n/i18n';
 
