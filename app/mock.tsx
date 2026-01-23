@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
-import { View, Image, ScrollView, Alert } from 'react-native';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Image, ScrollView, Alert, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Screen } from '@/components/ui/screen';
@@ -26,6 +27,8 @@ export default function MockScreen() {
   const [results, setResults] = useState({});
   const [progress, setProgress] = useState({ mistakesByLang: {}, streaksByLang: {} });
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const questionScrollRef = useRef(null);
 
   const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
@@ -54,37 +57,14 @@ export default function MockScreen() {
     setMaxScore(newTest?.maxbody || 0);
     setPassed(false);
     setResults({});
+    setCurrentQuestion(1);
     
     if (newTest && newTest.cas > 0) {
       setTimeRemaining(newTest.cas);
     }
   };
 
-  useEffect(() => {
-    if (timeRemaining > 0 && !isFinished) {
-      const timer = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            handleFinish();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      return () => clearInterval(timer);
-    }
-  }, [timeRemaining, isFinished]);
-
-  const handleAnswer = (qNo, answerIndex) => {
-    if (isFinished) return;
-    setAnswers((prev) => ({
-      ...prev,
-      [qNo]: answerIndex,
-    }));
-  };
-
-  const handleFinish = () => {
+  const handleFinish = useCallback(() => {
     if (!test) return;
     
     let totalScore = 0;
@@ -113,6 +93,30 @@ export default function MockScreen() {
     setPassed(totalScore >= test.minbody);
     setResults(questionResults);
     setIsFinished(true);
+  }, [test, answers]);
+
+  useEffect(() => {
+    if (timeRemaining > 0 && !isFinished) {
+      const timer = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            handleFinish();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      return () => clearInterval(timer);
+    }
+  }, [timeRemaining, isFinished, handleFinish]);
+
+  const handleAnswer = (qNo, answerIndex) => {
+    if (isFinished) return;
+    setAnswers((prev) => ({
+      ...prev,
+      [qNo]: answerIndex,
+    }));
   };
 
   const handleAddWrongToMistakes = async () => {
@@ -143,6 +147,28 @@ export default function MockScreen() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleQuestionNavigation = (qNo) => {
+    setCurrentQuestion(qNo);
+    // Scroll to the question button in the navigation bar
+    if (questionScrollRef.current) {
+      const buttonWidth = 44; // Approximate width of each button
+      const scrollPosition = Math.max(0, (qNo - 1) * buttonWidth - 100);
+      questionScrollRef.current.scrollTo({ x: scrollPosition, animated: true });
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestion > 1) {
+      handleQuestionNavigation(currentQuestion - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (test && currentQuestion < test.pocet) {
+      handleQuestionNavigation(currentQuestion + 1);
+    }
   };
 
   if (!test) {
@@ -221,76 +247,158 @@ export default function MockScreen() {
     );
   }
 
-  return (
-    <Screen>
-      <ScrollView className="flex-1" contentContainerClassName="gap-4">
-        {timeRemaining > 0 && (
-          <Card>
-            <UIText variant="subtitle">
-              {t('mock.timer', lang)}: {formatTime(timeRemaining)}
+  // Fixed header with time and question navigation
+  const renderHeader = () => (
+    <View className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 pb-2">
+      {/* Time display */}
+      {timeRemaining > 0 && (
+        <View className="flex-row items-center justify-center px-4 py-2">
+          <View className="bg-blue-600 dark:bg-blue-500 px-4 py-2 rounded">
+            <UIText variant="subtitle" className="text-white font-bold">
+              {t('mock.remainingTime', lang)} {formatTime(timeRemaining)}
             </UIText>
-          </Card>
-        )}
+          </View>
+        </View>
+      )}
 
-        {Array.from({ length: test.pocet }, (_, i) => i + 1).map((qNo) => {
-          const qNoStr = String(qNo);
-          const question = getQuestionFromTest(test, qNo);
-          if (!question) return null;
+      {/* Question navigation bar */}
+      <ScrollView
+        ref={questionScrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="px-2"
+        contentContainerStyle={{ paddingHorizontal: 8 }}
+      >
+        <View className="flex-row gap-1">
+          {Array.from({ length: test.pocet }, (_, i) => i + 1).map((qNo) => {
+            const qNoStr = String(qNo);
+            const hasAnswer = answers[qNoStr] !== undefined;
+            const isCurrent = qNo === currentQuestion;
 
-          const userAnswer = answers[qNoStr];
-          const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
+            return (
+              <Pressable
+                key={qNo}
+                onPress={() => handleQuestionNavigation(qNo)}
+                className={`
+                  w-10 h-10 rounded items-center justify-center border-2
+                  ${isCurrent 
+                    ? 'bg-blue-600 dark:bg-blue-500 border-blue-700 dark:border-blue-600' 
+                    : hasAnswer 
+                      ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700' 
+                      : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                  }
+                `}
+              >
+                <UIText
+                  variant="body"
+                  className={`
+                    font-semibold
+                    ${isCurrent 
+                      ? 'text-white' 
+                      : hasAnswer 
+                        ? 'text-blue-700 dark:text-blue-300' 
+                        : 'text-gray-700 dark:text-gray-300'
+                    }
+                  `}
+                >
+                  {qNo}
+                </UIText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </View>
+  );
 
-          return (
-            <Card key={qNoStr}>
-              <UIText variant="subtitle" className="mb-2">
-                Question {qNo} ({question.points} {t('study.points', lang)})
+  // Current question display
+  const renderCurrentQuestion = () => {
+    const qNoStr = String(currentQuestion);
+    const question = getQuestionFromTest(test, currentQuestion);
+    if (!question) return null;
+
+    const userAnswer = answers[qNoStr];
+    const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
+
+    return (
+      <ScrollView className="flex-1" contentContainerClassName="gap-4 pb-4">
+        <Card>
+          <UIText variant="subtitle" className="mb-2">
+            Question {currentQuestion} ({question.points} {t('study.points', lang)})
+          </UIText>
+
+          <UIText variant="body" className="mb-4">
+            {question.text}
+          </UIText>
+
+          {imageSource ? (
+            <View className="my-4 items-center">
+              <Image
+                source={imageSource}
+                style={{ width: '100%', maxWidth: 400, height: 300, resizeMode: 'contain' }}
+                className="rounded-lg"
+              />
+            </View>
+          ) : question.image ? (
+            <View className="my-4 p-2 bg-gray-100 dark:bg-gray-800 rounded">
+              <UIText variant="caption">
+                Image missing: {question.image}
               </UIText>
+            </View>
+          ) : null}
 
-              <UIText variant="body" className="mb-4">
-                {question.text}
-              </UIText>
+          <View className="gap-2">
+            {question.answers.map((answer, index) => {
+              const answerNum = index + 1;
+              const isSelected = userAnswer === answerNum;
 
-              {imageSource ? (
-                <View className="my-4 items-center">
-                  <Image
-                    source={imageSource}
-                    style={{ width: 300, height: 300, resizeMode: 'contain' }}
-                    className="rounded-lg"
-                  />
-                </View>
-              ) : question.image ? (
-                <View className="my-4 p-2 bg-gray-100 dark:bg-gray-800 rounded">
-                  <UIText variant="caption">
-                    Image missing: {question.image}
-                  </UIText>
-                </View>
-              ) : null}
+              return (
+                <Button
+                  key={index}
+                  onPress={() => handleAnswer(qNoStr, answerNum)}
+                  variant={isSelected ? 'default' : 'outline'}
+                  className="w-full"
+                >
+                  {answer}
+                </Button>
+              );
+            })}
+          </View>
+        </Card>
 
-              <View className="gap-2">
-                {question.answers.map((answer, index) => {
-                  const answerNum = index + 1;
-                  const isSelected = userAnswer === answerNum;
-
-                  return (
-                    <Button
-                      key={index}
-                      onPress={() => handleAnswer(qNoStr, answerNum)}
-                      variant={isSelected ? 'default' : 'outline'}
-                      className="w-full"
-                    >
-                      {answer}
-                    </Button>
-                  );
-                })}
-              </View>
-            </Card>
-          );
-        })}
+        {/* Navigation buttons */}
+        <View className="flex-row gap-3">
+          <Button
+            onPress={handlePrevious}
+            variant="outline"
+            disabled={currentQuestion === 1}
+            className="flex-1"
+          >
+            {t('mock.previous', lang)}
+          </Button>
+          <Button
+            onPress={handleNext}
+            variant="outline"
+            disabled={currentQuestion >= test.pocet}
+            className="flex-1"
+          >
+            {t('mock.next', lang)}
+          </Button>
+        </View>
 
         <Button onPress={handleFinish} variant="default" className="w-full">
           {t('mock.finish', lang)}
         </Button>
       </ScrollView>
-    </Screen>
+    );
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-white dark:bg-gray-900" edges={['top']}>
+      {renderHeader()}
+      <View className="flex-1 px-4 py-6">
+        {renderCurrentQuestion()}
+      </View>
+    </SafeAreaView>
   );
 }

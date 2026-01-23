@@ -107,6 +107,21 @@ export const STR = {
     2: 'Time',
     3: 'Idő',
   },
+  'mock.remainingTime': {
+    1: 'Zostávajúci čas',
+    2: 'Remaining time',
+    3: 'Hátralévő idő',
+  },
+  'mock.previous': {
+    1: 'Predchádzajúca',
+    2: 'Previous',
+    3: 'Előző',
+  },
+  'mock.next': {
+    1: 'Ďalšia',
+    2: 'Next',
+    3: 'Következő',
+  },
   'language.selectTitle': {
     1: 'Vyberte jazyk',
     2: 'Select Language',
