@@ -137,3 +137,22 @@ export const findQuestionById = (lang, qid) => {
   
   return getQuestionFromTest(test, entry.qNo);
 };
+
+/**
+ * Get test object for a question ID
+ * Useful for category computation
+ * @param {number} lang - Language index (1, 2, or 3)
+ * @param {string} qid - Question ID
+ * @returns {Object|null} Test object or null
+ */
+export const getTestForQuestion = (lang, qid) => {
+  const index = buildQuestionIndex(lang);
+  const entry = index[qid];
+  
+  if (!entry) {
+    return null;
+  }
+  
+  const tests = getTests(lang);
+  return tests[entry.testIndex] || null;
+};

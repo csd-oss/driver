@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
-import { getLanguage } from '@/src/lib/settings';
+import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
 import { loadProgress, saveProgress } from '@/src/lib/storage';
-import { findQuestionById } from '@/src/lib/bank';
+import { findQuestionById, getTestForQuestion } from '@/src/lib/bank';
+import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
+import { CategorySelector } from '@/components/CategorySelector';
 
 // Fisher-Yates shuffle algorithm
 const shuffleArray = (array) => {
@@ -29,7 +31,9 @@ export default function MistakesScreen() {
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
   const [lang, setLang] = useState(1);
+  const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [mistakes, setMistakes] = useState([]);
+  const [filteredMistakes, setFilteredMistakes] = useState([]);
   const [shuffledMistakes, setShuffledMistakes] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [question, setQuestion] = useState(null);
@@ -38,9 +42,30 @@ export default function MistakesScreen() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [progress, setProgress] = useState({ mistakesByLang: {}, streaksByLang: {} });
 
+  // Filter mistakes by category
+  const filterMistakesByCategory = useCallback((mistakeList, currentLang, category) => {
+    if (category === 'all') {
+      return mistakeList;
+    }
+    
+    return mistakeList.filter(qid => {
+      const test = getTestForQuestion(currentLang, qid);
+      if (!test) return false;
+      
+      const question = findQuestionById(currentLang, qid);
+      if (!question || !question.qNo) return false;
+      
+      const questionCategory = getCategoryForQuestion(test, question.qNo);
+      return questionCategory === category;
+    });
+  }, []);
+
   const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
     setLang(currentLang);
+    
+    const category = await getSelectedCategory(currentLang);
+    setSelectedCategoryState(category);
     
     const loadedProgress = await loadProgress();
     if (loadedProgress) {
@@ -49,9 +74,13 @@ export default function MistakesScreen() {
       const mistakeList = loadedProgress.mistakesByLang?.[langStr] || [];
       setMistakes(mistakeList);
       
-      if (mistakeList.length > 0) {
-        // Shuffle the mistakes list for random order
-        const shuffled = shuffleArray(mistakeList);
+      // Filter mistakes by category
+      const filtered = filterMistakesByCategory(mistakeList, currentLang, category);
+      setFilteredMistakes(filtered);
+      
+      if (filtered.length > 0) {
+        // Shuffle the filtered mistakes list for random order
+        const shuffled = shuffleArray(filtered);
         setShuffledMistakes(shuffled);
         loadQuestion(shuffled[0], currentLang);
         setCurrentIndex(0);
@@ -61,7 +90,7 @@ export default function MistakesScreen() {
         setShuffledMistakes([]);
       }
     }
-  }, []);
+  }, [filterMistakesByCategory]);
 
   useFocusEffect(
     useCallback(() => {
@@ -101,28 +130,47 @@ export default function MistakesScreen() {
     const updatedMistakes = updatedProgress.mistakesByLang?.[langStr] || [];
     setMistakes(updatedMistakes);
     
-    // Re-shuffle the remaining mistakes
-    if (updatedMistakes.length > 0) {
-      const shuffled = shuffleArray(updatedMistakes);
+    // Filter mistakes by category
+    const filtered = filterMistakesByCategory(updatedMistakes, lang, selectedCategory);
+    setFilteredMistakes(filtered);
+    
+    // Re-shuffle the remaining filtered mistakes
+    if (filtered.length > 0) {
+      const shuffled = shuffleArray(filtered);
       setShuffledMistakes(shuffled);
       // Update current index if current question was removed
-      if (!updatedMistakes.includes(question.qid)) {
-        setCurrentIndex(0);
+      if (!filtered.includes(question.qid)) {
+        // Current question no longer in filtered list, load first one
+        if (shuffled.length > 0) {
+          loadQuestion(shuffled[0], lang);
+          setCurrentIndex(0);
+        } else {
+          setQuestion(null);
+          setCurrentIndex(0);
+        }
       } else {
         const newIndex = shuffled.indexOf(question.qid);
         if (newIndex !== -1) {
           setCurrentIndex(newIndex);
+        } else {
+          setCurrentIndex(0);
         }
       }
     } else {
       setShuffledMistakes([]);
+      setQuestion(null);
+      setCurrentIndex(0);
     }
   };
 
   const handleNext = () => {
     const updatedMistakes = progress.mistakesByLang?.[String(lang)] || [];
     
-    if (updatedMistakes.length === 0) {
+    // Filter by category
+    const filtered = filterMistakesByCategory(updatedMistakes, lang, selectedCategory);
+    setFilteredMistakes(filtered);
+    
+    if (filtered.length === 0) {
       setQuestion(null);
       setCurrentIndex(0);
       setShuffledMistakes([]);
@@ -132,11 +180,11 @@ export default function MistakesScreen() {
     // Use shuffled mistakes list, re-shuffle if needed
     let currentShuffled = shuffledMistakes;
     
-    // If shuffled list is empty or doesn't match current mistakes, re-shuffle
+    // If shuffled list is empty or doesn't match filtered mistakes, re-shuffle
     if (currentShuffled.length === 0 || 
-        currentShuffled.length !== updatedMistakes.length ||
-        !currentShuffled.every(qid => updatedMistakes.includes(qid))) {
-      currentShuffled = shuffleArray(updatedMistakes);
+        currentShuffled.length !== filtered.length ||
+        !currentShuffled.every(qid => filtered.includes(qid))) {
+      currentShuffled = shuffleArray(filtered);
       setShuffledMistakes(currentShuffled);
     }
     
@@ -163,6 +211,26 @@ export default function MistakesScreen() {
     }
   };
 
+  const handleCategoryChange = async (categoryTxt: string | 'all') => {
+    await setSelectedCategory(lang, categoryTxt);
+    setSelectedCategoryState(categoryTxt);
+    
+    // Re-filter mistakes
+    const filtered = filterMistakesByCategory(mistakes, lang, categoryTxt);
+    setFilteredMistakes(filtered);
+    
+    if (filtered.length > 0) {
+      const shuffled = shuffleArray(filtered);
+      setShuffledMistakes(shuffled);
+      loadQuestion(shuffled[0], lang);
+      setCurrentIndex(0);
+    } else {
+      setQuestion(null);
+      setCurrentIndex(0);
+      setShuffledMistakes([]);
+    }
+  };
+
   // Auto-scroll to Next button when answer is submitted
   useEffect(() => {
     if (isAnswered && scrollViewRef.current) {
@@ -173,12 +241,44 @@ export default function MistakesScreen() {
     }
   }, [isAnswered]);
 
+  // Show empty state if no mistakes at all
   if (mistakes.length === 0) {
     return (
       <Screen header={<Header title={t('nav.mistakes', lang)} />}>
         <View className="flex-1 items-center justify-center mt-1">
           <UIText variant="title">{t('mistakes.empty', lang)}</UIText>
         </View>
+      </Screen>
+    );
+  }
+
+  // Show empty state if mistakes exist but none in selected category
+  if (filteredMistakes.length === 0 && mistakes.length > 0) {
+    return (
+      <Screen header={<Header title={t('nav.mistakes', lang)} />}>
+        <ScrollView 
+          ref={scrollViewRef}
+          className="flex-1 mt-1" 
+          contentContainerClassName="gap-4 pb-2"
+        >
+          <CategorySelector
+            lang={lang}
+            selectedCategory={selectedCategory}
+            onSelect={handleCategoryChange}
+          />
+          <Card className="gap-4 items-center py-8">
+            <UIText variant="body" className="text-center mb-4">
+              {t('mistakes.noInCategory', lang)}
+            </UIText>
+            <Button
+              onPress={() => handleCategoryChange('all')}
+              variant="default"
+              className="w-full"
+            >
+              {t('mistakes.showAll', lang)}
+            </Button>
+          </Card>
+        </ScrollView>
       </Screen>
     );
   }
@@ -209,6 +309,12 @@ export default function MistakesScreen() {
         className="flex-1 mt-1" 
         contentContainerClassName={`gap-4 ${isAnswered ? 'pb-8' : 'pb-2'}`}
       >
+        <CategorySelector
+          lang={lang}
+          selectedCategory={selectedCategory}
+          onSelect={handleCategoryChange}
+        />
+        
         <Card className="gap-4">
           <View className="flex-row items-center justify-between">
             <UIText variant="caption" className="uppercase tracking-[0.1em] text-amber-500">

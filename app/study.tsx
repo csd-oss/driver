@@ -7,18 +7,21 @@ import { Button } from '@/components/ui/button';
 import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
-import { getLanguage } from '@/src/lib/settings';
+import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
 import { loadProgress, saveProgress } from '@/src/lib/storage';
-import { flattenRandomQuestion } from '@/src/lib/bank';
+import { flattenRandomQuestion, getRandomTest, getQuestionFromTest } from '@/src/lib/bank';
+import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
+import { CategorySelector } from '@/components/CategorySelector';
 
 export default function StudyScreen() {
   const router = useRouter();
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
   const [lang, setLang] = useState(1);
+  const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [question, setQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -29,12 +32,15 @@ export default function StudyScreen() {
     const currentLang = await getLanguage();
     setLang(currentLang);
     
+    const category = await getSelectedCategory(currentLang);
+    setSelectedCategoryState(category);
+    
     const loadedProgress = await loadProgress();
     if (loadedProgress) {
       setProgress(loadedProgress);
     }
     
-    loadNewQuestion(currentLang);
+    loadNewQuestion(currentLang, category);
   }, []);
 
   useFocusEffect(
@@ -43,8 +49,41 @@ export default function StudyScreen() {
     }, [loadData])
   );
 
-  const loadNewQuestion = (currentLang) => {
-    const q = flattenRandomQuestion(currentLang);
+  const loadNewQuestion = (currentLang, category = selectedCategory) => {
+    let q = null;
+    
+    if (category === 'all') {
+      // Use existing random question logic
+      q = flattenRandomQuestion(currentLang);
+    } else {
+      // Filter by category: try up to 30 times to find a question in the selected category
+      let attempts = 0;
+      const maxAttempts = 30;
+      
+      while (attempts < maxAttempts && !q) {
+        const test = getRandomTest(currentLang);
+        if (!test || !test.pocet) {
+          attempts++;
+          continue;
+        }
+        
+        const randomQNo = Math.floor(Math.random() * test.pocet) + 1;
+        const questionCategory = getCategoryForQuestion(test, randomQNo);
+        
+        if (questionCategory === category) {
+          // Found a question in the selected category
+          q = getQuestionFromTest(test, randomQNo);
+        }
+        
+        attempts++;
+      }
+      
+      // Fallback to "all" if no question found after max attempts
+      if (!q) {
+        q = flattenRandomQuestion(currentLang);
+      }
+    }
+    
     setQuestion(q);
     setSelectedAnswer(null);
     setIsAnswered(false);
@@ -72,7 +111,13 @@ export default function StudyScreen() {
   };
 
   const handleNext = () => {
-    loadNewQuestion(lang);
+    loadNewQuestion(lang, selectedCategory);
+  };
+
+  const handleCategoryChange = async (categoryTxt: string | 'all') => {
+    await setSelectedCategory(lang, categoryTxt);
+    setSelectedCategoryState(categoryTxt);
+    loadNewQuestion(lang, categoryTxt);
   };
 
   // Auto-scroll to Next button when answer is submitted
@@ -104,6 +149,12 @@ export default function StudyScreen() {
         className="flex-1 mt-1" 
         contentContainerClassName={`gap-4 ${isAnswered ? 'pb-8' : 'pb-2'}`}
       >
+        <CategorySelector
+          lang={lang}
+          selectedCategory={selectedCategory}
+          onSelect={handleCategoryChange}
+        />
+        
         <Card className="gap-4">
           <View className="flex-row items-center justify-between">
             <UIText variant="caption" className="uppercase tracking-[0.1em] text-indigo-500">

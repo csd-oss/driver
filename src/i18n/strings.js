@@ -182,4 +182,24 @@ export const STR = {
     2: 'Settings',
     3: 'Beállítások',
   },
+  'category.all': {
+    1: 'Všetko',
+    2: 'All',
+    3: 'Összes',
+  },
+  'category.select': {
+    1: 'Vybrať kategóriu',
+    2: 'Select Category',
+    3: 'Kategória kiválasztása',
+  },
+  'mistakes.noInCategory': {
+    1: 'Žiadne chyby v tejto kategórii',
+    2: 'No mistakes in this category',
+    3: 'Nincsenek hibák ebben a kategóriában',
+  },
+  'mistakes.showAll': {
+    1: 'Zobraziť všetko',
+    2: 'Show all',
+    3: 'Összes mutatása',
+  },
 };

@@ -3,6 +3,11 @@ import { loadSettings, saveSettings } from './storage.js';
 const DEFAULT_SETTINGS = {
   lang: 1,
   hasOnboarded: false,
+  selectedCategoryByLang: {
+    "1": "all",
+    "2": "all",
+    "3": "all",
+  },
 };
 
 let cachedSettings = null;
@@ -37,4 +42,57 @@ export const getLanguage = async () => {
 
 export const clearCache = () => {
   cachedSettings = null;
+};
+
+/**
+ * Get selected category for a language
+ * @param {number} lang - Language index (1, 2, or 3)
+ * @returns {Promise<string>} Selected category ("all" or category text)
+ */
+export const getSelectedCategory = async (lang) => {
+  const settings = await getSettings();
+  const langStr = String(lang);
+  
+  // Ensure selectedCategoryByLang exists
+  if (!settings.selectedCategoryByLang) {
+    settings.selectedCategoryByLang = {
+      "1": "all",
+      "2": "all",
+      "3": "all",
+    };
+  }
+  
+  return settings.selectedCategoryByLang[langStr] || "all";
+};
+
+/**
+ * Set selected category for a language
+ * @param {number} lang - Language index (1, 2, or 3)
+ * @param {string} categoryTxt - Category text or "all"
+ * @returns {Promise<Object>} Updated settings
+ */
+export const setSelectedCategory = async (lang, categoryTxt) => {
+  const current = await getSettings();
+  const langStr = String(lang);
+  
+  // Ensure selectedCategoryByLang exists
+  if (!current.selectedCategoryByLang) {
+    current.selectedCategoryByLang = {
+      "1": "all",
+      "2": "all",
+      "3": "all",
+    };
+  }
+  
+  const updated = {
+    ...current,
+    selectedCategoryByLang: {
+      ...current.selectedCategoryByLang,
+      [langStr]: categoryTxt || "all",
+    },
+  };
+  
+  cachedSettings = updated;
+  await saveSettings(updated);
+  return updated;
 };
