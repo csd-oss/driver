@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Image, ScrollView, Alert, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Screen } from '@/components/ui/screen';
 import { Button } from '@/components/ui/button';
 import { UIText } from '@/components/ui/text';
@@ -18,6 +18,7 @@ import { t } from '@/src/i18n/i18n';
 
 export default function MockScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
   const [lang, setLang] = useState(1);
   const [test, setTest] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -43,11 +44,9 @@ export default function MockScreen() {
     startNewTest(currentLang);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [loadData])
-  );
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const startNewTest = (currentLang) => {
     const newTest = getRandomTest(currentLang);
@@ -289,32 +288,40 @@ export default function MockScreen() {
             const qNoStr = String(qNo);
             const hasAnswer = answers[qNoStr] !== undefined;
             const isCurrent = qNo === currentQuestion;
+            const isDark = colorScheme === 'dark';
+
+            // Determine styles based on state and theme
+            let backgroundColor, borderColor, shadowStyle, textColor;
+            if (isCurrent) {
+              backgroundColor = isDark ? '#6366f1' : '#4f46e5'; // indigo-500/600
+              borderColor = isDark ? '#6366f1' : '#4338ca'; // indigo-500/700
+              shadowStyle = { shadowColor: '#6366f1', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.3, shadowRadius: 2, elevation: 2 };
+              textColor = '#ffffff';
+            } else if (hasAnswer) {
+              backgroundColor = isDark ? 'rgba(67, 56, 202, 0.6)' : '#e0e7ff'; // indigo-900/60 or indigo-100
+              borderColor = isDark ? '#4338ca' : '#818cf8'; // indigo-700 or indigo-300
+              textColor = isDark ? '#c7d2fe' : '#4338ca'; // indigo-200 or indigo-700
+            } else {
+              backgroundColor = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.8)'; // slate-900/70 or white/80
+              borderColor = isDark ? '#334155' : '#e2e8f0'; // slate-700 or slate-200
+              textColor = isDark ? '#cbd5e1' : '#334155'; // slate-300 or slate-700
+            }
 
             return (
               <Pressable
                 key={qNo}
                 onPress={() => handleQuestionNavigation(qNo)}
-                className={`
-                  w-10 h-10 rounded-full items-center justify-center border
-                  ${isCurrent 
-                    ? 'bg-indigo-600 dark:bg-indigo-500 border-indigo-700 dark:border-indigo-500 shadow-sm shadow-indigo-500/30' 
-                    : hasAnswer 
-                      ? 'bg-indigo-100 dark:bg-indigo-900/60 border-indigo-300 dark:border-indigo-700' 
-                      : 'bg-white/80 dark:bg-slate-900/70 border-slate-200 dark:border-slate-700'
-                  }
-                `}
+                className="w-10 h-10 rounded-full items-center justify-center border"
+                style={{
+                  backgroundColor,
+                  borderColor,
+                  ...(isCurrent ? shadowStyle : {}),
+                }}
               >
                 <UIText
                   variant="body"
-                  className={`
-                    font-semibold text-sm
-                    ${isCurrent 
-                      ? 'text-white' 
-                      : hasAnswer 
-                        ? 'text-indigo-700 dark:text-indigo-200' 
-                        : 'text-slate-700 dark:text-slate-300'
-                    }
-                  `}
+                  className="font-semibold text-sm"
+                  style={{ color: textColor }}
                 >
                   {qNo}
                 </UIText>
