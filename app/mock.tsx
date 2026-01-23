@@ -308,8 +308,8 @@ export default function MockScreen() {
             onPress={() => setSelectedQuestionDetail(null)}
             style={{ paddingTop: insets.top }}
           >
-            <Pressable
-              onPress={(e) => e.stopPropagation()}
+            <View
+              onStartShouldSetResponder={() => true}
               className="flex-1 px-4"
               style={{ 
                 paddingTop: 8,
@@ -414,7 +414,7 @@ export default function MockScreen() {
                   </Card>
                 );
               })()}
-            </Pressable>
+            </View>
           </Pressable>
         </Modal>
       </Screen>
