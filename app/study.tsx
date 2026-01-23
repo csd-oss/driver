@@ -16,6 +16,31 @@ import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
 import { CategorySelector } from '@/components/CategorySelector';
 
+/**
+ * Get user-facing label for a reason
+ * @param {Object} reason - Reason object with type and optional category
+ * @param {number} lang - Language index
+ * @returns {string} User-facing label
+ */
+const getReasonLabel = (reason, lang) => {
+  if (!reason || !reason.type) return '';
+  
+  switch (reason.type) {
+    case 'mistake':
+      return t('study.reason.mistake', lang);
+    case 'unseen':
+      return t('study.reason.unseen', lang);
+    case 'weak':
+      const category = reason.category || '';
+      const template = t('study.reason.weak', lang);
+      return template.replace('{category}', category);
+    case 'random':
+      return t('study.reason.random', lang);
+    default:
+      return '';
+  }
+};
+
 export default function StudyScreen() {
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
@@ -26,6 +51,7 @@ export default function StudyScreen() {
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [question, setQuestion] = useState(null);
+  const [reason, setReason] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -54,7 +80,7 @@ export default function StudyScreen() {
 
   const loadNewQuestion = async (currentLang, category = selectedCategory) => {
     // Use Smart Practice algorithm
-    const q = await getSmartQuestion({
+    const result = await getSmartQuestion({
       lang: currentLang,
       selectedCategory: category,
       recentIds: recentQuestionIds.current,
@@ -63,6 +89,15 @@ export default function StudyScreen() {
     // Reset flags for new question
     hasRecordedAnswer.current = false;
     hasRecordedSeen.current = false;
+    
+    if (!result || !result.question) {
+      setQuestion(null);
+      setReason(null);
+      return;
+    }
+    
+    const q = result.question;
+    const r = result.reason;
     
     // Track question as seen when it loads
     if (q && !hasRecordedSeen.current) {
@@ -76,6 +111,7 @@ export default function StudyScreen() {
     }
     
     setQuestion(q);
+    setReason(r);
     setSelectedAnswer(null);
     setIsAnswered(false);
     setIsCorrect(false);
@@ -163,16 +199,22 @@ export default function StudyScreen() {
           onSelect={handleCategoryChange}
         />
         
-        <Card ref={questionCardRef} className="gap-4">
-          <View className="flex-row items-center justify-between">
-            <UIText variant="caption" className="uppercase tracking-[0.1em] text-indigo-500">
-              {t('nav.study', lang)}
-            </UIText>
-            <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+        <View className="px-1 flex-row items-center justify-between">
+          {reason && (
+            <View className="px-3 py-1 rounded-full border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50">
+              <UIText variant="caption" className="text-slate-700 dark:text-slate-300 text-sm">
+                {getReasonLabel(reason, lang)}
+              </UIText>
+            </View>
+          )}
+          <View className="px-3 py-1 rounded-full border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50">
+            <UIText variant="caption" className="text-slate-500 dark:text-slate-400 text-sm">
               {t('study.points', lang)}: {question.points}
             </UIText>
           </View>
-
+        </View>
+        
+        <Card ref={questionCardRef} className="gap-4">
           <UIText variant="body" className="mb-1">
             {question.text}
           </UIText>

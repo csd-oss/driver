@@ -332,4 +332,24 @@ export const STR = {
     2: 'of {total}',
     3: '{total}-ból',
   },
+  'study.reason.mistake': {
+    1: 'Oprava chyby',
+    2: 'Fixing a mistake',
+    3: 'Hiba javítása',
+  },
+  'study.reason.unseen': {
+    1: 'Nová otázka',
+    2: 'New question',
+    3: 'Új kérdés',
+  },
+  'study.reason.weak': {
+    1: 'Slabá oblasť: {category}',
+    2: 'Weak area: {category}',
+    3: 'Gyenge terület: {category}',
+  },
+  'study.reason.random': {
+    1: 'Opakovaná otázka',
+    2: 'Review question',
+    3: 'Áttekintő kérdés',
+  },
 };

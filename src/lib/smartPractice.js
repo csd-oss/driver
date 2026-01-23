@@ -280,16 +280,17 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
   // Build seen set once for performance
   const seenSet = new Set(questionsSeen);
   
-  // Priority 1: Mistakes
-  const withReason = (question, reason, meta) => {
+  // Helper to create return shape: { question, reason }
+  const withReason = (question, type, category = null) => {
     if (!question) return null;
-    return {
-      ...question,
-      smartReason: reason,
-      smartMeta: meta,
-    };
+    const reason = { type };
+    if (category) {
+      reason.category = category;
+    }
+    return { question, reason };
   };
 
+  // Priority 1: Mistakes
   const q1 = pickFromMistakes({
     lang,
     selectedCategory,
@@ -297,7 +298,7 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
     mistakes,
     seenSet,
   });
-  if (q1) return withReason(q1, 'mistakes');
+  if (q1) return withReason(q1, 'mistake');
   
   // Priority 2: Unseen questions
   const q2 = pickUnseen({
@@ -315,12 +316,14 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
     recentIds,
     stats: langStats,
   });
-  if (q3?.question) return withReason(q3.question, 'weakCategory', { category: q3.category });
+  if (q3?.question) return withReason(q3.question, 'weak', q3.category);
   
   // Priority 4: Random fallback
   // Note: flattenRandomQuestion doesn't respect category, so we need to handle that
   if (selectedCategory === 'all') {
-    return withReason(flattenRandomQuestion(lang), 'random');
+    const q = flattenRandomQuestion(lang);
+    if (q) return withReason(q, 'random');
+    return null;
   }
   
   // For specific category, try to find a random question in that category
@@ -336,7 +339,7 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
     if (test) {
       const category = getCategoryForQuestion(test, q.qNo);
       if (category === selectedCategory) {
-        return withReason(q, 'random', { category: selectedCategory });
+        return withReason(q, 'random');
       }
     }
     
@@ -344,5 +347,7 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
   }
   
   // Final fallback: return any random question
-  return withReason(flattenRandomQuestion(lang), 'random');
+  const q = flattenRandomQuestion(lang);
+  if (q) return withReason(q, 'random');
+  return null;
 };
