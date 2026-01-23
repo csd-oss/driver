@@ -1,14 +1,14 @@
 # CURRENT STATE SPECIFICATION — Driver SK (Slovakia Driving Exam App)
 
 **Last Updated:** January 23, 2026  
-**Version:** 1.2.0  
+**Version:** 1.3.0  
 **Status:** Production MVP
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-**Driver SK** is a fully functional Expo React Native mobile application designed to help users prepare for Slovakia driving license exams. The app provides comprehensive question bank access, study modes, mistake tracking, mock exam simulations, and multi-language support (Slovak, English, Hungarian). All functionality works completely offline with local data storage and embedded images.
+**Driver SK** is a fully functional Expo React Native mobile application designed to help users prepare for Slovakia driving license exams. The app provides comprehensive question bank access, adaptive study modes with intelligent question selection, mistake tracking, mock exam simulations, and multi-language support (Slovak, English, Hungarian). All functionality works completely offline with local data storage and embedded images.
 
 ---
 
@@ -20,12 +20,13 @@
 - **Value Proposition:** 
   - Offline-first learning experience
   - Official exam questions and answers
-  - Adaptive learning through mistake tracking
+  - Adaptive learning through Smart Practice Mode (intelligent question prioritization)
+  - Mistake tracking with mastery system
   - Multi-language support for diverse learners
   - Realistic mock exam simulation
 
 ### 1.2 Core Features (Implemented)
-1. **Study Mode** - Random question practice with immediate feedback and enhanced visual clarity
+1. **Study Mode** - Smart Practice Mode with adaptive question selection prioritizing mistakes, unseen questions, and weak categories
 2. **Mistakes Review** - Focused practice on incorrectly answered questions with clear answer indicators
 3. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
 4. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
@@ -34,6 +35,7 @@
 7. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
 8. **Offline Operation** - All data and images stored locally
 9. **Question Detail Modal** - Interactive review of wrong answers with full question context
+10. **Smart Practice Algorithm** - Intelligent question prioritization system that adapts to user's learning state
 
 ### 1.3 Business Rules
 - **Scoring:** Each question has point value (`body`), exam pass threshold is `minbody` points
@@ -56,7 +58,7 @@ App Launch
   │
   └─ Home Screen
       ├─ Your Progress Card (hero KPI summary + accuracy bar) → StatisticsScreen
-      ├─ Study → StudyScreen (random questions)
+      ├─ Study → StudyScreen (smart practice with adaptive question selection)
       ├─ Mistakes → MistakesScreen (review incorrect answers)
       ├─ Mock Exam → MockScreen (full exam simulation)
       ├─ Settings → SettingsScreen (language selection)
@@ -67,14 +69,18 @@ App Launch
 1. User selects Study from Home
 2. Screen loads current language and progress
 3. Category selector displayed (default: "All")
-4. Random question selected:
-   - If "All": random across entire question bank
-   - If category: random within selected category (up to 30 attempts, fallback to "All")
+4. Smart Practice algorithm selects question using priority system:
+   - **Priority 1:** Questions from mistakes list (if any)
+   - **Priority 2:** Unseen questions (never displayed before)
+   - **Priority 3:** Questions from weakest category (lowest accuracy)
+   - **Priority 4:** Random fallback (if all above exhausted)
+   - Category filter applied at each priority level
+   - Anti-repetition: Excludes last 20 questions seen (allows reuse if needed)
 5. User selects answer → immediate feedback (Correct/Wrong)
 6. Progress updated:
    - Wrong answer → added to mistakes, streak reset to 0
    - Correct answer → if in mistakes, increment streak; if streak ≥ 2, remove from mistakes
-7. "Next" button loads new random question
+7. "Next" button loads new question via Smart Practice algorithm
 
 ### 2.3 Mistakes Review Flow
 1. User selects Mistakes from Home
@@ -248,7 +254,8 @@ driver/
 │   │   ├── settings.js           # Settings management
 │   │   ├── storage.js            # AsyncStorage wrapper
 │   │   ├── stats.js              # Statistics tracking
-│   │   └── categories.js         # Category helpers
+│   │   ├── categories.js         # Category helpers
+│   │   └── smartPractice.js      # Smart Practice algorithm
 │   │
 │   └── i18n/                     # Internationalization
 │       ├── i18n.js               # Translation function
@@ -319,19 +326,40 @@ driver/
 - **Storage:** Selected category persisted per language in settings
 - **Filtering:** Study and Mistakes screens filter by selected category
 
-#### 3.4.5 Image Handling
+#### 3.4.5 Smart Practice System (`src/lib/smartPractice.js`)
+- **Adaptive Algorithm:** Priority-based question selection system
+- **Main Function:**
+  - `getSmartQuestion({ lang, selectedCategory, recentIds })` - Main entry point for smart question selection
+- **Helper Functions:**
+  - `pickFromMistakes(...)` - Priority 1: Select from mistakes list
+  - `pickUnseen(...)` - Priority 2: Select questions never seen
+  - `pickFromWeakCategory(...)` - Priority 3: Select from weakest category
+  - `isRecent(qid, recentIds)` - Check if question is in recent list
+  - `pushRecent(qid, recentIds, max=20)` - Add to recent list (maintains max size)
+- **Priority System:**
+  1. Mistakes (highest priority) - Questions user got wrong
+  2. Unseen Questions - Questions never displayed
+  3. Weak Categories - Questions from categories with lowest accuracy
+  4. Random Fallback - Existing random selection if all above exhausted
+- **Features:**
+  - Category-aware: Respects selected category filter at each priority level
+  - Anti-repetition: Tracks last 20 questions (in-memory, not persisted)
+  - Performance optimized: Uses cached indices, builds seen set once per session
+  - Loads stats and progress internally for separation of concerns
+
+#### 3.4.6 Image Handling
 - **Static Manifest:** `data/imageManifest.js` contains static `require()` calls
 - **Generator:** `scripts/genImageManifest.mjs` scans `data/minv_images/` and generates manifest
 - **Fallback:** Missing images show placeholder text (no crashes)
 - **Format:** Supports .png, .jpg, .jpeg, .webp
 
-#### 3.4.6 Localization (`src/i18n/`)
+#### 3.4.7 Localization (`src/i18n/`)
 - **Simple System:** Key-based translation with language index (1-3)
 - **Fallback:** Falls back to lang 1 if translation missing
 - **Keys:** Organized by feature (home.*, study.*, mistakes.*, etc.)
 - **Languages:** Slovak (1), English (2), Hungarian (3)
 
-#### 3.4.7 UI Components
+#### 3.4.8 UI Components
 - **Design System:** Minimal "shadcn-like" components
 - **Styling:** NativeWind (Tailwind CSS) with className prop
 - **Variants:** Button (default, outline, secondary), Text (title, subtitle, body, caption)
@@ -345,14 +373,14 @@ driver/
   - Consistent visual language across Study, Mistakes, and Mock Exam modes
   - Modal components respect safe areas using `useSafeAreaInsets()`
 
-#### 3.4.8 Storage (`src/lib/storage.js`)
+#### 3.4.9 Storage (`src/lib/storage.js`)
 - **Keys:**
   - `DRIVING_MVP_SETTINGS` - User settings
   - `DRIVING_MVP_PROGRESS` - Learning progress
 - **Operations:** Load, save, reset (progress only)
 - **Settings Caching:** In-memory cache in `settings.js` for performance
 
-#### 3.4.9 Statistics System (`src/lib/stats.js`)
+#### 3.4.10 Statistics System (`src/lib/stats.js`)
 - **Tracking:** Comprehensive statistics tracking per language
 - **Core Functions:**
   - `loadStats()` - Load statistics from AsyncStorage
@@ -404,7 +432,7 @@ driver/
 #### Study (`app/study.tsx`)
 - **Features:**
   - Category selector
-  - Random question display
+  - Smart Practice question selection (adaptive algorithm)
   - Image rendering (if available)
   - Answer buttons with enhanced visual feedback:
     - Correct answer: Green background (emerald-500/600)
@@ -412,7 +440,11 @@ driver/
     - Other answers: Neutral outline styling
   - Points display
   - Next button (appears after answer)
-- **Logic:** Category filtering, progress tracking, auto-scroll
+- **Logic:** 
+  - Smart Practice algorithm for intelligent question selection
+  - Category filtering integrated into priority system
+  - Recent question tracking (in-memory, max 20) for anti-repetition
+  - Progress tracking, auto-scroll
 - **Statistics Tracking:**
   - Tracks question as "seen" when displayed
   - Records first answer attempt only (prevents double-counting)
@@ -420,6 +452,10 @@ driver/
   - Updates category statistics (if category selected)
   - Updates engagement streak on first answer of day
 - **Visual Clarity:** Clear distinction between correct and incorrect answers with color-coded backgrounds
+- **Smart Practice Integration:**
+  - Uses `getSmartQuestion()` from `smartPractice.js`
+  - Maintains `recentQuestionIds` ref for anti-repetition
+  - Automatically prioritizes mistakes, unseen questions, and weak categories
 
 #### Mistakes (`app/mistakes.tsx`)
 - **Features:**
@@ -540,6 +576,12 @@ driver/
 3. **Image Manifest:** Static requires for fast image loading
 4. **Lazy Loading:** Screens load data on focus (useFocusEffect)
 5. **Efficient Filtering:** Category filtering uses cached test lookups
+6. **Smart Practice Optimizations:**
+   - Seen set built once per session (not per question)
+   - Uses cached question indices from `buildQuestionIndex()`
+   - Category stats map is small and fast to read
+   - Recent IDs list is small (max 20 items)
+   - No repeated full bank scans
 
 ### 3.8 Error Handling
 
@@ -666,6 +708,8 @@ npm run reset-project
 - ✅ Statistics screen: All metrics display correctly
 - ✅ Question coverage: Questions seen tracking works
 - ✅ Home progress card: Displays correct metrics and navigates to stats
+- ✅ Smart Practice Mode: Adaptive question selection prioritizes mistakes, unseen questions, and weak categories
+- ✅ Anti-repetition: Recent question tracking prevents immediate repeats
 
 **Automated Testing:**
 - Not implemented (future consideration)
@@ -676,7 +720,16 @@ npm run reset-project
 
 This document reflects the current implementation state as of January 23, 2026. 
 
-**Recent Updates (v1.2.0):**
+**Recent Updates (v1.3.0):**
+- Smart Practice Mode: Intelligent adaptive question selection system implemented
+  - Priority-based algorithm: Mistakes → Unseen → Weak Categories → Random
+  - Anti-repetition system: Tracks last 20 questions (in-memory) to prevent immediate repeats
+  - Category-aware: Respects selected category filter at each priority level
+  - Performance optimized: Uses cached indices, builds seen set once per session
+  - Study Mode Enhancement: Replaced random selection with Smart Practice algorithm
+  - User Experience: App feels intelligent and personalized, automatically guides users to weaknesses
+
+**Previous Updates (v1.2.0):**
 - Statistics Dashboard: Comprehensive statistics tracking system implemented
   - Study performance tracking (attempts, accuracy, daily trends)
   - Mock exam history and performance metrics
@@ -694,4 +747,4 @@ This document reflects the current implementation state as of January 23, 2026.
 - UI Improvements: Larger, more button-like question items in results list
 - Modal Enhancements: Proper safe zone handling, full-width images, smooth scrolling
 
-For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`.
+For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`. For Smart Practice Mode specification, see `docs/specs/smart-practice.md`.

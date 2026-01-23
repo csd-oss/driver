@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { View, ScrollView } from 'react-native';
 import { AspectImage } from '@/components/ui/aspect-image';
-import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Screen } from '@/components/ui/screen';
 import { Button } from '@/components/ui/button';
@@ -10,21 +9,20 @@ import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
 import { loadProgress, saveProgress } from '@/src/lib/storage';
-import { flattenRandomQuestion, getRandomTest, getQuestionFromTest } from '@/src/lib/bank';
-import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
 import { recordStudyAttempt, recordQuestionSeen, updateStreak } from '@/src/lib/stats';
+import { getSmartQuestion, pushRecent } from '@/src/lib/smartPractice';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
 import { CategorySelector } from '@/components/CategorySelector';
 
 export default function StudyScreen() {
-  const router = useRouter();
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
   const questionCardRef = useRef(null);
   const hasRecordedAnswer = useRef(false);
   const hasRecordedSeen = useRef(false);
+  const recentQuestionIds = useRef([]);
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [question, setQuestion] = useState(null);
@@ -55,39 +53,12 @@ export default function StudyScreen() {
   );
 
   const loadNewQuestion = async (currentLang, category = selectedCategory) => {
-    let q = null;
-    
-    if (category === 'all') {
-      // Use existing random question logic
-      q = flattenRandomQuestion(currentLang);
-    } else {
-      // Filter by category: try up to 30 times to find a question in the selected category
-      let attempts = 0;
-      const maxAttempts = 30;
-      
-      while (attempts < maxAttempts && !q) {
-        const test = getRandomTest(currentLang);
-        if (!test || !test.pocet) {
-          attempts++;
-          continue;
-        }
-        
-        const randomQNo = Math.floor(Math.random() * test.pocet) + 1;
-        const questionCategory = getCategoryForQuestion(test, randomQNo);
-        
-        if (questionCategory === category) {
-          // Found a question in the selected category
-          q = getQuestionFromTest(test, randomQNo);
-        }
-        
-        attempts++;
-      }
-      
-      // Fallback to "all" if no question found after max attempts
-      if (!q) {
-        q = flattenRandomQuestion(currentLang);
-      }
-    }
+    // Use Smart Practice algorithm
+    const q = await getSmartQuestion({
+      lang: currentLang,
+      selectedCategory: category,
+      recentIds: recentQuestionIds.current,
+    });
     
     // Reset flags for new question
     hasRecordedAnswer.current = false;
@@ -97,6 +68,11 @@ export default function StudyScreen() {
     if (q && !hasRecordedSeen.current) {
       await recordQuestionSeen({ lang: currentLang, qid: q.qid });
       hasRecordedSeen.current = true;
+    }
+    
+    // Add to recent list
+    if (q && q.qid) {
+      recentQuestionIds.current = pushRecent(q.qid, recentQuestionIds.current, 20);
     }
     
     setQuestion(q);
