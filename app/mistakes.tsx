@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Image, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -16,6 +16,8 @@ import { t } from '@/src/i18n/i18n';
 
 export default function MistakesScreen() {
   const router = useRouter();
+  const scrollViewRef = useRef(null);
+  const nextButtonRef = useRef(null);
   const [lang, setLang] = useState(1);
   const [mistakes, setMistakes] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -117,6 +119,16 @@ export default function MistakesScreen() {
     }
   };
 
+  // Auto-scroll to Next button when answer is submitted
+  useEffect(() => {
+    if (isAnswered && scrollViewRef.current) {
+      // Small delay to ensure layout is complete
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [isAnswered]);
+
   if (mistakes.length === 0) {
     return (
       <Screen header={<Header title={t('nav.mistakes', lang)} />}>
@@ -148,7 +160,11 @@ export default function MistakesScreen() {
 
   return (
     <Screen header={<Header title={t('nav.mistakes', lang)} />}>
-      <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4 pb-2">
+      <ScrollView 
+        ref={scrollViewRef}
+        className="flex-1 mt-1" 
+        contentContainerClassName={`gap-4 ${isAnswered ? 'pb-8' : 'pb-2'}`}
+      >
         <Card className="gap-4">
           <View className="flex-row items-center justify-between">
             <UIText variant="caption" className="uppercase tracking-[0.1em] text-amber-500">
@@ -171,7 +187,7 @@ export default function MistakesScreen() {
             <View className="my-4 items-center">
               <Image
                 source={imageSource}
-                style={{ width: 300, height: 300, resizeMode: 'contain' }}
+                style={{ width: 300, maxHeight: 300, resizeMode: 'contain' }}
                 className="rounded-lg"
               />
             </View>
@@ -230,9 +246,11 @@ export default function MistakesScreen() {
         </Card>
 
         {isAnswered && (
-          <Button onPress={handleNext} variant="default" className="w-full">
-            {t('mistakes.next', lang)}
-          </Button>
+          <View ref={nextButtonRef}>
+            <Button onPress={handleNext} variant="default" className="w-full">
+              {t('mistakes.next', lang)}
+            </Button>
+          </View>
         )}
       </ScrollView>
     </Screen>

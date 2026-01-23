@@ -31,6 +31,7 @@ export default function MockScreen() {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const questionScrollRef = useRef(null);
+  const contentScrollRef = useRef(null);
 
   const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
@@ -117,6 +118,12 @@ export default function MockScreen() {
       ...prev,
       [qNo]: answerIndex,
     }));
+    // Auto-scroll to navigation buttons after selecting an answer
+    if (contentScrollRef.current) {
+      setTimeout(() => {
+        contentScrollRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
   };
 
   const handleAddWrongToMistakes = async () => {
@@ -184,29 +191,43 @@ export default function MockScreen() {
   if (isFinished) {
     return (
       <Screen header={<Header title={t('nav.mock', lang)} />}>
-        <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4">
-          <Card>
-            <View className="items-center mb-4">
+        <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4 pb-2">
+          <Card className="gap-4">
+            <View className="items-center gap-2">
+              <View
+                className={`px-4 py-1.5 rounded-full border ${
+                  passed
+                    ? 'bg-emerald-100 dark:bg-emerald-900/60 border-emerald-200 dark:border-emerald-700'
+                    : 'bg-rose-100 dark:bg-rose-900/60 border-rose-200 dark:border-rose-700'
+                }`}
+              >
+                <UIText
+                  variant="caption"
+                  className={`uppercase tracking-[0.12em] ${
+                    passed ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'
+                  }`}
+                >
+                  {passed ? t('mock.pass', lang) : t('mock.fail', lang)}
+                </UIText>
+              </View>
+
               <UIText variant="title">{t('mock.score', lang)}</UIText>
-              <UIText variant="subtitle" className="mt-2">
+              <UIText variant="subtitle" className="text-slate-700 dark:text-slate-200">
                 {score} / {maxScore}
               </UIText>
-              <UIText
-                variant="subtitle"
-                className={`mt-2 ${passed ? 'text-green-600' : 'text-red-600'}`}
-              >
-                {passed ? t('mock.pass', lang) : t('mock.fail', lang)}
-              </UIText>
-              <UIText variant="caption" className="mt-2">
+              <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
                 {t('mock.pass', lang)}: {test.minbody} {t('study.points', lang)}
               </UIText>
             </View>
           </Card>
 
-          <Card>
-            <UIText variant="subtitle" className="mb-4">
-              Results
-            </UIText>
+          <Card className="gap-3">
+            <View className="flex-row items-center justify-between">
+              <UIText variant="subtitle">Results</UIText>
+              <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                {Object.keys(results).length} / {test.pocet}
+              </UIText>
+            </View>
             <View className="gap-2">
               {Object.keys(results).map((qNoStr) => {
                 const qNo = parseInt(qNoStr, 10);
@@ -214,13 +235,25 @@ export default function MockScreen() {
                 return (
                   <View
                     key={qNoStr}
-                    className={`p-2 rounded ${
-                      isCorrect ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
+                    className={`px-3 py-2 rounded-xl border flex-row items-center justify-between ${
+                      isCorrect
+                        ? 'bg-emerald-50 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-rose-50 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800'
                     }`}
                   >
-                    <UIText variant="body">
-                      Question {qNo}: {isCorrect ? 'Correct' : 'Wrong'}
-                    </UIText>
+                    <UIText variant="body">Question {qNo}</UIText>
+                    <View
+                      className={`px-2 py-0.5 rounded-full ${
+                        isCorrect ? 'bg-emerald-500/10' : 'bg-rose-500/10'
+                      }`}
+                    >
+                      <UIText
+                        variant="caption"
+                        className={isCorrect ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}
+                      >
+                        {isCorrect ? 'Correct' : 'Wrong'}
+                      </UIText>
+                    </View>
                   </View>
                 );
               })}
@@ -344,7 +377,11 @@ export default function MockScreen() {
     const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
 
     return (
-      <ScrollView className="flex-1" contentContainerClassName="gap-4 pb-4">
+      <ScrollView 
+        ref={contentScrollRef}
+        className="flex-1" 
+        contentContainerClassName="gap-4 pb-8"
+      >
         <Card>
           <UIText variant="subtitle" className="mb-2">
             Question {currentQuestion} ({question.points} {t('study.points', lang)})
@@ -358,7 +395,7 @@ export default function MockScreen() {
             <View className="my-4 items-center">
               <Image
                 source={imageSource}
-                style={{ width: '100%', maxWidth: 400, height: 300, resizeMode: 'contain' }}
+                style={{ width: '100%', maxWidth: 400, maxHeight: 300, resizeMode: 'contain' }}
                 className="rounded-lg"
               />
             </View>
