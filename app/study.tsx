@@ -199,11 +199,15 @@ export default function StudyScreen() {
               const isCorrectAnswer = answerNum === question.correct;
               
               let buttonVariant = 'outline';
+              let buttonClassName = 'w-full ';
+              
               if (isAnswered) {
                 if (isCorrectAnswer) {
                   buttonVariant = 'default';
+                  buttonClassName += 'bg-emerald-500 dark:bg-emerald-600 border border-emerald-400/60';
                 } else if (isSelected && !isCorrect) {
-                  buttonVariant = 'secondary';
+                  // Wrong selected answer - use red/purple background
+                  buttonClassName += 'bg-rose-500 dark:bg-rose-600 border border-rose-400/60';
                 }
               }
 
@@ -213,9 +217,8 @@ export default function StudyScreen() {
                   onPress={() => handleAnswer(answerNum)}
                   variant={buttonVariant}
                   disabled={isAnswered}
-                  className={`w-full ${
-                    isAnswered && isCorrectAnswer ? 'bg-green-500 dark:bg-green-600 border border-green-400/60' : ''
-                  }`}
+                  className={buttonClassName}
+                  textClassName={isAnswered && (isCorrectAnswer || (isSelected && !isCorrect)) ? 'text-white dark:text-white' : ''}
                 >
                   {answer}
                 </Button>

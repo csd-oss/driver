@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Image, ScrollView, Alert, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Image, ScrollView, Alert, Pressable, Modal } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Screen } from '@/components/ui/screen';
@@ -19,6 +19,7 @@ import { t } from '@/src/i18n/i18n';
 export default function MockScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   const [lang, setLang] = useState(1);
   const [test, setTest] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -30,6 +31,7 @@ export default function MockScreen() {
   const [progress, setProgress] = useState({ mistakesByLang: {}, streaksByLang: {} });
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [selectedQuestionDetail, setSelectedQuestionDetail] = useState(null);
   const questionScrollRef = useRef(null);
   const contentScrollRef = useRef(null);
 
@@ -184,6 +186,15 @@ export default function MockScreen() {
     }
   };
 
+  const handleQuestionDetailPress = (qNoStr) => {
+    const qNo = parseInt(qNoStr, 10);
+    const question = getQuestionFromTest(test, qNo);
+    if (!question) return;
+    
+    const userAnswer = answers[qNoStr];
+    setSelectedQuestionDetail({ question, userAnswer, qNo });
+  };
+
   if (!test) {
     return (
       <Screen header={<Header title={t('nav.mock', lang)} />}>
@@ -249,38 +260,160 @@ export default function MockScreen() {
                 {Object.keys(results).length} / {test.pocet}
               </UIText>
             </View>
-            <View className="gap-2">
+            <View className="gap-3">
               {Object.keys(results).map((qNoStr) => {
                 const qNo = parseInt(qNoStr, 10);
                 const isCorrect = results[qNoStr];
+                const Component = isCorrect ? View : Pressable;
                 return (
-                  <View
+                  <Component
                     key={qNoStr}
-                    className={`px-3 py-2 rounded-xl border flex-row items-center justify-between ${
+                    onPress={isCorrect ? undefined : () => handleQuestionDetailPress(qNoStr)}
+                    className={`px-5 py-4 rounded-xl border flex-row items-center justify-between min-h-[56px] ${
                       isCorrect
                         ? 'bg-emerald-50 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800'
-                        : 'bg-rose-50 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800'
+                        : 'bg-rose-50 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 active:opacity-80'
                     }`}
                   >
-                    <UIText variant="body">Question {qNo}</UIText>
+                    <UIText variant="body" className="text-base font-semibold">Question {qNo}</UIText>
                     <View
-                      className={`px-2 py-0.5 rounded-full ${
+                      className={`px-3 py-1 rounded-full ${
                         isCorrect ? 'bg-emerald-500/10' : 'bg-rose-500/10'
                       }`}
                     >
                       <UIText
                         variant="caption"
-                        className={isCorrect ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}
+                        className={`font-semibold ${isCorrect ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}`}
                       >
                         {isCorrect ? 'Correct' : 'Wrong'}
                       </UIText>
                     </View>
-                  </View>
+                  </Component>
                 );
               })}
             </View>
           </Card>
         </ScrollView>
+
+        {/* Question Detail Modal */}
+        <Modal
+          visible={selectedQuestionDetail !== null}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSelectedQuestionDetail(null)}
+        >
+          <Pressable
+            className="flex-1 bg-black/50"
+            onPress={() => setSelectedQuestionDetail(null)}
+            style={{ paddingTop: insets.top }}
+          >
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
+              className="flex-1 px-4"
+              style={{ 
+                paddingTop: 8,
+                paddingBottom: Math.max(insets.bottom, 8)
+              }}
+            >
+              {selectedQuestionDetail && (() => {
+                const { question, userAnswer } = selectedQuestionDetail;
+                const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
+                
+                return (
+                  <Card className="flex-1 bg-white dark:bg-slate-900">
+                    <View className="flex-1" style={{ minHeight: 0 }}>
+                      <ScrollView 
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ flexGrow: 1 }}
+                        showsVerticalScrollIndicator={true}
+                        nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
+                        bounces={true}
+                        scrollEnabled={true}
+                      >
+                        <View className="mb-4">
+                          <UIText variant="subtitle" className="mb-2">
+                            Question {selectedQuestionDetail.qNo}
+                          </UIText>
+                        </View>
+
+                        <UIText variant="body" className="mb-4">
+                          {question.text}
+                        </UIText>
+
+                        {imageSource ? (
+                          <View className="my-4 w-full" style={{ marginLeft: -16, marginRight: -16 }}>
+                            <Image
+                              source={imageSource}
+                              style={{ width: '100%', maxHeight: 300, resizeMode: 'contain' }}
+                              className="rounded-lg"
+                            />
+                          </View>
+                        ) : question.image ? (
+                          <View className="my-4 p-2 bg-gray-100 dark:bg-gray-800 rounded">
+                            <UIText variant="caption">
+                              Image missing: {question.image}
+                            </UIText>
+                          </View>
+                        ) : null}
+
+                        <View className="gap-3 mt-4">
+                          {question.answers.map((answer, index) => {
+                            const answerNum = index + 1;
+                            const isCorrectAnswer = answerNum === question.correct;
+                            const isUserAnswer = answerNum === userAnswer;
+                            
+                            let buttonClassName = 'w-full ';
+                            let textClassName = '';
+                            
+                            if (isCorrectAnswer) {
+                              buttonClassName += 'bg-emerald-500 dark:bg-emerald-600 border border-emerald-400/60';
+                              textClassName = 'text-white dark:text-white';
+                            } else if (isUserAnswer) {
+                              buttonClassName += 'bg-rose-500 dark:bg-rose-600 border border-rose-400/60';
+                              textClassName = 'text-white dark:text-white';
+                            } else {
+                              buttonClassName += 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600';
+                              textClassName = 'text-slate-700 dark:text-slate-300';
+                            }
+
+                            return (
+                              <View key={index} className="gap-1">
+                                {(isCorrectAnswer || isUserAnswer) && (
+                                  <UIText 
+                                    variant="caption" 
+                                    className={isCorrectAnswer ? 'text-emerald-700 dark:text-emerald-200 font-semibold' : 'text-rose-700 dark:text-rose-200 font-semibold'}
+                                  >
+                                    {isCorrectAnswer ? '✓ Correct Answer' : '✗ Your Answer'}
+                                  </UIText>
+                                )}
+                                <View className={buttonClassName + ' px-5 py-3 rounded-xl items-center justify-center min-h-[48px]'}>
+                                  <UIText variant="body" className={textClassName + ' font-semibold'}>
+                                    {answer}
+                                  </UIText>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>
+
+                      <View className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <Button
+                          onPress={() => setSelectedQuestionDetail(null)}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          Close
+                        </Button>
+                      </View>
+                    </View>
+                  </Card>
+                );
+              })()}
+            </Pressable>
+          </Pressable>
+        </Modal>
       </Screen>
     );
   }
