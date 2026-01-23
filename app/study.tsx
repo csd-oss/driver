@@ -20,6 +20,7 @@ export default function StudyScreen() {
   const router = useRouter();
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
+  const questionCardRef = useRef(null);
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [question, setQuestion] = useState(null);
@@ -112,6 +113,12 @@ export default function StudyScreen() {
 
   const handleNext = () => {
     loadNewQuestion(lang, selectedCategory);
+    // Auto-scroll to top of question after loading new question
+    if (scrollViewRef.current) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 100);
+    }
   };
 
   const handleCategoryChange = async (categoryTxt: string | 'all') => {
@@ -155,7 +162,7 @@ export default function StudyScreen() {
           onSelect={handleCategoryChange}
         />
         
-        <Card className="gap-4">
+        <Card ref={questionCardRef} className="gap-4">
           <View className="flex-row items-center justify-between">
             <UIText variant="caption" className="uppercase tracking-[0.1em] text-indigo-500">
               {t('nav.study', lang)}

@@ -164,6 +164,12 @@ export default function MockScreen() {
       const scrollPosition = Math.max(0, (qNo - 1) * buttonWidth - 100);
       questionScrollRef.current.scrollTo({ x: scrollPosition, animated: true });
     }
+    // Auto-scroll content to top when navigating to a new question
+    if (contentScrollRef.current) {
+      setTimeout(() => {
+        contentScrollRef.current?.scrollTo({ y: 0, animated: true });
+      }, 100);
+    }
   };
 
   const handlePrevious = () => {

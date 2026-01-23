@@ -30,6 +30,7 @@ export default function MistakesScreen() {
   const router = useRouter();
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
+  const questionCardRef = useRef(null);
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [mistakes, setMistakes] = useState([]);
@@ -315,7 +316,7 @@ export default function MistakesScreen() {
           onSelect={handleCategoryChange}
         />
         
-        <Card className="gap-4">
+        <Card ref={questionCardRef} className="gap-4">
           <View className="flex-row items-center justify-between">
             <UIText variant="caption" className="uppercase tracking-[0.1em] text-amber-500">
               {t('nav.mistakes', lang)}
