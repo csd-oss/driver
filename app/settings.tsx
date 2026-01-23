@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,16 +13,18 @@ export default function SettingsScreen() {
   const router = useRouter();
   const [lang, setLang] = useState(1);
 
-  useFocusEffect(() => {
-    loadSettings();
-  });
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     const settings = await getSettings();
     if (settings) {
       setLang(settings.lang);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSettings();
+    }, [loadSettings])
+  );
 
   const handleLanguageChange = async (newLang) => {
     clearCache();

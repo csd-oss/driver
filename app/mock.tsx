@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, Image, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -27,11 +27,7 @@ export default function MockScreen() {
   const [progress, setProgress] = useState({ mistakesByLang: {}, streaksByLang: {} });
   const [timeRemaining, setTimeRemaining] = useState(0);
 
-  useFocusEffect(() => {
-    loadData();
-  });
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
     setLang(currentLang);
     
@@ -41,7 +37,13 @@ export default function MockScreen() {
     }
     
     startNewTest(currentLang);
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const startNewTest = (currentLang) => {
     const newTest = getRandomTest(currentLang);

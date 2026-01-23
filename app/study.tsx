@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Image, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,11 +22,7 @@ export default function StudyScreen() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [progress, setProgress] = useState({ mistakesByLang: {}, streaksByLang: {} });
 
-  useFocusEffect(() => {
-    loadData();
-  });
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
     setLang(currentLang);
     
@@ -36,7 +32,13 @@ export default function StudyScreen() {
     }
     
     loadNewQuestion(currentLang);
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const loadNewQuestion = (currentLang) => {
     const q = flattenRandomQuestion(currentLang);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { View, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,11 +17,7 @@ export default function HomeScreen() {
   const [lang, setLang] = useState(1);
   const [mistakeCount, setMistakeCount] = useState(0);
 
-  useFocusEffect(() => {
-    loadData();
-  });
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
     setLang(currentLang);
     
@@ -31,7 +27,13 @@ export default function HomeScreen() {
       const mistakes = progress.mistakesByLang[langStr] || [];
       setMistakeCount(mistakes.length);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const handleResetProgress = () => {
     Alert.alert(

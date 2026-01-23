@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Image, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -24,11 +24,7 @@ export default function MistakesScreen() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [progress, setProgress] = useState({ mistakesByLang: {}, streaksByLang: {} });
 
-  useFocusEffect(() => {
-    loadData();
-  });
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
     setLang(currentLang);
     
@@ -47,7 +43,13 @@ export default function MistakesScreen() {
         setCurrentIndex(0);
       }
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const loadQuestion = (qid, currentLang) => {
     const q = findQuestionById(currentLang, qid);
