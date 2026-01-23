@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Image, ScrollView } from 'react-native';
+import { View, ScrollView } from 'react-native';
+import { AspectImage } from '@/components/ui/aspect-image';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Screen } from '@/components/ui/screen';
@@ -335,11 +336,11 @@ export default function MistakesScreen() {
           </UIText>
 
           {imageSource ? (
-            <View className="my-4 items-center">
-              <Image
+            <View className="my-4">
+              <AspectImage
                 source={imageSource}
-                style={{ width: 300, maxHeight: 300, resizeMode: 'contain' }}
-                className="rounded-lg"
+                maxHeight={300}
+                maxWidth={400}
               />
             </View>
           ) : question.image ? (

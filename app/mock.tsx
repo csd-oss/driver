@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Image, ScrollView, Alert, Pressable, Modal } from 'react-native';
+import { View, ScrollView, Alert, Pressable, Modal } from 'react-native';
+import { AspectImage } from '@/components/ui/aspect-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -345,11 +346,10 @@ export default function MockScreen() {
                         </UIText>
 
                         {imageSource ? (
-                          <View className="my-4 w-full" style={{ marginLeft: -16, marginRight: -16 }}>
-                            <Image
+                          <View className="my-4" style={{ marginLeft: -16, marginRight: -16, paddingHorizontal: 16 }}>
+                            <AspectImage
                               source={imageSource}
-                              style={{ width: '100%', maxHeight: 300, resizeMode: 'contain' }}
-                              className="rounded-lg"
+                              maxHeight={300}
                             />
                           </View>
                         ) : question.image ? (
@@ -533,11 +533,11 @@ export default function MockScreen() {
           </UIText>
 
           {imageSource ? (
-            <View className="my-4 items-center">
-              <Image
+            <View className="my-4">
+              <AspectImage
                 source={imageSource}
-                style={{ width: '100%', maxWidth: 400, maxHeight: 300, resizeMode: 'contain' }}
-                className="rounded-lg"
+                maxHeight={300}
+                maxWidth={400}
               />
             </View>
           ) : question.image ? (
