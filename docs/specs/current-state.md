@@ -1,7 +1,7 @@
 # CURRENT STATE SPECIFICATION — Driver SK (Slovakia Driving Exam App)
 
 **Last Updated:** January 23, 2026  
-**Version:** 1.1.0  
+**Version:** 1.2.0  
 **Status:** Production MVP
 
 ---
@@ -30,9 +30,10 @@
 3. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
 4. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
 5. **Progress Tracking** - Mistake tracking with mastery system (2 correct answers removes from mistakes)
-6. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
-7. **Offline Operation** - All data and images stored locally
-8. **Question Detail Modal** - Interactive review of wrong answers with full question context
+6. **Statistics Dashboard** - Comprehensive statistics tracking including study performance, mock exam history, engagement streaks, and question coverage
+7. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
+8. **Offline Operation** - All data and images stored locally
+9. **Question Detail Modal** - Interactive review of wrong answers with full question context
 
 ### 1.3 Business Rules
 - **Scoring:** Each question has point value (`body`), exam pass threshold is `minbody` points
@@ -54,6 +55,7 @@ App Launch
   │   └─ true → Home (direct)
   │
   └─ Home Screen
+      ├─ Your Progress Card → StatisticsScreen (tap to view detailed stats)
       ├─ Study → StudyScreen (random questions)
       ├─ Mistakes → MistakesScreen (review incorrect answers)
       ├─ Mock Exam → MockScreen (full exam simulation)
@@ -129,6 +131,39 @@ AsyncStorage → DRIVING_MVP_PROGRESS
   └─ streaksByLang: { "1": { [qid]: number }, "2": {...}, "3": {...} }
 ```
 
+**Statistics Storage:**
+```
+AsyncStorage → DRIVING_MVP_STATS
+  └─ statsByLang: {
+       "1": {
+         study: {
+           attempts: number,
+           correct: number,
+           wrong: number,
+           daily: { [yyyyMMdd]: { attempts, correct, wrong } },
+           byCategory: { [category]: { attempts, correct, wrong } }
+         },
+         mock: {
+           examsTaken: number,
+           examsPassed: number,
+           bestScore: number,
+           lastScore: number,
+           history: Array<{id, date, testId, score, maxScore, minToPass, passed, durationSec, wrongCount, addedToMistakesCount}>
+         },
+         engagement: {
+           currentStreak: number,
+           lastStudyDate: string | null,  // yyyyMMdd
+           lastOpenedDate: string | null
+         },
+         coverage: {
+           questionsSeen: string[]  // Array of question IDs seen at least once
+         }
+       },
+       "2": {...},
+       "3": {...}
+     }
+```
+
 **Question Data:**
 ```
 data5.js → data[lang-1] → tests[] → test object
@@ -199,10 +234,11 @@ driver/
 │   ├── _layout.tsx               # Root layout with Stack navigator
 │   ├── index.tsx                 # IntroAnimation screen
 │   ├── language.tsx              # Language selection
-│   ├── home.tsx                  # Home screen
+│   ├── home.tsx                  # Home screen (with progress preview card)
 │   ├── study.tsx                 # Study mode
 │   ├── mistakes.tsx              # Mistakes review
 │   ├── mock.tsx                  # Mock exam
+│   ├── stats.tsx                 # Statistics dashboard
 │   └── settings.tsx             # Settings
 │
 ├── src/
@@ -211,6 +247,7 @@ driver/
 │   │   ├── engine.js             # Learning engine (mistakes/streaks)
 │   │   ├── settings.js           # Settings management
 │   │   ├── storage.js            # AsyncStorage wrapper
+│   │   ├── stats.js              # Statistics tracking
 │   │   └── categories.js         # Category helpers
 │   │
 │   └── i18n/                     # Internationalization
@@ -259,11 +296,13 @@ driver/
 - **Functions:**
   - `getTests(lang)` - Get all tests for language
   - `getRandomTest(lang)` - Random test selection
+  - `getRandomTestWithIndex(lang)` - Random test with index for tracking
   - `getQuestionFromTest(test, qNo)` - Normalize question object
   - `flattenRandomQuestion(lang)` - Random question across all tests
   - `buildQuestionIndex(lang)` - Build qid → {testIndex, qNo} map
   - `findQuestionById(lang, qid)` - Fast question lookup
   - `getTestForQuestion(lang, qid)` - Get test for question (for categories)
+  - `getTotalUniqueQuestions(lang)` - Get total count of unique questions
 
 #### 3.4.3 Learning Engine (`src/lib/engine.js`)
 - **State Management:** Immutable state updates
@@ -313,6 +352,33 @@ driver/
 - **Operations:** Load, save, reset (progress only)
 - **Settings Caching:** In-memory cache in `settings.js` for performance
 
+#### 3.4.9 Statistics System (`src/lib/stats.js`)
+- **Tracking:** Comprehensive statistics tracking per language
+- **Core Functions:**
+  - `loadStats()` - Load statistics from AsyncStorage
+  - `saveStats(stats)` - Persist statistics
+  - `getStatsForLang(lang)` - Get stats for specific language
+  - `recordStudyAttempt({ lang, category, isCorrect })` - Track study answers
+  - `recordQuestionSeen({ lang, qid })` - Track questions displayed
+  - `recordMockResult({ lang, testId, score, maxScore, minToPass, passed, durationSec, wrongCount })` - Track mock exams
+  - `recordAddedToMistakes({ lang, historyId, count })` - Update mock history
+  - `updateStreak({ lang, isMockPass })` - Update engagement streak
+- **Helper Functions:**
+  - `todayKey()`, `yesterdayKey()` - Date utilities (yyyyMMdd format)
+  - `getLast7Days()` - Get last 7 days date keys
+  - `calculateAccuracy(attempts, correct)` - Calculate percentage
+  - `calculateCoverage(lang, questionsSeen)` - Calculate question coverage percentage
+  - `getTotalUniqueQuestions(lang)` - Get total unique questions count
+  - `pruneDaily(stats, keepDays)` - Remove old daily entries
+  - `capHistory(history, max)` - Limit history array size
+- **Tracking Rules:**
+  - Study attempts tracked only on first answer submission per question view
+  - Questions marked as "seen" when displayed (not just answered)
+  - Streak increments when last study was yesterday, resets on gap
+  - Daily stats kept for last 14 days (auto-pruned)
+  - Mock history capped at 50 entries
+  - Coverage tracks unique questions seen vs total in bank
+
 ### 3.5 Screen Implementations
 
 #### IntroAnimation (`app/index.tsx`)
@@ -325,9 +391,15 @@ driver/
 - **Action:** Sets language, sets `hasOnboarded=true`, navigates to home
 
 #### Home (`app/home.tsx`)
-- **Display:** Mistake count card, feature buttons, reset progress option
-- **Data:** Loads language and progress on focus
-- **Navigation:** Routes to Study, Mistakes, Mock, Settings
+- **Display:** 
+  - "YOUR PROGRESS" card (pressable) showing:
+    - Mistakes remaining
+    - Accuracy (last 7 days)
+    - Current streak
+  - Feature buttons (Study, Mistakes, Mock, Settings)
+  - Reset progress option
+- **Data:** Loads language, progress, and statistics on focus
+- **Navigation:** Routes to Study, Mistakes, Mock, Settings, Statistics
 
 #### Study (`app/study.tsx`)
 - **Features:**
@@ -341,6 +413,12 @@ driver/
   - Points display
   - Next button (appears after answer)
 - **Logic:** Category filtering, progress tracking, auto-scroll
+- **Statistics Tracking:**
+  - Tracks question as "seen" when displayed
+  - Records first answer attempt only (prevents double-counting)
+  - Updates daily statistics
+  - Updates category statistics (if category selected)
+  - Updates engagement streak on first answer of day
 - **Visual Clarity:** Clear distinction between correct and incorrect answers with color-coded backgrounds
 
 #### Mistakes (`app/mistakes.tsx`)
@@ -355,6 +433,12 @@ driver/
     - Wrong selected answer: Red/purple background (rose-500/600) with white text
     - Other answers: Neutral outline styling
 - **Logic:** Category filtering, dynamic list updates, graceful navigation
+- **Statistics Tracking:**
+  - Tracks question as "seen" when displayed
+  - Records first answer attempt only (prevents double-counting)
+  - Updates daily statistics
+  - Updates category statistics (if category selected)
+  - Updates engagement streak on first answer of day
 - **Visual Clarity:** Consistent visual language with Study mode for unified user experience
 
 #### Mock (`app/mock.tsx`)
@@ -378,6 +462,35 @@ driver/
     - Smooth scrolling with proper height constraints
     - Close button at bottom
 - **Logic:** Score calculation, pass/fail determination, wrong answer collection, modal state management
+- **Statistics Tracking:**
+  - Tracks test index for stable test ID generation (format: "L{lang}-T{testIndex}")
+  - Marks all questions in exam as "seen" when exam starts
+  - Records mock exam result on finish (score, pass/fail, duration, wrong count)
+  - Updates engagement streak if exam passed
+  - Records count when wrong answers added to mistakes
+
+#### Statistics (`app/stats.tsx`)
+- **Features:**
+  - Overview Card:
+    - Mistakes remaining
+    - Study attempts (lifetime)
+    - Accuracy (lifetime)
+    - Accuracy (last 7 days)
+    - Question coverage (X / Y questions seen, Z%)
+  - Last 7 Days Card:
+    - Daily breakdown showing attempts and accuracy per day
+    - Empty state if no data
+  - Mock Exams Card:
+    - Exams taken
+    - Pass rate
+    - Best score
+    - Last score
+    - Empty state if no exams taken
+  - Consistency Card:
+    - Current streak
+    - Last study date (formatted: "Today", "Yesterday", or date)
+- **Data:** Loads statistics and progress on focus
+- **Calculations:** All metrics calculated from stored statistics data
 
 #### Settings (`app/settings.tsx`)
 - **Features:** Language selection buttons
@@ -485,21 +598,24 @@ driver/
 
 ### 5.1 Current Limitations
 1. **No Backend:** All data is static, no sync across devices
-2. **No Analytics:** No usage tracking or analytics
-3. **No User Accounts:** No login or user profiles
-4. **No Offline Updates:** Question data updates require app update
-5. **Timer Only in Mock:** Study mode has no timer
-6. **No Statistics:** No detailed progress statistics or charts
+2. **No User Accounts:** No login or user profiles
+3. **No Offline Updates:** Question data updates require app update
+4. **Timer Only in Mock:** Study mode has no timer
+5. **No Charts:** Statistics displayed as text/metrics only (no visual charts)
+6. **Limited History:** Mock exam history capped at 50 entries
 
 ### 5.2 Potential Enhancements
-1. **Statistics Dashboard:** Progress charts, accuracy rates, study streaks
-2. **Favorites System:** Bookmark questions for later review
-3. **Study Plans:** Structured learning paths
-4. **Explanation Text:** Add explanations for correct answers
-5. **Exam History:** Save and review past mock exam results
-6. **Achievements:** Gamification with badges/achievements
-7. **Backend Sync:** Cloud sync for progress across devices
-8. **Question Updates:** OTA updates for question data
+1. **Visual Charts:** Add charts/graphs for accuracy trends, study activity over time
+2. **Exam History Detail:** Detailed exam history screen with per-question review links
+3. **Category Breakdown:** Category-specific accuracy statistics
+4. **Unique Questions Tracking:** Track which specific questions have been seen
+5. **Readiness Score:** Composite score based on mistakes + recent performance
+6. **Favorites System:** Bookmark questions for later review
+7. **Study Plans:** Structured learning paths
+8. **Explanation Text:** Add explanations for correct answers
+9. **Achievements:** Gamification with badges/achievements
+10. **Backend Sync:** Cloud sync for progress across devices
+11. **Question Updates:** OTA updates for question data
 
 ---
 
@@ -546,6 +662,10 @@ npm run reset-project
 - ✅ Modal scrolling: Smooth scrolling with proper height constraints
 - ✅ Safe zones: Modals respect notch/dynamic island areas
 - ✅ Image display: Images fill full width in modals
+- ✅ Statistics tracking: Study attempts, mock exams, streaks tracked correctly
+- ✅ Statistics screen: All metrics display correctly
+- ✅ Question coverage: Questions seen tracking works
+- ✅ Home progress card: Displays correct metrics and navigates to stats
 
 **Automated Testing:**
 - Not implemented (future consideration)
@@ -556,11 +676,22 @@ npm run reset-project
 
 This document reflects the current implementation state as of January 23, 2026. 
 
-**Recent Updates (v1.1.0):**
+**Recent Updates (v1.2.0):**
+- Statistics Dashboard: Comprehensive statistics tracking system implemented
+  - Study performance tracking (attempts, accuracy, daily trends)
+  - Mock exam history and performance metrics
+  - Engagement streak tracking
+  - Question coverage tracking (questions seen vs total)
+- Home Screen Enhancement: Progress preview card showing key metrics
+- Statistics Screen: Full-featured dashboard with overview, trends, mock exams, and consistency metrics
+- Per-Language Statistics: All statistics tracked separately per language
+- Local Storage: Statistics stored in separate AsyncStorage key (`DRIVING_MVP_STATS`)
+
+**Previous Updates (v1.1.0):**
 - Enhanced Mock Exam Results: Wrong answers are now clickable, opening a detail modal
 - Improved Visual Clarity: Study and Mistakes modes use color-coded answer backgrounds (green for correct, red/purple for wrong)
 - Question Detail Modal: Interactive review of wrong answers with full context and clear visual indicators
 - UI Improvements: Larger, more button-like question items in results list
 - Modal Enhancements: Proper safe zone handling, full-width images, smooth scrolling
 
-For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`.
+For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`.

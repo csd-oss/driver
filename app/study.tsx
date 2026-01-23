@@ -13,6 +13,7 @@ import { loadProgress, saveProgress } from '@/src/lib/storage';
 import { flattenRandomQuestion, getRandomTest, getQuestionFromTest } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
+import { recordStudyAttempt, recordQuestionSeen, updateStreak } from '@/src/lib/stats';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
 import { CategorySelector } from '@/components/CategorySelector';
@@ -22,6 +23,8 @@ export default function StudyScreen() {
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
   const questionCardRef = useRef(null);
+  const hasRecordedAnswer = useRef(false);
+  const hasRecordedSeen = useRef(false);
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [question, setQuestion] = useState(null);
@@ -51,7 +54,7 @@ export default function StudyScreen() {
     }, [loadData])
   );
 
-  const loadNewQuestion = (currentLang, category = selectedCategory) => {
+  const loadNewQuestion = async (currentLang, category = selectedCategory) => {
     let q = null;
     
     if (category === 'all') {
@@ -86,6 +89,16 @@ export default function StudyScreen() {
       }
     }
     
+    // Reset flags for new question
+    hasRecordedAnswer.current = false;
+    hasRecordedSeen.current = false;
+    
+    // Track question as seen when it loads
+    if (q && !hasRecordedSeen.current) {
+      await recordQuestionSeen({ lang: currentLang, qid: q.qid });
+      hasRecordedSeen.current = true;
+    }
+    
     setQuestion(q);
     setSelectedAnswer(null);
     setIsAnswered(false);
@@ -93,7 +106,7 @@ export default function StudyScreen() {
   };
 
   const handleAnswer = async (answerIndex) => {
-    if (isAnswered || !question) return;
+    if (isAnswered || !question || hasRecordedAnswer.current) return;
     
     setSelectedAnswer(answerIndex);
     setIsAnswered(true);
@@ -110,6 +123,17 @@ export default function StudyScreen() {
     );
     setProgress(updatedProgress);
     await saveProgress(updatedProgress);
+    
+    // Record stats (only once per question)
+    if (!hasRecordedAnswer.current) {
+      await recordStudyAttempt({
+        lang,
+        category: selectedCategory === 'all' ? null : selectedCategory,
+        isCorrect: correct,
+      });
+      await updateStreak({ lang, isMockPass: false });
+      hasRecordedAnswer.current = true;
+    }
   };
 
   const handleNext = () => {

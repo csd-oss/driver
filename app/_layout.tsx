@@ -40,6 +40,7 @@ export default function RootLayout() {
             <Stack.Screen name="mistakes" options={{ headerShown: false }} />
             <Stack.Screen name="mock" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />
+            <Stack.Screen name="stats" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

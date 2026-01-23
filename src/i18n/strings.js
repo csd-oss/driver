@@ -207,4 +207,114 @@ export const STR = {
     2: 'Show all',
     3: 'Összes mutatása',
   },
+  'stats.title': {
+    1: 'Štatistiky',
+    2: 'Statistics',
+    3: 'Statisztikák',
+  },
+  'stats.yourProgress': {
+    1: 'Váš pokrok',
+    2: 'Your Progress',
+    3: 'Az Ön előrehaladása',
+  },
+  'stats.mistakesRemaining': {
+    1: 'Zostávajúce chyby',
+    2: 'Mistakes remaining',
+    3: 'Hátralévő hibák',
+  },
+  'stats.studyAttempts': {
+    1: 'Pokusy o štúdium',
+    2: 'Study attempts',
+    3: 'Tanulási kísérletek',
+  },
+  'stats.accuracyLifetime': {
+    1: 'Presnosť (celkovo)',
+    2: 'Accuracy (lifetime)',
+    3: 'Pontosság (összesen)',
+  },
+  'stats.accuracy7d': {
+    1: 'Presnosť (posledných 7 dní)',
+    2: 'Accuracy (last 7 days)',
+    3: 'Pontosság (utolsó 7 nap)',
+  },
+  'stats.last7Days': {
+    1: 'Posledných 7 dní',
+    2: 'Last 7 days',
+    3: 'Utolsó 7 nap',
+  },
+  'stats.mockExams': {
+    1: 'Skúšobné testy',
+    2: 'Mock Exams',
+    3: 'Próba vizsgák',
+  },
+  'stats.examsTaken': {
+    1: 'Uskutočnené testy',
+    2: 'Exams taken',
+    3: 'Elvégzett vizsgák',
+  },
+  'stats.passRate': {
+    1: 'Úspešnosť',
+    2: 'Pass rate',
+    3: 'Sikeres arány',
+  },
+  'stats.bestScore': {
+    1: 'Najlepšie skóre',
+    2: 'Best score',
+    3: 'Legjobb pontszám',
+  },
+  'stats.lastScore': {
+    1: 'Posledné skóre',
+    2: 'Last score',
+    3: 'Utolsó pontszám',
+  },
+  'stats.consistency': {
+    1: 'Konzistencia',
+    2: 'Consistency',
+    3: 'Konzisztencia',
+  },
+  'stats.currentStreak': {
+    1: 'Aktuálny pás',
+    2: 'Current streak',
+    3: 'Jelenlegi sorozat',
+  },
+  'stats.lastStudy': {
+    1: 'Posledné štúdium',
+    2: 'Last study',
+    3: 'Utolsó tanulás',
+  },
+  'stats.today': {
+    1: 'Dnes',
+    2: 'Today',
+    3: 'Ma',
+  },
+  'stats.yesterday': {
+    1: 'Včera',
+    2: 'Yesterday',
+    3: 'Tegnap',
+  },
+  'stats.noData': {
+    1: 'Začnite študovať, aby ste tu videli svoj pokrok.',
+    2: 'Start studying to see your progress here.',
+    3: 'Kezdjen el tanulni, hogy itt lássa az előrehaladását.',
+  },
+  'stats.noExams': {
+    1: 'Urobte skúšobný test na sledovanie výsledkov.',
+    2: 'Take a mock exam to track your results.',
+    3: 'Végezzen próba vizsgát az eredmények követéséhez.',
+  },
+  'stats.questionCoverage': {
+    1: 'Pokrytie otázok',
+    2: 'Question coverage',
+    3: 'Kérdések lefedettsége',
+  },
+  'stats.questionsSeen': {
+    1: 'Videné otázky',
+    2: 'Questions seen',
+    3: 'Látott kérdések',
+  },
+  'stats.ofTotal': {
+    1: 'z {total}',
+    2: 'of {total}',
+    3: '{total}-ból',
+  },
 };

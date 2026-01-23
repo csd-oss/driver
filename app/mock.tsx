@@ -12,8 +12,9 @@ import { Divider } from '@/components/ui/divider';
 import { Header } from '@/components/ui/header';
 import { getLanguage } from '@/src/lib/settings';
 import { loadProgress, saveProgress } from '@/src/lib/storage';
-import { getRandomTest, getQuestionFromTest } from '@/src/lib/bank';
+import { getRandomTestWithIndex, getQuestionFromTest } from '@/src/lib/bank';
 import { applyAnswer } from '@/src/lib/engine';
+import { recordMockResult, recordAddedToMistakes, recordQuestionSeen, updateStreak } from '@/src/lib/stats';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
 
@@ -23,6 +24,8 @@ export default function MockScreen() {
   const insets = useSafeAreaInsets();
   const [lang, setLang] = useState(1);
   const [test, setTest] = useState(null);
+  const [testIndex, setTestIndex] = useState(null);
+  const [lastHistoryId, setLastHistoryId] = useState(null);
   const [answers, setAnswers] = useState({});
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
@@ -52,9 +55,10 @@ export default function MockScreen() {
     loadData();
   }, []);
 
-  const startNewTest = (currentLang) => {
-    const newTest = getRandomTest(currentLang);
+  const startNewTest = async (currentLang) => {
+    const { test: newTest, testIndex: idx } = getRandomTestWithIndex(currentLang);
     setTest(newTest);
+    setTestIndex(idx);
     setAnswers({});
     setIsFinished(false);
     setScore(0);
@@ -62,14 +66,26 @@ export default function MockScreen() {
     setPassed(false);
     setResults({});
     setCurrentQuestion(1);
+    setLastHistoryId(null);
     
     if (newTest && newTest.cas > 0) {
       setTimeRemaining(newTest.cas);
     }
+    
+    // Track all questions in mock exam as seen
+    if (newTest && newTest.otazky) {
+      for (let qNo = 1; qNo <= newTest.pocet; qNo++) {
+        const qNoStr = String(qNo);
+        const questionData = newTest.otazky[qNoStr];
+        if (questionData && questionData[0] && questionData[0].id) {
+          await recordQuestionSeen({ lang: currentLang, qid: String(questionData[0].id) });
+        }
+      }
+    }
   };
 
-  const handleFinish = useCallback(() => {
-    if (!test) return;
+  const handleFinish = useCallback(async () => {
+    if (!test || testIndex === null) return;
     
     let totalScore = 0;
     let totalMax = 0;
@@ -92,12 +108,38 @@ export default function MockScreen() {
       }
     }
     
+    const wrongCount = Object.values(questionResults).filter(r => !r).length;
+    const testPassed = totalScore >= test.minbody;
+    
     setScore(totalScore);
     setMaxScore(totalMax);
-    setPassed(totalScore >= test.minbody);
+    setPassed(testPassed);
     setResults(questionResults);
     setIsFinished(true);
-  }, [test, answers]);
+    
+    // Record mock exam result
+    const testId = `L${lang}-T${testIndex}`;
+    const initialTime = test.cas || 0;
+    const durationSec = initialTime > 0 && timeRemaining > 0 ? initialTime - timeRemaining : undefined;
+    
+    const historyId = await recordMockResult({
+      lang,
+      testId,
+      score: totalScore,
+      maxScore: totalMax,
+      minToPass: test.minbody,
+      passed: testPassed,
+      durationSec,
+      wrongCount,
+    });
+    
+    setLastHistoryId(historyId);
+    
+    // Update streak if passed
+    if (testPassed) {
+      await updateStreak({ lang, isMockPass: true });
+    }
+  }, [test, testIndex, answers, lang, timeRemaining]);
 
   useEffect(() => {
     if (timeRemaining > 0 && !isFinished) {
@@ -133,6 +175,7 @@ export default function MockScreen() {
     if (!test) return;
     
     let updatedProgress = { ...progress };
+    let wrongCount = 0;
     
     for (let qNo = 1; qNo <= test.pocet; qNo++) {
       const qNoStr = String(qNo);
@@ -144,11 +187,17 @@ export default function MockScreen() {
       
       if (userAnswer !== q.platna) {
         updatedProgress = applyAnswer(updatedProgress, lang, String(q.id), false);
+        wrongCount += 1;
       }
     }
     
     setProgress(updatedProgress);
     await saveProgress(updatedProgress);
+    
+    // Record added to mistakes count in history
+    if (lastHistoryId && wrongCount > 0) {
+      await recordAddedToMistakes({ lang, historyId: lastHistoryId, count: wrongCount });
+    }
     
     Alert.alert('Success', 'Wrong answers added to mistakes');
   };

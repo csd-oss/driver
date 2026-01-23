@@ -29,6 +29,31 @@ export const getRandomTest = (lang) => {
 };
 
 /**
+ * Get a random test with its index
+ * @param {number} lang - Language index (1, 2, or 3)
+ * @returns {Object|null} Object with { test, testIndex } or null
+ */
+export const getRandomTestWithIndex = (lang) => {
+  const tests = getTests(lang);
+  if (tests.length === 0) return null;
+  const randomIndex = Math.floor(Math.random() * tests.length);
+  return {
+    test: tests[randomIndex],
+    testIndex: randomIndex,
+  };
+};
+
+/**
+ * Get total count of unique questions in the bank
+ * @param {number} lang - Language index (1, 2, or 3)
+ * @returns {number} Total count of unique questions
+ */
+export const getTotalUniqueQuestions = (lang) => {
+  const index = buildQuestionIndex(lang);
+  return Object.keys(index).length;
+};
+
+/**
  * Get a normalized question object from a test
  * @param {Object} test - Test object
  * @param {number|string} qNo - Question number (1-based)

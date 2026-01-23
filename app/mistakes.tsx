@@ -13,6 +13,7 @@ import { loadProgress, saveProgress } from '@/src/lib/storage';
 import { findQuestionById, getTestForQuestion } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
+import { recordStudyAttempt, recordQuestionSeen, updateStreak } from '@/src/lib/stats';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
 import { CategorySelector } from '@/components/CategorySelector';
@@ -32,6 +33,8 @@ export default function MistakesScreen() {
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
   const questionCardRef = useRef(null);
+  const hasRecordedAnswer = useRef(false);
+  const hasRecordedSeen = useRef(false);
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [mistakes, setMistakes] = useState([]);
@@ -84,7 +87,7 @@ export default function MistakesScreen() {
         // Shuffle the filtered mistakes list for random order
         const shuffled = shuffleArray(filtered);
         setShuffledMistakes(shuffled);
-        loadQuestion(shuffled[0], currentLang);
+        await loadQuestion(shuffled[0], currentLang);
         setCurrentIndex(0);
       } else {
         setQuestion(null);
@@ -100,8 +103,19 @@ export default function MistakesScreen() {
     }, [loadData])
   );
 
-  const loadQuestion = (qid, currentLang) => {
+  const loadQuestion = async (qid, currentLang) => {
     const q = findQuestionById(currentLang, qid);
+    
+    // Reset flags for new question
+    hasRecordedAnswer.current = false;
+    hasRecordedSeen.current = false;
+    
+    // Track question as seen when it loads
+    if (q && !hasRecordedSeen.current) {
+      await recordQuestionSeen({ lang: currentLang, qid: q.qid });
+      hasRecordedSeen.current = true;
+    }
+    
     setQuestion(q);
     setSelectedAnswer(null);
     setIsAnswered(false);
@@ -109,7 +123,7 @@ export default function MistakesScreen() {
   };
 
   const handleAnswer = async (answerIndex) => {
-    if (isAnswered || !question) return;
+    if (isAnswered || !question || hasRecordedAnswer.current) return;
     
     setSelectedAnswer(answerIndex);
     setIsAnswered(true);
@@ -126,6 +140,17 @@ export default function MistakesScreen() {
     );
     setProgress(updatedProgress);
     await saveProgress(updatedProgress);
+    
+    // Record stats (only once per question)
+    if (!hasRecordedAnswer.current) {
+      await recordStudyAttempt({
+        lang,
+        category: selectedCategory === 'all' ? null : selectedCategory,
+        isCorrect: correct,
+      });
+      await updateStreak({ lang, isMockPass: false });
+      hasRecordedAnswer.current = true;
+    }
     
     // Reload mistakes list (in case question was removed)
     const langStr = String(lang);
@@ -144,7 +169,7 @@ export default function MistakesScreen() {
       if (!filtered.includes(question.qid)) {
         // Current question no longer in filtered list, load first one
         if (shuffled.length > 0) {
-          loadQuestion(shuffled[0], lang);
+          await loadQuestion(shuffled[0], lang);
           setCurrentIndex(0);
         } else {
           setQuestion(null);
@@ -165,7 +190,7 @@ export default function MistakesScreen() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const updatedMistakes = progress.mistakesByLang?.[String(lang)] || [];
     
     // Filter by category
@@ -205,7 +230,7 @@ export default function MistakesScreen() {
     }
     
     if (currentShuffled[nextIndex]) {
-      loadQuestion(currentShuffled[nextIndex], lang);
+      await loadQuestion(currentShuffled[nextIndex], lang);
       setCurrentIndex(nextIndex);
       setMistakes(updatedMistakes);
     } else {
@@ -224,7 +249,7 @@ export default function MistakesScreen() {
     if (filtered.length > 0) {
       const shuffled = shuffleArray(filtered);
       setShuffledMistakes(shuffled);
-      loadQuestion(shuffled[0], lang);
+      await loadQuestion(shuffled[0], lang);
       setCurrentIndex(0);
     } else {
       setQuestion(null);
