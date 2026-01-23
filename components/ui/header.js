@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { IconSymbol } from './icon-symbol';
 import { UIText } from './text';
 
-export const Header = ({ title, showBack = true, onBackPress }) => {
+export const Header = ({ title, showBack = true, onBackPress, rightElement }) => {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
@@ -39,10 +39,15 @@ export const Header = ({ title, showBack = true, onBackPress }) => {
           />
         </Pressable>
       )}
-      {title && (
+      {title && !rightElement && (
         <UIText variant="subtitle" className="flex-1 text-base">
           {title}
         </UIText>
+      )}
+      {rightElement && (
+        <View className="flex-1 items-end">
+          {rightElement}
+        </View>
       )}
     </View>
   );

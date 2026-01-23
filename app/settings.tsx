@@ -36,7 +36,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen header={<Header title={t('nav.settings', lang)} />}>
-      <View className="flex-1 gap-6 mt-2">
+      <View className="flex-1 gap-6 mt-1">
         <View className="items-center mt-4">
           <UIText variant="title">{t('settings.languageTitle', lang)}</UIText>
         </View>

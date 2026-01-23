@@ -175,7 +175,7 @@ export default function MockScreen() {
   if (!test) {
     return (
       <Screen header={<Header title={t('nav.mock', lang)} />}>
-        <View className="flex-1 items-center justify-center mt-2">
+        <View className="flex-1 items-center justify-center mt-1">
           <UIText variant="body">Loading...</UIText>
         </View>
       </Screen>
@@ -185,7 +185,7 @@ export default function MockScreen() {
   if (isFinished) {
     return (
       <Screen header={<Header title={t('nav.mock', lang)} />}>
-        <ScrollView className="flex-1 mt-2" contentContainerClassName="gap-4">
+        <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4">
           <Card>
             <View className="items-center mb-4">
               <UIText variant="title">{t('mock.score', lang)}</UIText>
@@ -249,27 +249,27 @@ export default function MockScreen() {
   }
 
   // Fixed header with time and question navigation
-  const renderHeader = () => (
-    <View className="bg-white dark:bg-gray-900 pb-2">
-      <Header title={t('nav.mock', lang)} />
-      <View className="h-1" />
-      {/* Time display */}
-      {timeRemaining > 0 && (
-        <View className="flex-row items-center justify-center px-4 py-2">
-          <View className="bg-blue-600 dark:bg-blue-500 px-4 py-2 rounded">
-            <UIText variant="subtitle" className="text-white font-bold">
-              {t('mock.remainingTime', lang)} {formatTime(timeRemaining)}
-            </UIText>
-          </View>
-        </View>
-      )}
+  const renderHeader = () => {
+    const timerElement = timeRemaining > 0 ? (
+      <View className="bg-blue-600 dark:bg-blue-500 px-3 py-1.5 rounded flex-row items-center gap-1.5">
+        <UIText variant="caption" className="text-white/90 text-xs">
+          {t('mock.remainingTime', lang)}
+        </UIText>
+        <UIText variant="body" className="text-white font-bold text-sm">
+          {formatTime(timeRemaining)}
+        </UIText>
+      </View>
+    ) : null;
 
-      {/* Question navigation bar */}
+    return (
+      <View className="bg-white dark:bg-gray-900 pb-2">
+        <Header showBack={true} rightElement={timerElement} />
+        {/* Question navigation bar */}
       <ScrollView
         ref={questionScrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="px-2"
+        className="px-2 mt-1"
         contentContainerStyle={{ paddingHorizontal: 8 }}
       >
         <View className="flex-row gap-1">
@@ -311,8 +311,9 @@ export default function MockScreen() {
           })}
         </View>
       </ScrollView>
-    </View>
-  );
+      </View>
+    );
+  };
 
   // Current question display
   const renderCurrentQuestion = () => {

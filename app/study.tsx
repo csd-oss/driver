@@ -76,7 +76,7 @@ export default function StudyScreen() {
   if (!question) {
     return (
       <Screen header={<Header title={t('nav.study', lang)} />}>
-        <View className="flex-1 items-center justify-center mt-2">
+        <View className="flex-1 items-center justify-center mt-1">
           <UIText variant="body">Loading...</UIText>
         </View>
       </Screen>
@@ -87,7 +87,7 @@ export default function StudyScreen() {
 
   return (
     <Screen header={<Header title={t('nav.study', lang)} />}>
-      <ScrollView className="flex-1 mt-2" contentContainerClassName="gap-4">
+      <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4">
         <Card>
           <UIText variant="body" className="mb-4">
             {question.text}
