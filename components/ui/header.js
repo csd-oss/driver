@@ -8,7 +8,7 @@ export const Header = ({ title, showBack = true, onBackPress, rightElement }) =>
   const router = useRouter();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const iconColor = colorScheme === 'dark' ? '#60a5fa' : '#3b82f6'; // blue-400 in dark, blue-600 in light
+  const iconColor = colorScheme === 'dark' ? '#c7d2fe' : '#4338ca';
 
   const handleBack = () => {
     if (onBackPress) {
@@ -22,33 +22,35 @@ export const Header = ({ title, showBack = true, onBackPress, rightElement }) =>
   const topPadding = Math.max(insets.top * 0.3, 4);
 
   return (
-    <View 
-      className="flex-row items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+    <View
+      className="px-5"
       style={{ paddingTop: topPadding }}
     >
-      {showBack && (
-        <Pressable
-          onPress={handleBack}
-          className="mr-2 p-1.5 -ml-1"
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <IconSymbol
-            name="chevron.left"
-            size={20}
-            color={iconColor}
-          />
-        </Pressable>
-      )}
-      {title && !rightElement && (
-        <UIText variant="subtitle" className="flex-1 text-base">
-          {title}
-        </UIText>
-      )}
-      {rightElement && (
-        <View className="flex-1 items-end">
-          {rightElement}
-        </View>
-      )}
+      <View className="flex-row items-center px-4 py-3 rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-900/80 shadow-md shadow-slate-900/5">
+        {showBack && (
+          <Pressable
+            onPress={handleBack}
+            className="mr-3 p-1.5 rounded-full bg-slate-100 dark:bg-slate-800"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <IconSymbol
+              name="chevron.left"
+              size={18}
+              color={iconColor}
+            />
+          </Pressable>
+        )}
+        {title && !rightElement && (
+          <UIText variant="subtitle" className="flex-1 text-base tracking-tight">
+            {title}
+          </UIText>
+        )}
+        {rightElement && (
+          <View className="flex-1 items-end">
+            {rightElement}
+          </View>
+        )}
+      </View>
     </View>
   );
 };

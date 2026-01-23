@@ -19,36 +19,40 @@ export default function LanguageSelectScreen() {
 
   return (
     <Screen className="items-center justify-center">
-      <View className="w-full max-w-md gap-6">
-        <UIText variant="title" className="text-center mb-4">
+      <View className="w-full max-w-md gap-5">
+        <UIText variant="title" className="text-center">
           {t('language.selectTitle', 1)}
         </UIText>
+        <Card className="gap-4">
+          <UIText variant="body" className="text-slate-600 dark:text-slate-300">
+            Choose your preferred language to personalize the app.
+          </UIText>
+          <View className="gap-3">
+            <Button
+              onPress={() => handleLanguageSelect(1)}
+              variant="default"
+              className="w-full"
+            >
+              {t('language.lang1', 1)} / {t('language.lang1', 2)} / {t('language.lang1', 3)}
+            </Button>
 
-        <View className="gap-4">
-          <Button
-            onPress={() => handleLanguageSelect(1)}
-            variant="default"
-            className="w-full"
-          >
-            {t('language.lang1', 1)} / {t('language.lang1', 2)} / {t('language.lang1', 3)}
-          </Button>
+            <Button
+              onPress={() => handleLanguageSelect(2)}
+              variant="outline"
+              className="w-full"
+            >
+              {t('language.lang2', 1)} / {t('language.lang2', 2)} / {t('language.lang2', 3)}
+            </Button>
 
-          <Button
-            onPress={() => handleLanguageSelect(2)}
-            variant="default"
-            className="w-full"
-          >
-            {t('language.lang2', 1)} / {t('language.lang2', 2)} / {t('language.lang2', 3)}
-          </Button>
-
-          <Button
-            onPress={() => handleLanguageSelect(3)}
-            variant="default"
-            className="w-full"
-          >
-            {t('language.lang3', 1)} / {t('language.lang3', 2)} / {t('language.lang3', 3)}
-          </Button>
-        </View>
+            <Button
+              onPress={() => handleLanguageSelect(3)}
+              variant="outline"
+              className="w-full"
+            >
+              {t('language.lang3', 1)} / {t('language.lang3', 2)} / {t('language.lang3', 3)}
+            </Button>
+          </View>
+        </Card>
       </View>
     </Screen>
   );

@@ -56,18 +56,27 @@ export default function HomeScreen() {
   return (
     <Screen>
       <View className="flex-1 gap-6">
-        <View className="items-center mt-4">
-          <UIText variant="title">{t('app.title', lang)}</UIText>
-        </View>
-
-        <Card>
-          <View className="items-center">
-            <UIText variant="subtitle">{t('home.mistakeCount', lang)}</UIText>
-            <UIText variant="title" className="mt-2">{mistakeCount}</UIText>
+        <Card className="mt-2">
+          <View className="items-start gap-2">
+            <UIText variant="caption" className="uppercase tracking-[0.12em] text-indigo-500">
+              {t('home.mistakeCount', lang)}
+            </UIText>
+            <UIText variant="title" className="leading-none text-5xl">
+              {mistakeCount}
+            </UIText>
+            <UIText variant="body" className="text-slate-500 dark:text-slate-400">
+              {t('app.title', lang)}
+            </UIText>
           </View>
         </Card>
 
-        <View className="gap-4">
+        <Card className="gap-3">
+          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+            {t('home.study', lang)}
+          </UIText>
+          <UIText variant="body">
+            Quick access to keep your streak and reduce mistakes.
+          </UIText>
           <Button
             onPress={() => router.push('/study')}
             variant="default"
@@ -75,10 +84,12 @@ export default function HomeScreen() {
           >
             {t('home.study', lang)}
           </Button>
+        </Card>
 
+        <View className="gap-3">
           <Button
             onPress={() => router.push('/mistakes')}
-            variant="default"
+            variant="outline"
             className="w-full"
           >
             {t('home.mistakes', lang)}
@@ -86,7 +97,7 @@ export default function HomeScreen() {
 
           <Button
             onPress={() => router.push('/mock')}
-            variant="default"
+            variant="outline"
             className="w-full"
           >
             {t('home.mock', lang)}
@@ -94,7 +105,7 @@ export default function HomeScreen() {
 
           <Button
             onPress={() => router.push('/settings')}
-            variant="outline"
+            variant="secondary"
             className="w-full"
           >
             {t('home.settings', lang)}
@@ -103,13 +114,23 @@ export default function HomeScreen() {
 
         <Divider />
 
-        <Button
-          onPress={handleResetProgress}
-          variant="secondary"
-          className="w-full"
-        >
-          {t('home.reset', lang)}
-        </Button>
+        <Card className="bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-indigo-500/10 border-transparent">
+          <View className="gap-3">
+            <UIText variant="subtitle" className="text-rose-600 dark:text-rose-200">
+              {t('home.reset', lang)}
+            </UIText>
+            <UIText variant="body" className="text-slate-600 dark:text-slate-300">
+              Clear your progress and start fresh. This action cannot be undone.
+            </UIText>
+            <Button
+              onPress={handleResetProgress}
+              variant="secondary"
+              className="w-full"
+            >
+              {t('home.reset', lang)}
+            </Button>
+          </View>
+        </Card>
       </View>
     </Screen>
   );

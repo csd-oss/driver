@@ -251,19 +251,31 @@ export default function MockScreen() {
   // Fixed header with time and question navigation
   const renderHeader = () => {
     const timerElement = timeRemaining > 0 ? (
-      <View className="bg-blue-600 dark:bg-blue-500 px-3 py-1.5 rounded flex-row items-center gap-1.5">
-        <UIText variant="caption" className="text-white/90 text-xs">
-          {t('mock.remainingTime', lang)}
-        </UIText>
+      <View className="px-3 py-1.5 rounded-full bg-indigo-600 dark:bg-indigo-500 border border-indigo-400/40 shadow-sm">
         <UIText variant="body" className="text-white font-bold text-sm">
           {formatTime(timeRemaining)}
         </UIText>
       </View>
     ) : null;
 
+    const counterElement = (
+      <View className="px-3 py-1.5 rounded-full bg-white/90 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-700/70">
+        <UIText variant="body" className="text-slate-900 dark:text-slate-100 font-semibold text-sm">
+          {currentQuestion} / {test.pocet}
+        </UIText>
+      </View>
+    );
+
+    const rightElement = (
+      <View className="flex-row items-center gap-2">
+        {counterElement}
+        {timerElement}
+      </View>
+    );
+
     return (
-      <View className="bg-white dark:bg-gray-900 pb-2">
-        <Header showBack={true} rightElement={timerElement} />
+      <View className="bg-slate-50 dark:bg-slate-950 pb-2 border-b border-slate-200/70 dark:border-slate-800/70">
+        <Header showBack={true} rightElement={rightElement} />
         {/* Question navigation bar */}
       <ScrollView
         ref={questionScrollRef}
@@ -283,24 +295,24 @@ export default function MockScreen() {
                 key={qNo}
                 onPress={() => handleQuestionNavigation(qNo)}
                 className={`
-                  w-10 h-10 rounded items-center justify-center border-2
+                  w-10 h-10 rounded-full items-center justify-center border
                   ${isCurrent 
-                    ? 'bg-blue-600 dark:bg-blue-500 border-blue-700 dark:border-blue-600' 
+                    ? 'bg-indigo-600 dark:bg-indigo-500 border-indigo-700 dark:border-indigo-500 shadow-sm shadow-indigo-500/30' 
                     : hasAnswer 
-                      ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700' 
-                      : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                      ? 'bg-indigo-100 dark:bg-indigo-900/60 border-indigo-300 dark:border-indigo-700' 
+                      : 'bg-white/80 dark:bg-slate-900/70 border-slate-200 dark:border-slate-700'
                   }
                 `}
               >
                 <UIText
                   variant="body"
                   className={`
-                    font-semibold
+                    font-semibold text-sm
                     ${isCurrent 
                       ? 'text-white' 
                       : hasAnswer 
-                        ? 'text-blue-700 dark:text-blue-300' 
-                        : 'text-gray-700 dark:text-gray-300'
+                        ? 'text-indigo-700 dark:text-indigo-200' 
+                        : 'text-slate-700 dark:text-slate-300'
                     }
                   `}
                 >

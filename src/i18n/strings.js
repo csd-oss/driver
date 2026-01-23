@@ -112,6 +112,11 @@ export const STR = {
     2: 'Remaining time',
     3: 'Hátralévő idő',
   },
+  'mock.question': {
+    1: 'Otázka',
+    2: 'Question',
+    3: 'Kérdés',
+  },
   'mock.previous': {
     1: 'Predchádzajúca',
     2: 'Previous',

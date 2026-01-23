@@ -148,17 +148,22 @@ export default function MistakesScreen() {
 
   return (
     <Screen header={<Header title={t('nav.mistakes', lang)} />}>
-      <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4">
-        <Card>
-          {mastery > 0 && (
-            <View className="mb-4 p-2 bg-blue-100 dark:bg-blue-900 rounded">
-              <UIText variant="caption">
-                {t('mistakes.mastery', lang)}: {mastery}
-              </UIText>
-            </View>
-          )}
+      <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4 pb-2">
+        <Card className="gap-4">
+          <View className="flex-row items-center justify-between">
+            <UIText variant="caption" className="uppercase tracking-[0.1em] text-amber-500">
+              {t('nav.mistakes', lang)}
+            </UIText>
+            {mastery > 0 && (
+              <View className="px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/60">
+                <UIText variant="caption">
+                  {t('mistakes.mastery', lang)}: {mastery}
+                </UIText>
+              </View>
+            )}
+          </View>
 
-          <UIText variant="body" className="mb-4">
+          <UIText variant="body" className="mb-1">
             {question.text}
           </UIText>
 
@@ -200,7 +205,7 @@ export default function MistakesScreen() {
                   variant={buttonVariant}
                   disabled={isAnswered}
                   className={`w-full ${
-                    isAnswered && isCorrectAnswer ? 'bg-green-500' : ''
+                    isAnswered && isCorrectAnswer ? 'bg-green-500 dark:bg-green-600 border border-green-400/60' : ''
                   }`}
                 >
                   {answer}
@@ -210,7 +215,7 @@ export default function MistakesScreen() {
           </View>
 
           {isAnswered && (
-            <View className="mt-4 p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+            <View className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700/70">
               <UIText
                 variant="subtitle"
                 className={isCorrect ? 'text-green-600' : 'text-red-600'}

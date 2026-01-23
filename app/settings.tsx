@@ -37,16 +37,19 @@ export default function SettingsScreen() {
   return (
     <Screen header={<Header title={t('nav.settings', lang)} />}>
       <View className="flex-1 gap-6 mt-1">
-        <View className="items-center mt-4">
+        <View className="items-start mt-2">
           <UIText variant="title">{t('settings.languageTitle', lang)}</UIText>
-        </View>
-
-        <Card>
-          <UIText variant="subtitle" className="mb-4">
+          <UIText variant="body" className="text-slate-500 dark:text-slate-400 mt-1">
             {t('settings.currentLanguage', lang)}: {lang}
           </UIText>
+        </View>
 
-          <View className="gap-4">
+        <Card className="gap-3">
+          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+            {t('settings.languageTitle', lang)}
+          </UIText>
+
+          <View className="gap-3">
             <Button
               onPress={() => handleLanguageChange(1)}
               variant={lang === 1 ? 'default' : 'outline'}

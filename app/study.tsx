@@ -87,9 +87,18 @@ export default function StudyScreen() {
 
   return (
     <Screen header={<Header title={t('nav.study', lang)} />}>
-      <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4">
-        <Card>
-          <UIText variant="body" className="mb-4">
+      <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4 pb-2">
+        <Card className="gap-4">
+          <View className="flex-row items-center justify-between">
+            <UIText variant="caption" className="uppercase tracking-[0.1em] text-indigo-500">
+              {t('nav.study', lang)}
+            </UIText>
+            <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+              {t('study.points', lang)}: {question.points}
+            </UIText>
+          </View>
+
+          <UIText variant="body" className="mb-1">
             {question.text}
           </UIText>
 
@@ -131,7 +140,7 @@ export default function StudyScreen() {
                   variant={buttonVariant}
                   disabled={isAnswered}
                   className={`w-full ${
-                    isAnswered && isCorrectAnswer ? 'bg-green-500' : ''
+                    isAnswered && isCorrectAnswer ? 'bg-green-500 dark:bg-green-600 border border-green-400/60' : ''
                   }`}
                 >
                   {answer}
@@ -141,7 +150,7 @@ export default function StudyScreen() {
           </View>
 
           {isAnswered && (
-            <View className="mt-4 p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+            <View className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700/70">
               <UIText
                 variant="subtitle"
                 className={isCorrect ? 'text-green-600' : 'text-red-600'}

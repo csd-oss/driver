@@ -3,7 +3,7 @@ import { useFontScaleContext } from '@/contexts/FontScaleContext';
 
 // Base font sizes that will scale with iOS Dynamic Type
 const variantFontSizes = {
-  title: 30,
+  title: 32,
   subtitle: 20,
   body: 16,
   caption: 14,
@@ -11,10 +11,10 @@ const variantFontSizes = {
 
 // Styles without fontSize (colors, weights, etc.)
 const variantStyles = {
-  title: 'font-bold text-gray-900 dark:text-gray-100',
-  subtitle: 'font-semibold text-gray-800 dark:text-gray-200',
-  body: 'text-gray-700 dark:text-gray-300',
-  caption: 'text-gray-600 dark:text-gray-400',
+  title: 'font-extrabold text-slate-900 dark:text-slate-50 tracking-tight',
+  subtitle: 'font-semibold text-slate-800 dark:text-slate-200',
+  body: 'text-slate-700 dark:text-slate-300',
+  caption: 'text-slate-500 dark:text-slate-400',
 };
 
 export const UIText = ({ 
