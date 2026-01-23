@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Divider } from '@/components/ui/divider';
+import { Header } from '@/components/ui/header';
 import { getLanguage } from '@/src/lib/settings';
 import { loadProgress, saveProgress } from '@/src/lib/storage';
 import { getRandomTest, getQuestionFromTest } from '@/src/lib/bank';
@@ -173,8 +174,8 @@ export default function MockScreen() {
 
   if (!test) {
     return (
-      <Screen>
-        <View className="flex-1 items-center justify-center">
+      <Screen header={<Header title={t('nav.mock', lang)} />}>
+        <View className="flex-1 items-center justify-center mt-2">
           <UIText variant="body">Loading...</UIText>
         </View>
       </Screen>
@@ -183,8 +184,8 @@ export default function MockScreen() {
 
   if (isFinished) {
     return (
-      <Screen>
-        <ScrollView className="flex-1" contentContainerClassName="gap-4">
+      <Screen header={<Header title={t('nav.mock', lang)} />}>
+        <ScrollView className="flex-1 mt-2" contentContainerClassName="gap-4">
           <Card>
             <View className="items-center mb-4">
               <UIText variant="title">{t('mock.score', lang)}</UIText>
@@ -249,7 +250,9 @@ export default function MockScreen() {
 
   // Fixed header with time and question navigation
   const renderHeader = () => (
-    <View className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 pb-2">
+    <View className="bg-white dark:bg-gray-900 pb-2">
+      <Header title={t('nav.mock', lang)} />
+      <View className="h-1" />
       {/* Time display */}
       {timeRemaining > 0 && (
         <View className="flex-row items-center justify-center px-4 py-2">

@@ -6,6 +6,7 @@ import { Screen } from '@/components/ui/screen';
 import { Button } from '@/components/ui/button';
 import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
+import { Header } from '@/components/ui/header';
 import { getSettings, updateSettings, clearCache } from '@/src/lib/settings';
 import { t } from '@/src/i18n/i18n';
 
@@ -34,8 +35,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen>
-      <View className="flex-1 gap-6">
+    <Screen header={<Header title={t('nav.settings', lang)} />}>
+      <View className="flex-1 gap-6 mt-2">
         <View className="items-center mt-4">
           <UIText variant="title">{t('settings.languageTitle', lang)}</UIText>
         </View>

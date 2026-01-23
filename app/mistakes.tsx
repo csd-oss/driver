@@ -6,6 +6,7 @@ import { Screen } from '@/components/ui/screen';
 import { Button } from '@/components/ui/button';
 import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
+import { Header } from '@/components/ui/header';
 import { getLanguage } from '@/src/lib/settings';
 import { loadProgress, saveProgress } from '@/src/lib/storage';
 import { findQuestionById } from '@/src/lib/bank';
@@ -118,8 +119,8 @@ export default function MistakesScreen() {
 
   if (mistakes.length === 0) {
     return (
-      <Screen>
-        <View className="flex-1 items-center justify-center">
+      <Screen header={<Header title={t('nav.mistakes', lang)} />}>
+        <View className="flex-1 items-center justify-center mt-2">
           <UIText variant="title">{t('mistakes.empty', lang)}</UIText>
         </View>
       </Screen>
@@ -128,8 +129,8 @@ export default function MistakesScreen() {
 
   if (!question) {
     return (
-      <Screen>
-        <View className="flex-1 items-center justify-center">
+      <Screen header={<Header title={t('nav.mistakes', lang)} />}>
+        <View className="flex-1 items-center justify-center mt-2">
           <UIText variant="body">Question not found</UIText>
           <Button onPress={loadData} variant="default" className="mt-4">
             Reload
@@ -146,8 +147,8 @@ export default function MistakesScreen() {
   const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
 
   return (
-    <Screen>
-      <ScrollView className="flex-1" contentContainerClassName="gap-4">
+    <Screen header={<Header title={t('nav.mistakes', lang)} />}>
+      <ScrollView className="flex-1 mt-2" contentContainerClassName="gap-4">
         <Card>
           {mastery > 0 && (
             <View className="mb-4 p-2 bg-blue-100 dark:bg-blue-900 rounded">

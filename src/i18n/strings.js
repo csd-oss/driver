@@ -152,4 +152,29 @@ export const STR = {
     2: 'Current language',
     3: 'Jelenlegi nyelv',
   },
+  'nav.back': {
+    1: 'Späť',
+    2: 'Back',
+    3: 'Vissza',
+  },
+  'nav.study': {
+    1: 'Štúdium',
+    2: 'Study',
+    3: 'Tanulás',
+  },
+  'nav.mistakes': {
+    1: 'Chyby',
+    2: 'Mistakes',
+    3: 'Hibák',
+  },
+  'nav.mock': {
+    1: 'Skúšobný Test',
+    2: 'Mock Exam',
+    3: 'Próba Vizsga',
+  },
+  'nav.settings': {
+    1: 'Nastavenia',
+    2: 'Settings',
+    3: 'Beállítások',
+  },
 };
