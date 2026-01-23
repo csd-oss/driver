@@ -1,4 +1,5 @@
 import { Pressable, Text } from 'react-native';
+import { useFontScaleContext } from '@/contexts/FontScaleContext';
 
 const variantStyles = {
   default: 'bg-blue-600 dark:bg-blue-500 active:bg-blue-700 dark:active:bg-blue-600',
@@ -12,6 +13,9 @@ const textStyles = {
   secondary: 'text-gray-900 dark:text-gray-100',
 };
 
+// Base font size for buttons (will scale with iOS Dynamic Type)
+const BUTTON_FONT_SIZE = 16;
+
 export const Button = ({
   children,
   onPress,
@@ -24,9 +28,16 @@ export const Button = ({
   allowFontScaling = true,
   maxFontSizeMultiplier = 1.5,
 }) => {
+  // Use updateKey from context to force re-render when font scale changes
+  // React Native's allowFontScaling will handle the actual scaling automatically
+  const { updateKey } = useFontScaleContext();
   const baseClasses = 'px-6 py-3 rounded-lg items-center justify-center min-h-[44px]';
   const variantClass = variantStyles[variant] || variantStyles.default;
   const disabledClass = disabled ? 'opacity-50' : '';
+  
+  // updateKey is used here to trigger re-render, but React Native handles the actual scaling
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _ = updateKey; // Force re-render when updateKey changes
   
   return (
     <Pressable
@@ -36,8 +47,12 @@ export const Button = ({
       style={style}
     >
       <Text
-        className={`font-semibold text-base ${textStyles[variant]} ${textClassName}`}
-        style={textStyle}
+        key={`button-text-${updateKey}`}
+        className={`font-semibold ${textStyles[variant]} ${textClassName}`}
+        style={[
+          { fontSize: BUTTON_FONT_SIZE },
+          textStyle,
+        ]}
         allowFontScaling={allowFontScaling}
         maxFontSizeMultiplier={maxFontSizeMultiplier}
       >
