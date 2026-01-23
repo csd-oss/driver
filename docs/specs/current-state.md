@@ -1,7 +1,7 @@
 # CURRENT STATE SPECIFICATION — Driver SK (Slovakia Driving Exam App)
 
 **Last Updated:** January 23, 2026  
-**Version:** 1.3.0  
+**Version:** 1.4.0  
 **Status:** Production MVP
 
 ---
@@ -27,15 +27,16 @@
 
 ### 1.2 Core Features (Implemented)
 1. **Smart Study** - Adaptive question selection prioritizing mistakes, unseen questions, and weak categories
-2. **Mistakes Review** - Focused practice on incorrectly answered questions with clear answer indicators
-3. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
-4. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
-5. **Progress Tracking** - Mistake tracking with mastery system (2 correct answers removes from mistakes)
-6. **Statistics Dashboard** - Comprehensive statistics tracking with visual emphasis (hero progress summary, coverage bar, and 7-day activity bars)
-7. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
-8. **Offline Operation** - All data and images stored locally
-9. **Question Detail Modal** - Interactive review of wrong answers with full question context
-10. **Smart Practice Algorithm** - Intelligent question prioritization system that adapts to user's learning state
+2. **Smart Study Reason Labels** - Visual indicators explaining why each question was selected (mistake, new question, weak area, review)
+3. **Mistakes Review** - Focused practice on incorrectly answered questions with clear answer indicators
+4. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
+5. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
+6. **Progress Tracking** - Mistake tracking with mastery system (2 correct answers removes from mistakes)
+7. **Statistics Dashboard** - Comprehensive statistics tracking with visual emphasis (hero progress summary, coverage bar, and 7-day activity bars)
+8. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
+9. **Offline Operation** - All data and images stored locally
+10. **Question Detail Modal** - Interactive review of wrong answers with full question context
+11. **Smart Practice Algorithm** - Intelligent question prioritization system that adapts to user's learning state
 
 ### 1.3 Business Rules
 - **Scoring:** Each question has point value (`body`), exam pass threshold is `minbody` points
@@ -330,6 +331,9 @@ driver/
 - **Adaptive Algorithm:** Priority-based question selection system
 - **Main Function:**
   - `getSmartQuestion({ lang, selectedCategory, recentIds })` - Main entry point for smart question selection
+  - **Return Shape:** Returns `{ question, reason }` object where:
+    - `question`: Normalized question object
+    - `reason`: Object with `type` (one of: `mistake`, `unseen`, `weak`, `random`) and optional `category` (for `weak` type)
 - **Helper Functions:**
   - `pickFromMistakes(...)` - Priority 1: Select from mistakes list
   - `pickUnseen(...)` - Priority 2: Select questions never seen
@@ -337,15 +341,16 @@ driver/
   - `isRecent(qid, recentIds)` - Check if question is in recent list
   - `pushRecent(qid, recentIds, max=20)` - Add to recent list (maintains max size)
 - **Priority System:**
-  1. Mistakes (highest priority) - Questions user got wrong
-  2. Unseen Questions - Questions never displayed
-  3. Weak Categories - Questions from categories with lowest accuracy
-  4. Random Fallback - Existing random selection if all above exhausted
+  1. Mistakes (highest priority) - Questions user got wrong → reason type: `mistake`
+  2. Unseen Questions - Questions never displayed → reason type: `unseen`
+  3. Weak Categories - Questions from categories with lowest accuracy → reason type: `weak` (includes category name)
+  4. Random Fallback - Existing random selection if all above exhausted → reason type: `random`
 - **Features:**
   - Category-aware: Respects selected category filter at each priority level
   - Anti-repetition: Tracks last 20 questions (in-memory, not persisted)
   - Performance optimized: Uses cached indices, builds seen set once per session
   - Loads stats and progress internally for separation of concerns
+  - **Reason Tracking:** Exposes selection logic as reason metadata for UI display
 
 #### 3.4.6 Image Handling
 - **Static Manifest:** `data/imageManifest.js` contains static `require()` calls
@@ -433,12 +438,13 @@ driver/
 - **Features:**
   - Category selector
   - Smart Practice question selection (adaptive algorithm)
+  - **Reason label pill** - Displays why question was selected (e.g., "Fixing a mistake", "New question", "Weak area: Traffic signs", "Review question")
+  - **Points bubble** - Question point value displayed in pill format on the right side
   - Image rendering (if available)
   - Answer buttons with enhanced visual feedback:
     - Correct answer: Green background (emerald-500/600)
     - Wrong selected answer: Red/purple background (rose-500/600) with white text
     - Other answers: Neutral outline styling
-  - Points display
   - Next button (appears after answer)
 - **Logic:** 
   - Smart Practice algorithm for intelligent question selection
@@ -710,6 +716,8 @@ npm run reset-project
 - ✅ Home progress card: Displays correct metrics and navigates to stats
 - ✅ Smart Practice Mode: Adaptive question selection prioritizes mistakes, unseen questions, and weak categories
 - ✅ Anti-repetition: Recent question tracking prevents immediate repeats
+- ✅ Smart Study Reason Labels: Reason pills display correctly for all question types (mistake, unseen, weak, random)
+- ✅ Points Display: Points bubble displays correctly on right side with proper styling
 
 **Automated Testing:**
 - Not implemented (future consideration)
@@ -720,7 +728,16 @@ npm run reset-project
 
 This document reflects the current implementation state as of January 23, 2026. 
 
-**Recent Updates (v1.3.0):**
+**Recent Updates (v1.4.0):**
+- Smart Study Reason Labels: "Why this question?" feature implemented
+  - Visual pill labels explaining question selection rationale
+  - Four reason types: mistake, unseen, weak (with category), random
+  - Multi-language support for all reason labels
+  - Points display moved to pill format on right side
+  - Enhanced user trust and perceived intelligence of Smart Study
+  - Clean UI: Reason pill on left, points bubble on right, both outside question card
+
+**Previous Updates (v1.3.0):**
 - Smart Practice Mode: Intelligent adaptive question selection system implemented
   - Priority-based algorithm: Mistakes → Unseen → Weak Categories → Random
   - Anti-repetition system: Tracks last 20 questions (in-memory) to prevent immediate repeats
@@ -747,4 +764,4 @@ This document reflects the current implementation state as of January 23, 2026.
 - UI Improvements: Larger, more button-like question items in results list
 - Modal Enhancements: Proper safe zone handling, full-width images, smooth scrolling
 
-For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`. For Smart Practice Mode specification, see `docs/specs/smart-practice.md`.
+For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`. For Smart Practice Mode specification, see `docs/specs/smart-practice.md`. For Smart Study Reason Labels specification, see `docs/specs/why-q-smart.md`.
