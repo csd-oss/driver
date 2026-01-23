@@ -283,15 +283,15 @@ export default function MockScreen() {
   // Fixed header with time and question navigation
   const renderHeader = () => {
     const timerElement = timeRemaining > 0 ? (
-      <View className="px-3 py-1.5 rounded-full bg-indigo-600 dark:bg-indigo-500 border border-indigo-400/40 shadow-sm">
-        <UIText variant="body" className="text-white font-bold text-sm">
+      <View className="px-3 py-1.5 rounded-full bg-indigo-600 dark:bg-indigo-500 border border-indigo-400/40 shadow-sm items-center" style={{ minWidth: 60 }}>
+        <UIText variant="body" className="text-white font-bold text-sm font-mono">
           {formatTime(timeRemaining)}
         </UIText>
       </View>
     ) : null;
 
     const counterElement = (
-      <View className="px-3 py-1.5 rounded-full bg-white/90 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-700/70">
+      <View className="px-3 py-1.5 rounded-full bg-white/90 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-700/70 items-center" style={{ minWidth: 70 }}>
         <UIText variant="body" className="text-slate-900 dark:text-slate-100 font-semibold text-sm">
           {currentQuestion} / {test.pocet}
         </UIText>
