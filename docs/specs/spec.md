@@ -65,6 +65,7 @@ NativeWind configuration:
 /components/ui/button.js
 /components/ui/divider.js
 /components/ui/text.js        (optional convenience wrapper)
+/components/ui/aspect-image.tsx (image with dynamic aspect ratio sizing)
 
 ============================================================
 3) DATA SOURCE (data5.js) — OFFICIAL STRUCTURE
@@ -132,8 +133,9 @@ Behavior:
 Rendering rule:
 - If question.obrazok is a non-empty string:
   - const imgSrc = IMAGE_MANIFEST[question.obrazok]
-  - If imgSrc exists: render <Image source={imgSrc} ... />
-  - Else: render small placeholder text “Image missing: {filename}” (do not crash)
+  - If imgSrc exists: render <AspectImage source={imgSrc} maxHeight={300} />
+  - Else: render small placeholder text "Image missing: {filename}" (do not crash)
+- Use AspectImage component (not raw Image) to ensure images only take the vertical space needed based on their aspect ratio
 
 Assumption:
 - obrazok string matches local filename exactly (including extension). If mismatch, show placeholder.
@@ -380,6 +382,20 @@ components/ui/divider.js
 
 components/ui/text.js (optional)
 - convenience for typography variants (title, subtitle)
+
+components/ui/aspect-image.tsx
+- Image component that maintains aspect ratio without wasting vertical space
+- Uses Image.resolveAssetSource() to get actual image dimensions
+- Calculates display height based on container width and image aspect ratio
+- Props:
+  - source: ImageSourcePropType (required)
+  - maxHeight: number (optional, default 300) - maximum height constraint
+  - maxWidth: number (optional) - maximum width constraint
+- Behavior:
+  - Measures container width on layout
+  - Scales image proportionally to fit width while respecting maxHeight/maxWidth
+  - Only takes the vertical space needed for the image (no empty space below)
+- Use this component instead of raw Image when displaying question images
 
 ============================================================
 13) QUALITY + SAFETY REQUIREMENTS
