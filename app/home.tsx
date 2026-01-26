@@ -5,7 +5,7 @@ import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage } from '@/src/lib/settings';
-import { calculateAccuracy, getLast7Days, loadStats, resetStats } from '@/src/lib/stats';
+import { calculateAccuracy, getLast7Days, loadStats, resetStats, getReadinessBreakdown } from '@/src/lib/stats';
 import { loadProgress, resetProgress } from '@/src/lib/storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,8 @@ export default function HomeScreen() {
   const [mistakeCount, setMistakeCount] = useState(0);
   const [recentAccuracy, setRecentAccuracy] = useState('—');
   const [streak, setStreak] = useState(0);
+  const [readinessScore, setReadinessScore] = useState(0);
+  const [readinessStatus, setReadinessStatus] = useState('needsWork');
 
   const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
@@ -25,15 +27,16 @@ export default function HomeScreen() {
     
     // Load progress for mistake count
     const progress = await loadProgress();
+    const langStr = String(currentLang);
+    let mistakesCount = 0;
     if (progress && progress.mistakesByLang) {
-      const langStr = String(currentLang);
       const mistakes = progress.mistakesByLang[langStr] || [];
-      setMistakeCount(mistakes.length);
+      mistakesCount = mistakes.length;
+      setMistakeCount(mistakesCount);
     }
     
     // Load stats for accuracy and streak
     const stats = await loadStats();
-    const langStr = String(currentLang);
     const langStats = stats.statsByLang?.[langStr];
     
     if (langStats) {
@@ -55,9 +58,24 @@ export default function HomeScreen() {
       
       // Get streak
       setStreak(langStats.engagement?.currentStreak || 0);
+      
+      // Calculate readiness score (use mistakesCount from above)
+      const breakdown = getReadinessBreakdown(currentLang, mistakesCount, langStats);
+      setReadinessScore(breakdown.overall);
+      
+      // Determine status based on score
+      if (breakdown.overall >= 80) {
+        setReadinessStatus('ready');
+      } else if (breakdown.overall >= 60) {
+        setReadinessStatus('gettingThere');
+      } else {
+        setReadinessStatus('needsWork');
+      }
     } else {
       setRecentAccuracy('—');
       setStreak(0);
+      setReadinessScore(0);
+      setReadinessStatus('needsWork');
     }
   }, []);
 
@@ -69,6 +87,36 @@ export default function HomeScreen() {
 
   const accuracyValue = typeof recentAccuracy === 'number' ? recentAccuracy : null;
   const accuracyWidth = `${accuracyValue !== null ? Math.max(accuracyValue, 1) : 0}%`;
+  
+  // Get readiness status colors and label
+  const getReadinessStatusInfo = () => {
+    switch (readinessStatus) {
+      case 'ready':
+        return {
+          label: t('readiness.ready', lang),
+          bgColor: 'bg-emerald-500/15 dark:bg-emerald-500/20',
+          textColor: 'text-emerald-700 dark:text-emerald-200',
+          barColor: 'bg-emerald-500',
+        };
+      case 'gettingThere':
+        return {
+          label: t('readiness.gettingThere', lang),
+          bgColor: 'bg-amber-500/15 dark:bg-amber-500/20',
+          textColor: 'text-amber-700 dark:text-amber-200',
+          barColor: 'bg-amber-500',
+        };
+      default:
+        return {
+          label: t('readiness.needsWork', lang),
+          bgColor: 'bg-rose-500/15 dark:bg-rose-500/20',
+          textColor: 'text-rose-700 dark:text-rose-200',
+          barColor: 'bg-rose-500',
+        };
+    }
+  };
+  
+  const readinessInfo = getReadinessStatusInfo();
+  const readinessBarWidth = `${Math.max(readinessScore, 1)}%`;
 
   const handleResetProgress = () => {
     Alert.alert(
@@ -85,6 +133,8 @@ export default function HomeScreen() {
             setMistakeCount(0);
             setRecentAccuracy('—');
             setStreak(0);
+            setReadinessScore(0);
+            setReadinessStatus('needsWork');
             // Reload data to ensure UI is fully updated
             await loadData();
           },
@@ -110,12 +160,37 @@ export default function HomeScreen() {
                 </View>
               </View>
 
+              {/* Readiness Score Section */}
+              <View className="gap-2">
+                <View className="flex-row items-center justify-between">
+                  <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                    {t('readiness.title', lang)}
+                  </UIText>
+                  <View className={`rounded-full px-3 py-1 ${readinessInfo.bgColor}`}>
+                    <UIText variant="caption" className={`font-semibold ${readinessInfo.textColor}`}>
+                      {readinessInfo.label}
+                    </UIText>
+                  </View>
+                </View>
+                <View className="flex-row items-end gap-3">
+                  <UIText variant="title" className="text-slate-900 dark:text-slate-50">
+                    {readinessScore}%
+                  </UIText>
+                </View>
+                <View className="h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
+                  <View
+                    className={`h-full rounded-full ${readinessInfo.barColor}`}
+                    style={{ width: readinessBarWidth }}
+                  />
+                </View>
+              </View>
+
               <View className="flex-row items-end justify-between">
                 <View>
                   <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
                     Accuracy (7d)
                   </UIText>
-                  <UIText variant="title" className="text-slate-900 dark:text-slate-50">
+                  <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
                     {recentAccuracy}{accuracyValue !== null ? '%' : ''}
                   </UIText>
                 </View>
@@ -126,30 +201,6 @@ export default function HomeScreen() {
                   <UIText variant="subtitle" className="text-emerald-600 dark:text-emerald-300">
                     {streak} days
                   </UIText>
-                </View>
-              </View>
-
-              <View className="gap-2">
-                <View className="flex-row items-center justify-between">
-                  <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2">
-                    <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                      Mistakes left
-                    </UIText>
-                    <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
-                      {mistakeCount}
-                    </UIText>
-                  </View>
-                  <View className="flex-1 ml-3">
-                    <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                      Weekly accuracy
-                    </UIText>
-                    <View className="mt-2 h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
-                      <View
-                        className="h-full rounded-full bg-indigo-500"
-                        style={{ width: accuracyWidth }}
-                      />
-                    </View>
-                  </View>
                 </View>
               </View>
             </View>

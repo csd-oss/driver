@@ -352,4 +352,74 @@ export const STR = {
     2: 'Review question',
     3: 'Áttekintő kérdés',
   },
+  'readiness.title': {
+    1: 'Skúšobná pripravenosť',
+    2: 'Exam Readiness',
+    3: 'Vizsga felkészültség',
+  },
+  'readiness.ready': {
+    1: 'Pripravený',
+    2: 'Ready',
+    3: 'Kész',
+  },
+  'readiness.gettingThere': {
+    1: 'Na ceste',
+    2: 'Getting there',
+    3: 'Úton',
+  },
+  'readiness.needsWork': {
+    1: 'Potrebuje prácu',
+    2: 'Needs work',
+    3: 'Munkára szorul',
+  },
+  'readiness.overall': {
+    1: 'Celkové skóre',
+    2: 'Overall Score',
+    3: 'Összpontszám',
+  },
+  'readiness.mistakes': {
+    1: 'Chyby',
+    2: 'Mistakes',
+    3: 'Hibák',
+  },
+  'readiness.performance': {
+    1: 'Výkon',
+    2: 'Performance',
+    3: 'Teljesítmény',
+  },
+  'readiness.mockExam': {
+    1: 'Skúšobné testy',
+    2: 'Mock Exams',
+    3: 'Próba vizsgák',
+  },
+  'readiness.coverage': {
+    1: 'Pokrytie',
+    2: 'Coverage',
+    3: 'Lefedettség',
+  },
+  'readiness.weight': {
+    1: '{weight}% váha',
+    2: '{weight}% weight',
+    3: '{weight}% súly',
+  },
+  'readiness.insufficientData': {
+    1: 'Potrebujete viac praxe na hodnotenie',
+    2: 'Need more practice to assess',
+    3: 'Több gyakorlásra van szükség az értékeléshez',
+  },
+  'readiness.passRate': {
+    1: 'Úspešnosť',
+    2: 'Pass rate',
+    3: 'Sikeres arány',
+  },
+  'readiness.recentPassRate': {
+    1: 'Nedávne (posledné 3)',
+    2: 'Recent (last 3)',
+    3: 'Legutóbbi (utolsó 3)',
+  },
+  'readiness.examsTaken': {
+    1: 'Uskutočnené testy',
+    2: 'Exams taken',
+    3: 'Elvégzett vizsgák',
+  },
 };

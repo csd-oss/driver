@@ -4,7 +4,7 @@ import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage } from '@/src/lib/settings';
-import { calculateAccuracy, calculateCoverage, getLast7Days, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
+import { calculateAccuracy, calculateCoverage, getLast7Days, getTotalUniqueQuestions, loadStats, getReadinessBreakdown } from '@/src/lib/stats';
 import { loadProgress } from '@/src/lib/storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -101,6 +101,35 @@ export default function StatsScreen() {
   
   // Calculate progress bar width - ensure minimum 1% for visibility when there's progress
   const progressBarPercentage = questionsSeen.length > 0 ? Math.max(coverage, 1) : 0;
+  
+  // Calculate readiness breakdown
+  const readinessBreakdown = getReadinessBreakdown(lang, mistakeCount, stats);
+  
+  // Get readiness status colors
+  const getReadinessStatusInfo = (score) => {
+    if (score >= 80) {
+      return {
+        bgColor: 'bg-emerald-500/15 dark:bg-emerald-500/20',
+        textColor: 'text-emerald-700 dark:text-emerald-200',
+        barColor: 'bg-emerald-500',
+      };
+    } else if (score >= 60) {
+      return {
+        bgColor: 'bg-amber-500/15 dark:bg-amber-500/20',
+        textColor: 'text-amber-700 dark:text-amber-200',
+        barColor: 'bg-amber-500',
+      };
+    } else {
+      return {
+        bgColor: 'bg-rose-500/15 dark:bg-rose-500/20',
+        textColor: 'text-rose-700 dark:text-rose-200',
+        barColor: 'bg-rose-500',
+      };
+    }
+  };
+  
+  const readinessInfo = getReadinessStatusInfo(readinessBreakdown.overall);
+  const readinessBarWidth = `${Math.max(readinessBreakdown.overall, 1)}%`;
   
   // Format last study date
   const formatLastStudyDate = () => {
@@ -232,6 +261,151 @@ export default function StatsScreen() {
                   </UIText>
                 </View>
               </View>
+            </View>
+          </View>
+        </Card>
+
+        {/* Exam Readiness Card */}
+        <Card className="gap-4">
+          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+            {t('readiness.title', lang)}
+          </UIText>
+          
+          {/* Overall Score */}
+          <View className="gap-3">
+            <View className="flex-row items-center justify-between">
+              <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                {t('readiness.overall', lang)}
+              </UIText>
+              <View className={`rounded-full px-3 py-1 ${readinessInfo.bgColor}`}>
+                <UIText variant="caption" className={`font-semibold ${readinessInfo.textColor}`}>
+                  {readinessBreakdown.overall >= 80 ? t('readiness.ready', lang) : 
+                   readinessBreakdown.overall >= 60 ? t('readiness.gettingThere', lang) : 
+                   t('readiness.needsWork', lang)}
+                </UIText>
+              </View>
+            </View>
+            <View className="flex-row items-end gap-2">
+              <UIText variant="title" className="text-slate-900 dark:text-slate-50">
+                {readinessBreakdown.overall}%
+              </UIText>
+            </View>
+            <View className="h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
+              <View
+                className={`h-full rounded-full ${readinessInfo.barColor}`}
+                style={{ width: readinessBarWidth }}
+              />
+            </View>
+          </View>
+
+          {/* Component Breakdown */}
+          <View className="gap-3 mt-2">
+            <UIText variant="caption" className="text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              Component Breakdown
+            </UIText>
+            
+            {/* Mistakes Component */}
+            <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2 gap-1">
+              <View className="flex-row items-center justify-between">
+                <UIText variant="body" className="text-slate-900 dark:text-slate-50">
+                  {t('readiness.mistakes', lang)}
+                </UIText>
+                <View className="flex-row items-center gap-2">
+                  <UIText variant="body" className="font-semibold text-slate-900 dark:text-slate-50">
+                    {Math.round(readinessBreakdown.components.mistakes.score)}%
+                  </UIText>
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    ({t('readiness.weight', lang).replace('{weight}', String(Math.round(readinessBreakdown.components.mistakes.weight * 100)))})
+                  </UIText>
+                </View>
+              </View>
+              <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+                {readinessBreakdown.components.mistakes.count} {t('stats.mistakesRemaining', lang).toLowerCase()}
+              </UIText>
+              {readinessBreakdown.components.mistakes.warning && (
+                <UIText variant="caption" className="text-amber-600 dark:text-amber-400 mt-1">
+                  {t('readiness.insufficientData', lang)}
+                </UIText>
+              )}
+            </View>
+
+            {/* Performance Component */}
+            <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2 gap-1">
+              <View className="flex-row items-center justify-between">
+                <UIText variant="body" className="text-slate-900 dark:text-slate-50">
+                  {t('readiness.performance', lang)}
+                </UIText>
+                <View className="flex-row items-center gap-2">
+                  <UIText variant="body" className="font-semibold text-slate-900 dark:text-slate-50">
+                    {readinessBreakdown.components.performance.score}%
+                  </UIText>
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    ({t('readiness.weight', lang).replace('{weight}', String(Math.round(readinessBreakdown.components.performance.weight * 100)))})
+                  </UIText>
+                </View>
+              </View>
+              <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+                {readinessBreakdown.components.performance.attempts} {readinessBreakdown.components.performance.attempts === 1 ? 'attempt' : 'attempts'} (last 7 days)
+              </UIText>
+              {readinessBreakdown.components.performance.warning && (
+                <UIText variant="caption" className="text-amber-600 dark:text-amber-400 mt-1">
+                  {t('readiness.insufficientData', lang)}
+                </UIText>
+              )}
+            </View>
+
+            {/* Mock Exam Component */}
+            <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2 gap-1">
+              <View className="flex-row items-center justify-between">
+                <UIText variant="body" className="text-slate-900 dark:text-slate-50">
+                  {t('readiness.mockExam', lang)}
+                </UIText>
+                <View className="flex-row items-center gap-2">
+                  <UIText variant="body" className="font-semibold text-slate-900 dark:text-slate-50">
+                    {readinessBreakdown.components.mockExam.examsTaken > 0 ? Math.round(readinessBreakdown.components.mockExam.score) : 0}%
+                  </UIText>
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    ({t('readiness.weight', lang).replace('{weight}', String(Math.round(readinessBreakdown.components.mockExam.weight * 100)))})
+                  </UIText>
+                </View>
+              </View>
+              {readinessBreakdown.components.mockExam.examsTaken > 0 ? (
+                <>
+                  <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+                    {t('readiness.passRate', lang)}: {Math.round(readinessBreakdown.components.mockExam.passRate)}%
+                  </UIText>
+                  <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+                    {t('readiness.recentPassRate', lang)}: {Math.round(readinessBreakdown.components.mockExam.recentPassRate)}%
+                  </UIText>
+                  <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+                    {t('readiness.examsTaken', lang)}: {readinessBreakdown.components.mockExam.examsTaken}
+                  </UIText>
+                </>
+              ) : (
+                <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+                  {t('stats.noExams', lang)}
+                </UIText>
+              )}
+            </View>
+
+            {/* Coverage Component */}
+            <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2 gap-1">
+              <View className="flex-row items-center justify-between">
+                <UIText variant="body" className="text-slate-900 dark:text-slate-50">
+                  {t('readiness.coverage', lang)}
+                </UIText>
+                <View className="flex-row items-center gap-2">
+                  <UIText variant="body" className="font-semibold text-slate-900 dark:text-slate-50">
+                    {readinessBreakdown.components.coverage.score}%
+                  </UIText>
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    ({t('readiness.weight', lang).replace('{weight}', String(Math.round(readinessBreakdown.components.coverage.weight * 100)))})
+                  </UIText>
+                </View>
+              </View>
+              <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+                {readinessBreakdown.components.coverage.seen} {t('stats.ofTotal', lang).replace('{total}', String(readinessBreakdown.components.coverage.total))}
+              </UIText>
             </View>
           </View>
         </Card>

@@ -384,3 +384,199 @@ export const resetStats = async (lang = null) => {
     return false;
   }
 };
+
+/**
+ * Calculate exam readiness score (0-100)
+ * Combines: mistakes (30%), study performance (25%), mock exams (30%), coverage (15%)
+ * 
+ * @param {number} lang - Language index (1, 2, or 3)
+ * @param {number} mistakesCount - Number of mistakes remaining
+ * @param {Object} stats - Stats object for the language
+ * @returns {number} Readiness score 0-100
+ */
+export const calculateReadinessScore = (lang, mistakesCount, stats) => {
+  const totalQuestions = getTotalUniqueQuestions(lang);
+  if (totalQuestions === 0) return 0;
+  
+  const questionsSeen = stats.coverage?.questionsSeen || [];
+  const coverageRatio = questionsSeen.length / totalQuestions;
+  
+  // ===== Component 1: Mistake Score (30% weight) =====
+  const MIN_COVERAGE_FOR_MISTAKES = 0.10; // 10%
+  const MIN_QUESTIONS_FOR_MISTAKES = 50;
+  const hasEnoughData = questionsSeen.length >= MIN_QUESTIONS_FOR_MISTAKES || 
+                        coverageRatio >= MIN_COVERAGE_FOR_MISTAKES;
+  
+  let mistakeScore;
+  if (!hasEnoughData) {
+    // Insufficient data: conservative score based on coverage
+    mistakeScore = Math.min(30, coverageRatio * 100);
+  } else {
+    // Sufficient data: calculate normally
+    const mistakeRatio = mistakesCount / Math.max(questionsSeen.length, 1);
+    mistakeScore = Math.max(0, 100 - (mistakeRatio * 100));
+  }
+  
+  // ===== Component 2: Performance Score (25% weight) =====
+  const last7Days = getLast7Days();
+  let totalAttempts7d = 0;
+  let totalCorrect7d = 0;
+  
+  last7Days.forEach((dateKey) => {
+    const daily = stats.study.daily?.[dateKey] || { attempts: 0, correct: 0 };
+    totalAttempts7d += daily.attempts || 0;
+    totalCorrect7d += daily.correct || 0;
+  });
+  
+  // Minimum threshold: need at least 10 attempts in last 7 days for reliable performance score
+  const MIN_ATTEMPTS_FOR_PERFORMANCE = 10;
+  let performanceScore;
+  if (totalAttempts7d < MIN_ATTEMPTS_FOR_PERFORMANCE) {
+    // Insufficient data: conservative score based on attempts ratio
+    performanceScore = Math.min(30, (totalAttempts7d / MIN_ATTEMPTS_FOR_PERFORMANCE) * 30);
+  } else {
+    // Sufficient data: calculate normally
+    performanceScore = Math.round((totalCorrect7d / totalAttempts7d) * 100);
+  }
+  
+  // ===== Component 3: Mock Exam Score (30% weight) =====
+  const mockStats = stats.mock || {};
+  const { examsTaken, examsPassed, history = [] } = mockStats;
+  
+  let mockExamScore = 0;
+  if (examsTaken > 0) {
+    // Overall pass rate (60% weight)
+    const passRate = (examsPassed / examsTaken) * 100;
+    
+    // Recent performance (40% weight): last 3 exams
+    let recentScore = passRate; // Fallback
+    const recentExams = history.slice(0, 3);
+    if (recentExams.length > 0) {
+      const recentPassed = recentExams.filter(exam => exam.passed).length;
+      recentScore = (recentPassed / recentExams.length) * 100;
+    }
+    
+    // Weighted combination
+    mockExamScore = (passRate * 0.6) + (recentScore * 0.4);
+  }
+  
+  // ===== Component 4: Coverage Score (15% weight) =====
+  const coverageScore = calculateCoverage(lang, questionsSeen);
+  
+  // ===== Final Weighted Score =====
+  const readinessScore = Math.round(
+    (mistakeScore * 0.30) + 
+    (performanceScore * 0.25) + 
+    (mockExamScore * 0.30) + 
+    (coverageScore * 0.15)
+  );
+  
+  return Math.max(0, Math.min(100, readinessScore)); // Clamp 0-100
+};
+
+/**
+ * Get readiness score breakdown for display
+ * 
+ * @param {number} lang - Language index (1, 2, or 3)
+ * @param {number} mistakesCount - Number of mistakes remaining
+ * @param {Object} stats - Stats object for the language
+ * @returns {Object} Breakdown object with overall score and component details
+ */
+export const getReadinessBreakdown = (lang, mistakesCount, stats) => {
+  const totalQuestions = getTotalUniqueQuestions(lang);
+  const questionsSeen = stats.coverage?.questionsSeen || [];
+  const coverageRatio = questionsSeen.length / totalQuestions;
+  
+  // Calculate each component
+  const MIN_COVERAGE_FOR_MISTAKES = 0.10;
+  const MIN_QUESTIONS_FOR_MISTAKES = 50;
+  const hasEnoughData = questionsSeen.length >= MIN_QUESTIONS_FOR_MISTAKES || 
+                        coverageRatio >= MIN_COVERAGE_FOR_MISTAKES;
+  
+  let mistakeScore;
+  if (!hasEnoughData) {
+    mistakeScore = Math.min(30, coverageRatio * 100);
+  } else {
+    const mistakeRatio = mistakesCount / Math.max(questionsSeen.length, 1);
+    mistakeScore = Math.max(0, 100 - (mistakeRatio * 100));
+  }
+  
+  // Performance
+  const last7Days = getLast7Days();
+  let totalAttempts7d = 0;
+  let totalCorrect7d = 0;
+  last7Days.forEach((dateKey) => {
+    const daily = stats.study.daily?.[dateKey] || { attempts: 0, correct: 0 };
+    totalAttempts7d += daily.attempts || 0;
+    totalCorrect7d += daily.correct || 0;
+  });
+  
+  // Minimum threshold: need at least 10 attempts in last 7 days for reliable performance score
+  const MIN_ATTEMPTS_FOR_PERFORMANCE = 10;
+  let performanceScore;
+  let hasEnoughPerformanceData;
+  if (totalAttempts7d < MIN_ATTEMPTS_FOR_PERFORMANCE) {
+    // Insufficient data: conservative score based on attempts ratio
+    performanceScore = Math.min(30, (totalAttempts7d / MIN_ATTEMPTS_FOR_PERFORMANCE) * 30);
+    hasEnoughPerformanceData = false;
+  } else {
+    // Sufficient data: calculate normally
+    performanceScore = Math.round((totalCorrect7d / totalAttempts7d) * 100);
+    hasEnoughPerformanceData = true;
+  }
+  
+  // Mock Exam
+  const mockStats = stats.mock || {};
+  const { examsTaken, examsPassed, history = [] } = mockStats;
+  let mockExamScore = 0;
+  let mockDetails = { passRate: 0, recentPassRate: 0, examsTaken: 0 };
+  
+  if (examsTaken > 0) {
+    const passRate = (examsPassed / examsTaken) * 100;
+    const recentExams = history.slice(0, 3);
+    const recentPassed = recentExams.filter(exam => exam.passed).length;
+    const recentPassRate = recentExams.length > 0
+      ? (recentPassed / recentExams.length) * 100
+      : passRate;
+    
+    mockExamScore = (passRate * 0.6) + (recentPassRate * 0.4);
+    mockDetails = { passRate, recentPassRate, examsTaken };
+  }
+  
+  // Coverage
+  const coverageScore = calculateCoverage(lang, questionsSeen);
+  
+  // Overall
+  const overall = calculateReadinessScore(lang, mistakesCount, stats);
+  
+  return {
+    overall,
+    components: {
+      mistakes: { 
+        score: mistakeScore, 
+        weight: 0.30, 
+        count: mistakesCount,
+        hasEnoughData,
+        warning: !hasEnoughData ? 'Need more practice to assess mistakes' : null
+      },
+      performance: { 
+        score: performanceScore, 
+        weight: 0.25, 
+        attempts: totalAttempts7d,
+        hasEnoughData: hasEnoughPerformanceData,
+        warning: !hasEnoughPerformanceData ? 'Need more practice to assess performance' : null
+      },
+      mockExam: { 
+        score: mockExamScore, 
+        weight: 0.30, 
+        ...mockDetails 
+      },
+      coverage: { 
+        score: coverageScore, 
+        weight: 0.15, 
+        seen: questionsSeen.length,
+        total: totalQuestions
+      },
+    },
+  };
+};
