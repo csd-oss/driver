@@ -76,7 +76,10 @@ App Launch
    - **Priority 3:** Questions from weakest category (lowest accuracy)
    - **Priority 4:** Random fallback (if all above exhausted)
    - Category filter applied at each priority level
-   - Anti-repetition: Excludes last 20 questions seen (allows reuse if needed)
+   - **Anti-repetition:** Two-tier system prevents frequent repetition:
+     - First excludes last 20 questions shown
+     - If all candidates are recent, applies minimum gap (15 for mistakes, 5 for others)
+     - If all within minimum gap → skips to next priority
 5. User selects answer → immediate feedback (Correct/Wrong)
 6. Progress updated:
    - Wrong answer → added to mistakes, streak reset to 0
@@ -347,7 +350,12 @@ driver/
   4. Random Fallback - Existing random selection if all above exhausted → reason type: `random`
 - **Features:**
   - Category-aware: Respects selected category filter at each priority level
-  - Anti-repetition: Tracks last 20 questions (in-memory, not persisted)
+  - **Two-Tier Anti-Repetition System:**
+    - **Tier 1:** Excludes last 20 questions shown (full recent window)
+    - **Tier 2:** Minimum gap windows to prevent frequent repetition:
+      - Mistakes: 15 questions minimum gap (prevents mistakes from appearing too frequently)
+      - Unseen/Weak/Random: 5 questions minimum gap
+    - If all candidates are within minimum gap → skips to next priority (prevents forced repetition)
   - Performance optimized: Uses cached indices, builds seen set once per session
   - Loads stats and progress internally for separation of concerns
   - **Reason Tracking:** Exposes selection logic as reason metadata for UI display
@@ -588,6 +596,8 @@ driver/
    - Category stats map is small and fast to read
    - Recent IDs list is small (max 20 items)
    - No repeated full bank scans
+   - Minimum gap windows use efficient array slicing (`slice(-MIN_GAP)`)
+   - Two-tier filtering prevents unnecessary priority fallthroughs
 
 ### 3.8 Error Handling
 
@@ -715,7 +725,7 @@ npm run reset-project
 - ✅ Question coverage: Questions seen tracking works
 - ✅ Home progress card: Displays correct metrics and navigates to stats
 - ✅ Smart Practice Mode: Adaptive question selection prioritizes mistakes, unseen questions, and weak categories
-- ✅ Anti-repetition: Recent question tracking prevents immediate repeats
+- ✅ Anti-repetition: Two-tier system prevents frequent repetition (20-question window + minimum gaps: 15 for mistakes, 5 for others)
 - ✅ Smart Study Reason Labels: Reason pills display correctly for all question types (mistake, unseen, weak, random)
 - ✅ Points Display: Points bubble displays correctly on right side with proper styling
 
@@ -740,11 +750,15 @@ This document reflects the current implementation state as of January 23, 2026.
 **Previous Updates (v1.3.0):**
 - Smart Practice Mode: Intelligent adaptive question selection system implemented
   - Priority-based algorithm: Mistakes → Unseen → Weak Categories → Random
-  - Anti-repetition system: Tracks last 20 questions (in-memory) to prevent immediate repeats
+  - **Two-Tier Anti-Repetition System:** Enhanced to prevent frequent repetition
+    - Tier 1: Excludes last 20 questions shown (full recent window)
+    - Tier 2: Minimum gap windows (15 questions for mistakes, 5 for others)
+    - Graceful fallthrough: Skips to next priority if all candidates within minimum gap
   - Category-aware: Respects selected category filter at each priority level
   - Performance optimized: Uses cached indices, builds seen set once per session
   - Study Mode Enhancement: Replaced random selection with Smart Practice algorithm
   - User Experience: App feels intelligent and personalized, automatically guides users to weaknesses
+  - **Minimum Gap Enhancement:** Prevents mistakes from appearing back-to-back or with only 1-2 questions in between, ensuring proper spacing for effective learning
 
 **Previous Updates (v1.2.0):**
 - Statistics Dashboard: Comprehensive statistics tracking system implemented

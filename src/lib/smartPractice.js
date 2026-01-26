@@ -1,13 +1,13 @@
-import { loadProgress } from './storage';
-import { loadStats } from './stats';
 import {
   buildQuestionIndex,
   findQuestionById,
+  flattenRandomQuestion,
   getTestForQuestion,
   getTests,
-  flattenRandomQuestion,
 } from './bank';
 import { getCategoryForQuestion } from './categories';
+import { loadStats } from './stats';
+import { loadProgress } from './storage';
 
 /**
  * Check if a question ID is in the recent list
@@ -125,19 +125,31 @@ const pickFromMistakes = ({ lang, selectedCategory, recentIds, mistakes, seenSet
     return null;
   }
   
-  // Exclude recent questions (but allow reuse if all are recent)
-  const nonRecent = candidates.filter(qid => !isRecent(qid, recentIds));
-  const finalCandidates = nonRecent.length > 0 ? nonRecent : candidates;
+  // Minimum gap: don't show a mistake again until at least MIN_GAP other questions have been shown
+  const MIN_GAP = 15;
   
-  if (finalCandidates.length === 0) {
-    return null;
+  // Exclude recent questions (full 20-question window)
+  const nonRecent = candidates.filter(qid => !isRecent(qid, recentIds));
+  
+  if (nonRecent.length > 0) {
+    // Random pick from non-recent
+    const randomIndex = Math.floor(Math.random() * nonRecent.length);
+    return findQuestionById(lang, nonRecent[randomIndex]);
   }
   
-  // Random pick
-  const randomIndex = Math.floor(Math.random() * finalCandidates.length);
-  const selectedQid = finalCandidates[randomIndex];
+  // All candidates are recent - check if any are outside the minimum gap window
+  const recentWindow = recentIds.slice(-MIN_GAP); // Last MIN_GAP questions
+  const outsideMinGap = candidates.filter(qid => !recentWindow.includes(qid));
   
-  return findQuestionById(lang, selectedQid);
+  if (outsideMinGap.length > 0) {
+    // Pick from candidates outside the minimum gap
+    const randomIndex = Math.floor(Math.random() * outsideMinGap.length);
+    return findQuestionById(lang, outsideMinGap[randomIndex]);
+  }
+  
+  // All mistakes are within the minimum gap window - skip to next priority
+  // This prevents showing the same mistake with only a small gap
+  return null;
 };
 
 /**
@@ -169,19 +181,29 @@ const pickUnseen = ({ lang, selectedCategory, recentIds, seenSet }) => {
     return null;
   }
   
-  // Exclude recent questions (but allow reuse if all are recent)
-  const nonRecent = candidates.filter(qid => !isRecent(qid, recentIds));
-  const finalCandidates = nonRecent.length > 0 ? nonRecent : candidates;
+  // Minimum gap for unseen questions (smaller than mistakes since there are usually many)
+  const MIN_GAP = 5;
   
-  if (finalCandidates.length === 0) {
-    return null;
+  // Exclude recent questions (full 20-question window)
+  const nonRecent = candidates.filter(qid => !isRecent(qid, recentIds));
+  
+  if (nonRecent.length > 0) {
+    // Random pick from non-recent
+    const randomIndex = Math.floor(Math.random() * nonRecent.length);
+    return findQuestionById(lang, nonRecent[randomIndex]);
   }
   
-  // Random pick
-  const randomIndex = Math.floor(Math.random() * finalCandidates.length);
-  const selectedQid = finalCandidates[randomIndex];
+  // All candidates are recent - check if any are outside the minimum gap window
+  const recentWindow = recentIds.slice(-MIN_GAP);
+  const outsideMinGap = candidates.filter(qid => !recentWindow.includes(qid));
   
-  return findQuestionById(lang, selectedQid);
+  if (outsideMinGap.length > 0) {
+    const randomIndex = Math.floor(Math.random() * outsideMinGap.length);
+    return findQuestionById(lang, outsideMinGap[randomIndex]);
+  }
+  
+  // All candidates within minimum gap - skip to next priority
+  return null;
 };
 
 /**
@@ -221,6 +243,9 @@ const pickFromWeakCategory = ({ lang, selectedCategory, recentIds, stats }) => {
     return a.accuracy - b.accuracy;
   });
   
+  // Minimum gap for weak category questions
+  const MIN_GAP = 5;
+  
   // Try each category starting from weakest
   for (const { category } of categoryAccuracies) {
     // If a specific category is selected, only use that category
@@ -235,19 +260,25 @@ const pickFromWeakCategory = ({ lang, selectedCategory, recentIds, stats }) => {
       continue;
     }
     
-    // Exclude recent questions (but allow reuse if all are recent)
+    // Exclude recent questions (full 20-question window)
     const nonRecent = categoryQids.filter(qid => !isRecent(qid, recentIds));
-    const finalCandidates = nonRecent.length > 0 ? nonRecent : categoryQids;
     
-    if (finalCandidates.length === 0) {
-      continue;
+    if (nonRecent.length > 0) {
+      // Random pick from non-recent
+      const randomIndex = Math.floor(Math.random() * nonRecent.length);
+      return { question: findQuestionById(lang, nonRecent[randomIndex]), category };
     }
     
-    // Random pick
-    const randomIndex = Math.floor(Math.random() * finalCandidates.length);
-    const selectedQid = finalCandidates[randomIndex];
+    // All candidates are recent - check if any are outside the minimum gap window
+    const recentWindow = recentIds.slice(-MIN_GAP);
+    const outsideMinGap = categoryQids.filter(qid => !recentWindow.includes(qid));
     
-    return { question: findQuestionById(lang, selectedQid), category };
+    if (outsideMinGap.length > 0) {
+      const randomIndex = Math.floor(Math.random() * outsideMinGap.length);
+      return { question: findQuestionById(lang, outsideMinGap[randomIndex]), category };
+    }
+    
+    // All candidates within minimum gap - try next category
   }
   
   return null;
@@ -320,17 +351,50 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
   
   // Priority 4: Random fallback
   // Note: flattenRandomQuestion doesn't respect category, so we need to handle that
+  // Avoid returning questions within the minimum gap window
+  const MIN_GAP = 5;
+  const recentWindow = recentIds.slice(-MIN_GAP);
+  const maxAttempts = 50;
+  let attempts = 0;
+  
   if (selectedCategory === 'all') {
+    // Try to find a question outside the minimum gap window
+    while (attempts < maxAttempts) {
+      const q = flattenRandomQuestion(lang);
+      if (!q) break;
+      
+      // Accept if it's outside the minimum gap window
+      if (!recentWindow.includes(q.qid)) {
+        return withReason(q, 'random');
+      }
+      attempts++;
+    }
+    
+    // Final fallback: return any random question
     const q = flattenRandomQuestion(lang);
     if (q) return withReason(q, 'random');
     return null;
   }
   
   // For specific category, try to find a random question in that category
-  // Try up to 30 times (same as current study.tsx logic)
-  let attempts = 0;
-  const maxAttempts = 30;
+  // that's outside the minimum gap window
+  while (attempts < maxAttempts) {
+    const q = flattenRandomQuestion(lang);
+    if (!q) break;
+    
+    const test = getTestForQuestion(lang, q.qid);
+    if (test) {
+      const category = getCategoryForQuestion(test, q.qNo);
+      if (category === selectedCategory && !recentWindow.includes(q.qid)) {
+        return withReason(q, 'random');
+      }
+    }
+    
+    attempts++;
+  }
   
+  // Final fallback: return any random question in the category
+  attempts = 0;
   while (attempts < maxAttempts) {
     const q = flattenRandomQuestion(lang);
     if (!q) break;
@@ -342,11 +406,10 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
         return withReason(q, 'random');
       }
     }
-    
     attempts++;
   }
   
-  // Final fallback: return any random question
+  // Absolute final fallback: return any random question
   const q = flattenRandomQuestion(lang);
   if (q) return withReason(q, 'random');
   return null;

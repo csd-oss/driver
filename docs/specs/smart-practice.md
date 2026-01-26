@@ -60,8 +60,12 @@ If user has mistakes remaining:
 
 - Candidate pool: `mistakesByLang[lang]`
 - Apply selected category filter (if not "All")
-- Random pick from candidates
-- If no candidates (e.g., none in category) → continue to next priority
+- Apply anti-repetition rules:
+  - Exclude questions from last 20 shown
+  - If all are recent, exclude questions from last 15 shown (minimum gap)
+  - If all are within minimum gap → skip to next priority
+- Random pick from eligible candidates
+- If no eligible candidates → continue to next priority
 
 ---
 
@@ -71,7 +75,11 @@ Questions that have **never been seen** (not in `stats.coverage.questionsSeen`)
 
 - Candidate pool: all questions minus seen set
 - Apply selected category filter (if not "All")
-- Random pick from candidates
+- Apply anti-repetition rules:
+  - Exclude questions from last 20 shown
+  - If all are recent, exclude questions from last 5 shown (minimum gap)
+  - If all are within minimum gap → skip to next priority
+- Random pick from eligible candidates
 - If none → continue
 
 ---
@@ -86,8 +94,12 @@ Use `stats.study.byCategory`:
    - Only among categories with `attempts > 0` (v1.0 rule)
    - Sort by lowest accuracy
 3. Pick question from that category:
-   - Prefer questions not in recent history (Anti-Repetition)
-4. If no eligible question → continue
+   - Apply anti-repetition rules:
+     - Exclude questions from last 20 shown
+     - If all are recent, exclude questions from last 5 shown (minimum gap)
+     - If all are within minimum gap → try next weakest category
+   - Random pick from eligible candidates
+4. If no eligible question in any category → continue
 
 Notes:
 - If no category has attempts > 0, skip this priority (fall through to random)
@@ -98,6 +110,10 @@ Notes:
 
 If all above exhausted:
 - Use existing `flattenRandomQuestion(lang)`
+- Apply anti-repetition rules:
+  - Prefer questions outside last 5 shown (minimum gap)
+  - Try up to 50 attempts to find a question outside minimum gap
+  - If still not found, allow any random question as final fallback
 
 ---
 
@@ -109,9 +125,31 @@ Maintain in memory (not AsyncStorage):
 
 - `recentQuestionIds: string[]` with `max = 20`
 
-When selecting a question:
-- Skip candidates whose `qid` is in `recentQuestionIds`
-- If all candidates are recent → allow reuse (do not block the user)
+### 5.1 Two-Tier Anti-Repetition System
+
+When selecting a question, the algorithm uses a two-tier approach:
+
+**Tier 1: Full Recent Window (20 questions)**
+- First, exclude all candidates whose `qid` is in `recentQuestionIds` (last 20 questions)
+- If non-recent candidates exist → pick from them
+
+**Tier 2: Minimum Gap Window**
+- If all candidates are in the recent window, check against a **minimum gap window**
+- Minimum gap requirements:
+  - **Mistakes**: 15 questions (prevents mistakes from appearing too frequently)
+  - **Unseen questions**: 5 questions
+  - **Weak category**: 5 questions
+  - **Random fallback**: 5 questions
+- Pick from candidates outside the minimum gap window
+- If ALL candidates are within the minimum gap → **skip to next priority** (do not force repetition)
+
+### 5.2 Rationale
+
+This ensures:
+- Mistakes won't appear back-to-back or with only 1-2 questions in between
+- Users get sufficient spacing between seeing the same question again
+- The algorithm gracefully falls through to other priorities when repetition would be too frequent
+- Learning is more effective with proper spacing between repetitions
 
 ---
 
@@ -145,20 +183,38 @@ No new persistent storage required.
 
 ```js
 function getSmartQuestion({ lang, selectedCategory, recentIds }) {
-  // Priority 1: mistakes
+  // Priority 1: mistakes (minimum gap: 15 questions)
   const q1 = pickFromMistakes({ lang, selectedCategory, recentIds });
   if (q1) return q1;
 
-  // Priority 2: unseen
+  // Priority 2: unseen (minimum gap: 5 questions)
   const q2 = pickUnseen({ lang, selectedCategory, recentIds });
   if (q2) return q2;
 
-  // Priority 3: weakest category
+  // Priority 3: weakest category (minimum gap: 5 questions)
   const q3 = pickFromWeakCategory({ lang, selectedCategory, recentIds });
   if (q3) return q3;
 
-  // Priority 4: fallback random
+  // Priority 4: fallback random (minimum gap: 5 questions)
   return flattenRandomQuestion(lang);
+}
+
+// Each picker function follows this pattern:
+function pickFromMistakes({ lang, selectedCategory, recentIds, mistakes }) {
+  // Filter by category
+  let candidates = filterByCategory(mistakes, selectedCategory);
+  
+  // Tier 1: Exclude last 20 questions
+  const nonRecent = candidates.filter(qid => !isRecent(qid, recentIds));
+  if (nonRecent.length > 0) return randomPick(nonRecent);
+  
+  // Tier 2: Exclude last MIN_GAP questions (15 for mistakes)
+  const minGapWindow = recentIds.slice(-MIN_GAP);
+  const outsideGap = candidates.filter(qid => !minGapWindow.includes(qid));
+  if (outsideGap.length > 0) return randomPick(outsideGap);
+  
+  // All within minimum gap - skip to next priority
+  return null;
 }
 9. IMPLEMENTATION PLAN
 9.1 New Module
@@ -209,8 +265,12 @@ pushRecent(qid, recentIds, max=20)
 - Category selected but no candidates exist in that category:
   - Continue through priorities within category.
   - If still none → fallback global random.
-- Very small mistake pool:
-  - Anti-repetition may temporarily allow reuse to avoid dead ends.
+- Very small mistake pool (e.g., only 1-2 mistakes):
+  - If all mistakes are within the minimum gap window (last 15 questions), the algorithm will skip to Priority 2 (unseen questions) instead of forcing immediate repetition.
+  - This ensures proper spacing between mistake repetitions while still prioritizing mistakes when sufficient time has passed.
+- All candidates within minimum gap:
+  - Algorithm gracefully falls through to next priority rather than forcing repetition.
+  - This maintains learning effectiveness through proper spacing.
 
 ---
 
