@@ -1,17 +1,16 @@
-import { useState, useCallback, useRef } from 'react';
-import { View, Alert, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import { Screen } from '@/components/ui/screen';
 import { Button } from '@/components/ui/button';
-import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Divider } from '@/components/ui/divider';
-import { getSettings, getLanguage } from '@/src/lib/settings';
-import { loadProgress } from '@/src/lib/storage';
-import { resetProgress } from '@/src/lib/storage';
-import { loadStats, getLast7Days, calculateAccuracy } from '@/src/lib/stats';
+import { Screen } from '@/components/ui/screen';
+import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
+import { getLanguage } from '@/src/lib/settings';
+import { calculateAccuracy, getLast7Days, loadStats, resetStats } from '@/src/lib/stats';
+import { loadProgress, resetProgress } from '@/src/lib/storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Alert, Pressable, View } from 'react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -69,7 +68,7 @@ export default function HomeScreen() {
   );
 
   const accuracyValue = typeof recentAccuracy === 'number' ? recentAccuracy : null;
-  const accuracyWidth = `${Math.min(accuracyValue ?? 0, 100)}%`;
+  const accuracyWidth = `${accuracyValue !== null ? Math.max(accuracyValue, 1) : 0}%`;
 
   const handleResetProgress = () => {
     Alert.alert(
@@ -82,7 +81,12 @@ export default function HomeScreen() {
           style: 'destructive',
           onPress: async () => {
             await resetProgress();
+            await resetStats(); // Reset all statistics including streaks
             setMistakeCount(0);
+            setRecentAccuracy('—');
+            setStreak(0);
+            // Reload data to ensure UI is fully updated
+            await loadData();
           },
         },
       ]
@@ -141,7 +145,7 @@ export default function HomeScreen() {
                     </UIText>
                     <View className="mt-2 h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
                       <View
-                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500"
+                        className="h-full rounded-full bg-indigo-500"
                         style={{ width: accuracyWidth }}
                       />
                     </View>

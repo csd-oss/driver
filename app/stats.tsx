@@ -1,16 +1,15 @@
-import { useState, useCallback } from 'react';
-import { View, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import { Screen } from '@/components/ui/screen';
-import { Button } from '@/components/ui/button';
-import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
-import { getLanguage } from '@/src/lib/settings';
-import { loadProgress } from '@/src/lib/storage';
-import { loadStats, getLast7Days, calculateAccuracy, getTotalUniqueQuestions, calculateCoverage } from '@/src/lib/stats';
+import { Screen } from '@/components/ui/screen';
+import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
+import { getLanguage } from '@/src/lib/settings';
+import { calculateAccuracy, calculateCoverage, getLast7Days, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
+import { loadProgress } from '@/src/lib/storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ScrollView, View } from 'react-native';
 
 export default function StatsScreen() {
   const router = useRouter();
@@ -100,6 +99,9 @@ export default function StatsScreen() {
   const questionsSeen = stats.coverage?.questionsSeen || [];
   const coverage = calculateCoverage(lang, questionsSeen);
   
+  // Calculate progress bar width - ensure minimum 1% for visibility when there's progress
+  const progressBarPercentage = questionsSeen.length > 0 ? Math.max(coverage, 1) : 0;
+  
   // Format last study date
   const formatLastStudyDate = () => {
     if (!stats.engagement.lastStudyDate) {
@@ -181,10 +183,12 @@ export default function StatsScreen() {
 
             <View className="mt-1">
               <View className="h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
-                <View
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500"
-                  style={{ width: `${coverage}%` }}
-                />
+                {questionsSeen.length > 0 && (
+                  <View
+                    className="h-full rounded-full bg-indigo-500"
+                    style={{ width: `${progressBarPercentage}%` }}
+                  />
+                )}
               </View>
               <UIText variant="caption" className="mt-2 text-slate-600 dark:text-slate-300">
                 {questionsSeen.length} {t('stats.ofTotal', lang).replace('{total}', String(totalUniqueQuestions))}
@@ -244,7 +248,6 @@ export default function StatsScreen() {
           ) : (
             <View className="gap-3">
               {dailyData.map((day) => {
-                const barWidth = `${Math.round((day.attempts / maxAttempts7d) * 100)}%`;
                 return (
                   <View key={day.dateKey} className="gap-2">
                     <View className="flex-row items-center justify-between">
@@ -255,17 +258,9 @@ export default function StatsScreen() {
                         </UIText>
                       </View>
                     </View>
-                    <View className="flex-row items-center gap-3">
-                      <View className="flex-1 h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
-                        <View
-                          className="h-full rounded-full bg-gradient-to-r from-indigo-500/80 to-emerald-500/80"
-                          style={{ width: barWidth }}
-                        />
-                      </View>
-                      <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
-                        {day.attempts} {day.attempts === 1 ? 'attempt' : 'attempts'}
-                      </UIText>
-                    </View>
+                    <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+                      {day.attempts} {day.attempts === 1 ? 'attempt' : 'attempts'}
+                    </UIText>
                   </View>
                 );
               })}
