@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildQuestionIndex } from './bank';
+import { getReadinessMode } from './settings';
 
 const STATS_KEY = 'DRIVING_MVP_STATS';
 
@@ -392,9 +393,10 @@ export const resetStats = async (lang = null) => {
  * @param {number} lang - Language index (1, 2, or 3)
  * @param {number} mistakesCount - Number of mistakes remaining
  * @param {Object} stats - Stats object for the language
+ * @param {boolean} useConservative - If true, uses conservative partial scores for insufficient data; if false, uses 0%
  * @returns {number} Readiness score 0-100
  */
-export const calculateReadinessScore = (lang, mistakesCount, stats) => {
+export const calculateReadinessScore = async (lang, mistakesCount, stats, useConservative = false) => {
   const totalQuestions = getTotalUniqueQuestions(lang);
   if (totalQuestions === 0) return 0;
   
@@ -409,8 +411,12 @@ export const calculateReadinessScore = (lang, mistakesCount, stats) => {
   
   let mistakeScore;
   if (!hasEnoughData) {
-    // Insufficient data: conservative score based on coverage
-    mistakeScore = Math.min(30, coverageRatio * 100);
+    // Insufficient data: use 0 or conservative score based on setting
+    if (useConservative) {
+      mistakeScore = Math.min(30, coverageRatio * 100);
+    } else {
+      mistakeScore = 0;
+    }
   } else {
     // Sufficient data: calculate normally
     const mistakeRatio = mistakesCount / Math.max(questionsSeen.length, 1);
@@ -432,8 +438,12 @@ export const calculateReadinessScore = (lang, mistakesCount, stats) => {
   const MIN_ATTEMPTS_FOR_PERFORMANCE = 10;
   let performanceScore;
   if (totalAttempts7d < MIN_ATTEMPTS_FOR_PERFORMANCE) {
-    // Insufficient data: conservative score based on attempts ratio
-    performanceScore = Math.min(30, (totalAttempts7d / MIN_ATTEMPTS_FOR_PERFORMANCE) * 30);
+    // Insufficient data: use 0 or conservative score based on setting
+    if (useConservative) {
+      performanceScore = Math.min(30, (totalAttempts7d / MIN_ATTEMPTS_FOR_PERFORMANCE) * 30);
+    } else {
+      performanceScore = 0;
+    }
   } else {
     // Sufficient data: calculate normally
     performanceScore = Math.round((totalCorrect7d / totalAttempts7d) * 100);
@@ -480,9 +490,10 @@ export const calculateReadinessScore = (lang, mistakesCount, stats) => {
  * @param {number} lang - Language index (1, 2, or 3)
  * @param {number} mistakesCount - Number of mistakes remaining
  * @param {Object} stats - Stats object for the language
+ * @param {boolean} useConservative - If true, uses conservative partial scores for insufficient data; if false, uses 0%
  * @returns {Object} Breakdown object with overall score and component details
  */
-export const getReadinessBreakdown = (lang, mistakesCount, stats) => {
+export const getReadinessBreakdown = async (lang, mistakesCount, stats, useConservative = false) => {
   const totalQuestions = getTotalUniqueQuestions(lang);
   const questionsSeen = stats.coverage?.questionsSeen || [];
   const coverageRatio = questionsSeen.length / totalQuestions;
@@ -495,7 +506,11 @@ export const getReadinessBreakdown = (lang, mistakesCount, stats) => {
   
   let mistakeScore;
   if (!hasEnoughData) {
-    mistakeScore = Math.min(30, coverageRatio * 100);
+    if (useConservative) {
+      mistakeScore = Math.min(30, coverageRatio * 100);
+    } else {
+      mistakeScore = 0;
+    }
   } else {
     const mistakeRatio = mistakesCount / Math.max(questionsSeen.length, 1);
     mistakeScore = Math.max(0, 100 - (mistakeRatio * 100));
@@ -516,8 +531,12 @@ export const getReadinessBreakdown = (lang, mistakesCount, stats) => {
   let performanceScore;
   let hasEnoughPerformanceData;
   if (totalAttempts7d < MIN_ATTEMPTS_FOR_PERFORMANCE) {
-    // Insufficient data: conservative score based on attempts ratio
-    performanceScore = Math.min(30, (totalAttempts7d / MIN_ATTEMPTS_FOR_PERFORMANCE) * 30);
+    // Insufficient data: use 0 or conservative score based on setting
+    if (useConservative) {
+      performanceScore = Math.min(30, (totalAttempts7d / MIN_ATTEMPTS_FOR_PERFORMANCE) * 30);
+    } else {
+      performanceScore = 0;
+    }
     hasEnoughPerformanceData = false;
   } else {
     // Sufficient data: calculate normally
@@ -547,7 +566,7 @@ export const getReadinessBreakdown = (lang, mistakesCount, stats) => {
   const coverageScore = calculateCoverage(lang, questionsSeen);
   
   // Overall
-  const overall = calculateReadinessScore(lang, mistakesCount, stats);
+  const overall = await calculateReadinessScore(lang, mistakesCount, stats, useConservative);
   
   return {
     overall,

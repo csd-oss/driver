@@ -5,7 +5,8 @@ import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage } from '@/src/lib/settings';
-import { calculateAccuracy, getLast7Days, loadStats, resetStats, getReadinessBreakdown } from '@/src/lib/stats';
+import { calculateAccuracy, getLast7Days, getReadinessBreakdown, loadStats, resetStats } from '@/src/lib/stats';
+import { getReadinessMode } from '@/src/lib/settings';
 import { loadProgress, resetProgress } from '@/src/lib/storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -60,7 +61,8 @@ export default function HomeScreen() {
       setStreak(langStats.engagement?.currentStreak || 0);
       
       // Calculate readiness score (use mistakesCount from above)
-      const breakdown = getReadinessBreakdown(currentLang, mistakesCount, langStats);
+      const useConservative = await getReadinessMode();
+      const breakdown = await getReadinessBreakdown(currentLang, mistakesCount, langStats, useConservative);
       setReadinessScore(breakdown.overall);
       
       // Determine status based on score

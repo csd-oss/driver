@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
     "2": "all",
     "3": "all",
   },
+  useConservativeReadiness: false, // If true, uses conservative partial scores for insufficient data; if false, uses 0%
 };
 
 let cachedSettings = null;
@@ -95,4 +96,13 @@ export const setSelectedCategory = async (lang, categoryTxt) => {
   cachedSettings = updated;
   await saveSettings(updated);
   return updated;
+};
+
+/**
+ * Get readiness calculation mode
+ * @returns {Promise<boolean>} true if using conservative mode, false if using strict (0%) mode
+ */
+export const getReadinessMode = async () => {
+  const settings = await getSettings();
+  return settings.useConservativeReadiness || false;
 };

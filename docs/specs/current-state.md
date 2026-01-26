@@ -1,14 +1,14 @@
 # CURRENT STATE SPECIFICATION — Driver SK (Slovakia Driving Exam App)
 
-**Last Updated:** January 23, 2026  
-**Version:** 1.4.0  
+**Last Updated:** January 26, 2026  
+**Version:** 1.5.0  
 **Status:** Production MVP
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-**Driver SK** is a fully functional Expo React Native mobile application designed to help users prepare for Slovakia driving license exams. The app provides comprehensive question bank access, adaptive study modes with intelligent question selection, mistake tracking, mock exam simulations, and multi-language support (Slovak, English, Hungarian). All functionality works completely offline with local data storage and embedded images.
+**Driver SK** is a fully functional Expo React Native mobile application designed to help users prepare for Slovakia driving license exams. The app provides comprehensive question bank access, adaptive study modes with intelligent question selection, mistake tracking, mock exam simulations, exam readiness scoring, and multi-language support (Slovak, English, Hungarian). All functionality works completely offline with local data storage and embedded images.
 
 ---
 
@@ -33,10 +33,11 @@
 5. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
 6. **Progress Tracking** - Mistake tracking with mastery system (2 correct answers removes from mistakes)
 7. **Statistics Dashboard** - Comprehensive statistics tracking with visual emphasis (hero progress summary, coverage bar, and 7-day activity bars)
-8. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
-9. **Offline Operation** - All data and images stored locally
-10. **Question Detail Modal** - Interactive review of wrong answers with full question context
-11. **Smart Practice Algorithm** - Intelligent question prioritization system that adapts to user's learning state
+8. **Exam Readiness Score** - Composite metric (0-100%) combining mistakes, performance, mock exams, and coverage with configurable calculation modes
+9. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
+10. **Offline Operation** - All data and images stored locally
+11. **Question Detail Modal** - Interactive review of wrong answers with full question context
+12. **Smart Practice Algorithm** - Intelligent question prioritization system that adapts to user's learning state
 
 ### 1.3 Business Rules
 - **Scoring:** Each question has point value (`body`), exam pass threshold is `minbody` points
@@ -58,11 +59,11 @@ App Launch
   │   └─ true → Home (direct)
   │
   └─ Home Screen
-      ├─ Your Progress Card (hero KPI summary + accuracy bar) → StatisticsScreen
+      ├─ Your Progress Card (readiness score + accuracy + streak) → StatisticsScreen
       ├─ Smart Study → StudyScreen (adaptive question selection)
       ├─ Mistakes → MistakesScreen (review incorrect answers)
       ├─ Mock Exam → MockScreen (full exam simulation)
-      ├─ Settings → SettingsScreen (language selection)
+      ├─ Settings → SettingsScreen (language selection + readiness mode toggle)
       └─ Reset Progress → Clears mistakes/streaks (keeps language/onboarding)
 ```
 
@@ -131,7 +132,8 @@ App Launch
 AsyncStorage → DRIVING_MVP_SETTINGS
   ├─ lang: number (1-3)
   ├─ hasOnboarded: boolean
-  └─ selectedCategoryByLang: { "1": string, "2": string, "3": string }
+  ├─ selectedCategoryByLang: { "1": string, "2": string, "3": string }
+  └─ useConservativeReadiness: boolean (default: false)
 ```
 
 **Progress Storage:**
@@ -369,8 +371,9 @@ driver/
 #### 3.4.7 Localization (`src/i18n/`)
 - **Simple System:** Key-based translation with language index (1-3)
 - **Fallback:** Falls back to lang 1 if translation missing
-- **Keys:** Organized by feature (home.*, study.*, mistakes.*, etc.)
+- **Keys:** Organized by feature (home.*, study.*, mistakes.*, stats.*, readiness.*, settings.*, etc.)
 - **Languages:** Slovak (1), English (2), Hungarian (3)
+- **Readiness Strings:** Title, status labels (Ready/Getting there/Needs work), component names, weight labels, warnings
 
 #### 3.4.8 UI Components
 - **Design System:** Minimal "shadcn-like" components
@@ -388,10 +391,13 @@ driver/
 
 #### 3.4.9 Storage (`src/lib/storage.js`)
 - **Keys:**
-  - `DRIVING_MVP_SETTINGS` - User settings
+  - `DRIVING_MVP_SETTINGS` - User settings (includes language, readiness mode, categories)
   - `DRIVING_MVP_PROGRESS` - Learning progress
+  - `DRIVING_MVP_STATS` - Statistics data
 - **Operations:** Load, save, reset (progress only)
 - **Settings Caching:** In-memory cache in `settings.js` for performance
+- **Settings Functions:**
+  - `getReadinessMode()` - Get current readiness calculation mode (strict/conservative)
 
 #### 3.4.10 Statistics System (`src/lib/stats.js`)
 - **Tracking:** Comprehensive statistics tracking per language
@@ -404,6 +410,12 @@ driver/
   - `recordMockResult({ lang, testId, score, maxScore, minToPass, passed, durationSec, wrongCount })` - Track mock exams
   - `recordAddedToMistakes({ lang, historyId, count })` - Update mock history
   - `updateStreak({ lang, isMockPass })` - Update engagement streak
+- **Readiness Score Functions:**
+  - `calculateReadinessScore(lang, mistakesCount, stats, useConservative)` - Calculate composite readiness score (0-100%)
+    - Combines: Mistakes (30%), Performance (25%), Mock Exams (30%), Coverage (15%)
+    - Respects `useConservative` setting for insufficient data handling
+  - `getReadinessBreakdown(lang, mistakesCount, stats, useConservative)` - Get detailed breakdown with component scores
+    - Returns overall score and component details (score, weight, metadata, warnings)
 - **Helper Functions:**
   - `todayKey()`, `yesterdayKey()` - Date utilities (yyyyMMdd format)
   - `getLast7Days()` - Get last 7 days date keys
@@ -419,6 +431,11 @@ driver/
   - Daily stats kept for last 14 days (auto-pruned)
   - Mock history capped at 50 entries
   - Coverage tracks unique questions seen vs total in bank
+- **Readiness Score Calculation:**
+  - **Mistake Score (30%):** Requires minimum 10% coverage OR 50 questions seen; otherwise 0% (strict) or capped at 30% (conservative)
+  - **Performance Score (25%):** Requires minimum 10 attempts in last 7 days; otherwise 0% (strict) or capped at 30% (conservative)
+  - **Mock Exam Score (30%):** Overall pass rate (60% weight) + recent 3 exams performance (40% weight); 0% if no exams taken
+  - **Coverage Score (15%):** Percentage of questions seen vs total
 
 ### 3.5 Screen Implementations
 
@@ -434,13 +451,14 @@ driver/
 #### Home (`app/home.tsx`)
 - **Display:** 
   - "YOUR PROGRESS" card (pressable) showing:
-    - Mistakes remaining
+    - **Exam Readiness Score** (0-100%) with progress bar and color-coded status (Ready/Getting there/Needs work)
     - Accuracy (last 7 days)
     - Current streak
   - Feature buttons (Study, Mistakes, Mock, Settings)
   - Reset progress option
-- **Data:** Loads language, progress, and statistics on focus
+- **Data:** Loads language, progress, statistics, and readiness score on focus
 - **Navigation:** Routes to Study, Mistakes, Mock, Settings, Statistics
+- **Readiness Score:** Calculated using current settings (strict or conservative mode)
 
 #### Study (`app/study.tsx`)
 - **Features:**
@@ -527,6 +545,14 @@ driver/
     - Accuracy (lifetime)
     - Accuracy (last 7 days)
     - Question coverage (X / Y questions seen, Z%)
+  - **Exam Readiness Card:**
+    - Overall readiness score (0-100%) with progress bar and status badge
+    - Component breakdown showing:
+      - Mistakes: score, count, weight (30%), warning if insufficient data
+      - Performance: score, attempts (7d), weight (25%), warning if insufficient data
+      - Mock Exams: score, pass rate, recent pass rate, exams taken, weight (30%)
+      - Coverage: score, seen/total, weight (15%)
+    - Each component displays score, weight percentage, and relevant metrics
   - Last 7 Days Card:
     - Daily breakdown showing attempts and accuracy per day
     - Empty state if no data
@@ -539,12 +565,16 @@ driver/
   - Consistency Card:
     - Current streak
     - Last study date (formatted: "Today", "Yesterday", or date)
-- **Data:** Loads statistics and progress on focus
-- **Calculations:** All metrics calculated from stored statistics data
+- **Data:** Loads statistics, progress, and readiness breakdown on focus
+- **Calculations:** All metrics calculated from stored statistics data, readiness score respects user's calculation mode preference
 
 #### Settings (`app/settings.tsx`)
-- **Features:** Language selection buttons
-- **Action:** Updates language immediately, clears cache
+- **Features:** 
+  - Language selection buttons (Slovak, English, Hungarian)
+  - **Readiness Score Mode Toggle:**
+    - Switch to toggle between "Strict mode" (insufficient data = 0%) and "Conservative mode" (insufficient data = partial scores capped at 30%)
+    - Setting persists across app sessions
+- **Action:** Updates language immediately, clears cache; updates readiness mode preference
 
 ### 3.6 Data Structure
 
@@ -666,14 +696,14 @@ driver/
 1. **Visual Charts:** Add charts/graphs for accuracy trends, study activity over time
 2. **Exam History Detail:** Detailed exam history screen with per-question review links
 3. **Category Breakdown:** Category-specific accuracy statistics
-4. **Unique Questions Tracking:** Track which specific questions have been seen
-5. **Readiness Score:** Composite score based on mistakes + recent performance
-6. **Favorites System:** Bookmark questions for later review
-7. **Study Plans:** Structured learning paths
-8. **Explanation Text:** Add explanations for correct answers
-9. **Achievements:** Gamification with badges/achievements
-10. **Backend Sync:** Cloud sync for progress across devices
-11. **Question Updates:** OTA updates for question data
+4. **Unique Questions Tracking:** Track which specific questions have been seen (partially implemented via coverage)
+5. **Favorites System:** Bookmark questions for later review
+6. **Study Plans:** Structured learning paths
+7. **Explanation Text:** Add explanations for correct answers
+8. **Achievements:** Gamification with badges/achievements
+9. **Backend Sync:** Cloud sync for progress across devices
+10. **Question Updates:** OTA updates for question data
+11. **Readiness Score Enhancements:** Historical trends, category-specific readiness, personalized recommendations
 
 ---
 
@@ -723,11 +753,17 @@ npm run reset-project
 - ✅ Statistics tracking: Study attempts, mock exams, streaks tracked correctly
 - ✅ Statistics screen: All metrics display correctly
 - ✅ Question coverage: Questions seen tracking works
-- ✅ Home progress card: Displays correct metrics and navigates to stats
+- ✅ Home progress card: Displays readiness score, accuracy, and streak correctly
 - ✅ Smart Practice Mode: Adaptive question selection prioritizes mistakes, unseen questions, and weak categories
 - ✅ Anti-repetition: Two-tier system prevents frequent repetition (20-question window + minimum gaps: 15 for mistakes, 5 for others)
 - ✅ Smart Study Reason Labels: Reason pills display correctly for all question types (mistake, unseen, weak, random)
 - ✅ Points Display: Points bubble displays correctly on right side with proper styling
+- ✅ Readiness Score: Composite score calculates correctly with all four components
+- ✅ Readiness Score Display: Home screen shows score with progress bar and color-coded status
+- ✅ Readiness Breakdown: Statistics screen shows detailed component breakdown with weights and warnings
+- ✅ Readiness Mode Toggle: Settings screen allows switching between strict and conservative modes
+- ✅ Insufficient Data Handling: Minimum thresholds work correctly for mistakes and performance components
+- ✅ Mock Exam Integration: Mock exam scores contribute correctly to readiness calculation
 
 **Automated Testing:**
 - Not implemented (future consideration)
@@ -736,9 +772,21 @@ npm run reset-project
 
 ## END OF CURRENT STATE SPECIFICATION
 
-This document reflects the current implementation state as of January 23, 2026. 
+This document reflects the current implementation state as of January 26, 2026. 
 
-**Recent Updates (v1.4.0):**
+**Recent Updates (v1.5.0):**
+- Exam Readiness Score: Composite metric feature implemented
+  - Single score (0-100%) combining mistakes, performance, mock exams, and coverage
+  - Weighted formula: Mistakes (30%), Performance (25%), Mock Exams (30%), Coverage (15%)
+  - Minimum data thresholds: Mistakes require 10% coverage or 50 questions; Performance requires 10 attempts in last 7 days
+  - Two calculation modes: Strict (insufficient data = 0%) and Conservative (insufficient data = partial scores capped at 30%)
+  - Settings toggle to switch between calculation modes
+  - Prominent display on Home screen with color-coded status (Ready/Getting there/Needs work)
+  - Detailed breakdown card on Statistics screen showing all components with weights and warnings
+  - Multi-language support for all readiness-related strings
+  - Real-time updates as user studies and takes mock exams
+
+**Previous Updates (v1.4.0):**
 - Smart Study Reason Labels: "Why this question?" feature implemented
   - Visual pill labels explaining question selection rationale
   - Four reason types: mistake, unseen, weak (with category), random
@@ -778,4 +826,4 @@ This document reflects the current implementation state as of January 23, 2026.
 - UI Improvements: Larger, more button-like question items in results list
 - Modal Enhancements: Proper safe zone handling, full-width images, smooth scrolling
 
-For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`. For Smart Practice Mode specification, see `docs/specs/smart-practice.md`. For Smart Study Reason Labels specification, see `docs/specs/why-q-smart.md`.
+For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`. For Smart Practice Mode specification, see `docs/specs/smart-practice.md`. For Smart Study Reason Labels specification, see `docs/specs/why-q-smart.md`. For Readiness Score implementation plan, see `.cursor/plans/readiness_score_implementation_eae787b5.plan.md`.

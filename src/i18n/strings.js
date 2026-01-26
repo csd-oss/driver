@@ -177,6 +177,26 @@ export const STR = {
     2: 'Current language',
     3: 'Jelenlegi nyelv',
   },
+  'settings.readinessTitle': {
+    1: 'Skúšobná pripravenosť',
+    2: 'Exam Readiness',
+    3: 'Vizsga felkészültség',
+  },
+  'settings.readinessDescription': {
+    1: 'Vyberte, ako sa má počítať skóre pripravenosti pri nedostatočných dátach.',
+    2: 'Choose how readiness score is calculated when there is insufficient data.',
+    3: 'Válassza ki, hogyan számítsa ki a felkészültségi pontszámot elégtelen adatok esetén.',
+  },
+  'settings.conservativeMode': {
+    1: 'Konzervatívny režim',
+    2: 'Conservative mode',
+    3: 'Konzervatív mód',
+  },
+  'settings.conservativeModeDesc': {
+    1: 'Používa čiastočné skóre namiesto 0%',
+    2: 'Uses partial scores instead of 0%',
+    3: 'Részleges pontszámot használ 0% helyett',
+  },
   'nav.back': {
     1: 'Späť',
     2: 'Back',

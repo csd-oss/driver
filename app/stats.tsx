@@ -3,12 +3,12 @@ import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
-import { getLanguage } from '@/src/lib/settings';
-import { calculateAccuracy, calculateCoverage, getLast7Days, getTotalUniqueQuestions, loadStats, getReadinessBreakdown } from '@/src/lib/stats';
+import { getLanguage, getReadinessMode } from '@/src/lib/settings';
+import { calculateAccuracy, calculateCoverage, getLast7Days, getReadinessBreakdown, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
 import { loadProgress } from '@/src/lib/storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { ScrollView, View } from 'react-native';
 
 export default function StatsScreen() {
@@ -17,6 +17,7 @@ export default function StatsScreen() {
   const [mistakeCount, setMistakeCount] = useState(0);
   const [stats, setStats] = useState(null);
   const [totalUniqueQuestions, setTotalUniqueQuestions] = useState(0);
+  const [readinessBreakdown, setReadinessBreakdown] = useState(null);
 
   const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
@@ -45,6 +46,22 @@ export default function StatsScreen() {
     useCallback(() => {
       loadData();
     }, [loadData])
+  );
+
+  // Calculate readiness breakdown
+  useFocusEffect(
+    useCallback(() => {
+      const calculateBreakdown = async () => {
+        if (stats) {
+          const useConservative = await getReadinessMode();
+          const breakdown = await getReadinessBreakdown(lang, mistakeCount, stats, useConservative);
+          setReadinessBreakdown(breakdown);
+        } else {
+          setReadinessBreakdown(null);
+        }
+      };
+      calculateBreakdown();
+    }, [lang, mistakeCount, stats])
   );
 
   if (!stats) {
@@ -102,9 +119,6 @@ export default function StatsScreen() {
   // Calculate progress bar width - ensure minimum 1% for visibility when there's progress
   const progressBarPercentage = questionsSeen.length > 0 ? Math.max(coverage, 1) : 0;
   
-  // Calculate readiness breakdown
-  const readinessBreakdown = getReadinessBreakdown(lang, mistakeCount, stats);
-  
   // Get readiness status colors
   const getReadinessStatusInfo = (score) => {
     if (score >= 80) {
@@ -128,8 +142,8 @@ export default function StatsScreen() {
     }
   };
   
-  const readinessInfo = getReadinessStatusInfo(readinessBreakdown.overall);
-  const readinessBarWidth = `${Math.max(readinessBreakdown.overall, 1)}%`;
+  const readinessInfo = readinessBreakdown ? getReadinessStatusInfo(readinessBreakdown.overall) : getReadinessStatusInfo(0);
+  const readinessBarWidth = readinessBreakdown ? `${Math.max(readinessBreakdown.overall, 1)}%` : '0%';
   
   // Format last study date
   const formatLastStudyDate = () => {
@@ -266,6 +280,7 @@ export default function StatsScreen() {
         </Card>
 
         {/* Exam Readiness Card */}
+        {readinessBreakdown && (
         <Card className="gap-4">
           <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
             {t('readiness.title', lang)}
@@ -409,6 +424,7 @@ export default function StatsScreen() {
             </View>
           </View>
         </Card>
+        )}
 
         {/* Last 7 Days Card */}
         <Card className="gap-4">
