@@ -41,31 +41,31 @@ export default function OnboardingScreen() {
     {
       title: t('onboarding.welcome.title', lang),
       description: t('onboarding.welcome.description', lang),
-      icon: '🚗',
+      icon: '🪪',
       color: 'indigo',
     },
     {
       title: t('onboarding.smartStudy.title', lang),
       description: t('onboarding.smartStudy.description', lang),
-      icon: '🧠',
+      icon: '🎯',
       color: 'emerald',
     },
     {
       title: t('onboarding.mistakes.title', lang),
       description: t('onboarding.mistakes.description', lang),
-      icon: '📝',
+      icon: '💪',
       color: 'rose',
     },
     {
       title: t('onboarding.mockExam.title', lang),
       description: t('onboarding.mockExam.description', lang),
-      icon: '📊',
+      icon: '⏱️',
       color: 'amber',
     },
     {
       title: t('onboarding.progress.title', lang),
       description: t('onboarding.progress.description', lang),
-      icon: '📈',
+      icon: '🏆',
       color: 'sky',
     },
   ];
@@ -304,6 +304,7 @@ export default function OnboardingScreen() {
           >
             {slides.map((slide, index) => {
               const colors = getColorClasses(slide.color);
+              const isFirstSlide = index === 0;
               return (
                 <View
                   key={index}
@@ -315,6 +316,15 @@ export default function OnboardingScreen() {
                     style={{ width: cardWidth }}
                   >
                     <View className="items-center gap-4">
+                      {/* Slovakia badge on first slide */}
+                      {isFirstSlide && (
+                        <View className="flex-row items-center gap-2 bg-white/60 dark:bg-slate-800/60 rounded-full px-4 py-1.5 border border-slate-200/50 dark:border-slate-700/50">
+                          <UIText variant="caption" style={{ fontSize: 14 }}>🇸🇰</UIText>
+                          <UIText variant="caption" className="text-slate-600 dark:text-slate-300 font-medium">
+                            Slovakia
+                          </UIText>
+                        </View>
+                      )}
                       <View
                         className={`items-center justify-center rounded-full border-2 border-slate-200/70 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/80`}
                         style={{ width: heroSize, height: heroSize }}
@@ -334,7 +344,7 @@ export default function OnboardingScreen() {
                       </UIText>
                       <UIText
                         variant="body"
-                        className="text-center text-slate-600 dark:text-slate-300"
+                        className="text-center text-slate-600 dark:text-slate-300 leading-relaxed"
                       >
                         {slide.description}
                       </UIText>

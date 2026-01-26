@@ -43,37 +43,48 @@ export default function LanguageSelectScreen() {
     >
       <View className="flex-1 w-full items-center justify-center">
         <View className="w-full max-w-md gap-5 px-5">
-        <Card className="gap-4">
-          <UIText variant="body" className="text-slate-600 dark:text-slate-300">
-            {t('language.description', currentLang)}
-          </UIText>
-          <View className="gap-3">
-            <Button
-              onPress={() => handleLanguageSelect(1)}
-              variant={currentLang === 1 ? 'default' : 'outline'}
-              className="w-full"
-            >
-              🇸🇰 {t('language.lang1', 1)} / {t('language.lang1', 2)} / {t('language.lang1', 3)}
-            </Button>
+          <Card className="gap-5">
+            {/* Language description */}
+            <UIText variant="body" className="text-slate-600 dark:text-slate-300 text-center">
+              {t('language.description', currentLang)}
+            </UIText>
+            
+            {/* Highlighted note about questions */}
+            <View className="flex-row items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 border border-amber-300/40 dark:border-amber-600/40 rounded-xl px-4 py-3">
+              <UIText variant="body" style={{ fontSize: 18 }}>📝</UIText>
+              <UIText variant="caption" className="text-amber-700 dark:text-amber-300 font-medium">
+                {t('language.questionsNote', currentLang)}
+              </UIText>
+            </View>
 
-            <Button
-              onPress={() => handleLanguageSelect(2)}
-              variant={currentLang === 2 ? 'default' : 'outline'}
-              className="w-full"
-            >
-              🇬🇧 {t('language.lang2', 1)} / {t('language.lang2', 2)} / {t('language.lang2', 3)}
-            </Button>
+            {/* Language buttons */}
+            <View className="gap-3">
+              <Button
+                onPress={() => handleLanguageSelect(1)}
+                variant={currentLang === 1 ? 'default' : 'outline'}
+                className="w-full"
+              >
+                🇸🇰 {t('language.lang1', 1)} / {t('language.lang1', 2)} / {t('language.lang1', 3)}
+              </Button>
 
-            <Button
-              onPress={() => handleLanguageSelect(3)}
-              variant={currentLang === 3 ? 'default' : 'outline'}
-              className="w-full"
-            >
-              🇭🇺 {t('language.lang3', 1)} / {t('language.lang3', 2)} / {t('language.lang3', 3)}
-            </Button>
-          </View>
-        </Card>
-      </View>
+              <Button
+                onPress={() => handleLanguageSelect(2)}
+                variant={currentLang === 2 ? 'default' : 'outline'}
+                className="w-full"
+              >
+                🇬🇧 {t('language.lang2', 1)} / {t('language.lang2', 2)} / {t('language.lang2', 3)}
+              </Button>
+
+              <Button
+                onPress={() => handleLanguageSelect(3)}
+                variant={currentLang === 3 ? 'default' : 'outline'}
+                className="w-full"
+              >
+                🇭🇺 {t('language.lang3', 1)} / {t('language.lang3', 2)} / {t('language.lang3', 3)}
+              </Button>
+            </View>
+          </Card>
+        </View>
       </View>
     </Screen>
   );
