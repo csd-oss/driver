@@ -1,18 +1,18 @@
-import { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  ScrollView,
-  Animated,
-  useWindowDimensions,
-  Pressable,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
-import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
+import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage, getSettings, updateSettings } from '@/src/lib/settings';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import {
+    Animated,
+    Pressable,
+    ScrollView,
+    useWindowDimensions,
+    View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface OnboardingSlide {
   title: string;
@@ -29,6 +29,7 @@ export default function OnboardingScreen() {
   const [lang, setLang] = useState(1);
   const scrollViewRef = useRef<ScrollView>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
   const isCompactHeight = SCREEN_HEIGHT < 720;
 
   // Load language
@@ -72,13 +73,26 @@ export default function OnboardingScreen() {
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
       const nextSlide = currentSlide + 1;
-      setCurrentSlide(nextSlide);
+      // Scroll first, then update state after animation completes
       scrollViewRef.current?.scrollTo({
         x: nextSlide * SCREEN_WIDTH,
         animated: true,
       });
+      // Delay state update to sync with scroll animation
+      setTimeout(() => setCurrentSlide(nextSlide), 250);
     } else {
       handleFinish();
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentSlide > 0) {
+      const prevSlide = currentSlide - 1;
+      scrollViewRef.current?.scrollTo({
+        x: prevSlide * SCREEN_WIDTH,
+        animated: true,
+      });
+      setTimeout(() => setCurrentSlide(prevSlide), 250);
     }
   };
 
@@ -108,9 +122,17 @@ export default function OnboardingScreen() {
   const handleScroll = (event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const slideIndex = Math.round(offsetX / SCREEN_WIDTH);
-    if (slideIndex !== currentSlide) {
+    if (slideIndex !== currentSlide && slideIndex >= 0 && slideIndex < slides.length) {
       setCurrentSlide(slideIndex);
     }
+  };
+
+  const goToSlide = (index: number) => {
+    scrollViewRef.current?.scrollTo({
+      x: index * SCREEN_WIDTH,
+      animated: true,
+    });
+    setTimeout(() => setCurrentSlide(index), 250);
   };
 
   const getColorClasses = (color: string) => {
@@ -198,8 +220,43 @@ export default function OnboardingScreen() {
   const heroSize = isCompactHeight ? 76 : 96;
   const heroFontSize = isCompactHeight ? 54 : 64;
   const cardWidth = Math.min(SCREEN_WIDTH - 48, 420);
-  const progressWidth = Math.round(((currentSlide + 1) / slides.length) * 100);
   const languageFlag = lang === 1 ? '🇸🇰' : lang === 3 ? '🇭🇺' : '🇬🇧';
+
+  // Animated dot indicator component
+  const DotIndicator = ({ index }: { index: number }) => {
+    const inputRange = [
+      (index - 1) * SCREEN_WIDTH,
+      index * SCREEN_WIDTH,
+      (index + 1) * SCREEN_WIDTH,
+    ];
+
+    const dotWidth = scrollX.interpolate({
+      inputRange,
+      outputRange: [8, 24, 8],
+      extrapolate: 'clamp',
+    });
+
+    const dotOpacity = scrollX.interpolate({
+      inputRange,
+      outputRange: [0.4, 1, 0.4],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <Pressable onPress={() => goToSlide(index)}>
+        <Animated.View
+          style={{
+            width: dotWidth,
+            opacity: dotOpacity,
+            height: 8,
+            borderRadius: 4,
+            marginHorizontal: 4,
+          }}
+          className="bg-indigo-600 dark:bg-indigo-400"
+        />
+      </Pressable>
+    );
+  };
 
   return (
     <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
@@ -213,32 +270,34 @@ export default function OnboardingScreen() {
               onPress={() =>
                 router.push({ pathname: '/language', params: { from: 'onboarding' } })
               }
-              className="px-2 py-2 -ml-2"
+              className="px-3 py-2 -ml-2 rounded-lg active:bg-slate-200/50 dark:active:bg-slate-800/50"
             >
-              <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+              <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
                 {languageFlag} {t('onboarding.changeLanguage', lang)}
               </UIText>
             </Pressable>
-            <View className={`rounded-full border px-3 py-1 ${accent.pillBg} ${accent.pillBorder}`}>
-              <UIText variant="caption" className={`${accent.text} font-semibold`}>
-                {`Step ${currentSlide + 1} of ${slides.length}`}
-              </UIText>
-            </View>
-            <Button
+            <Pressable
               onPress={handleSkip}
-              variant="secondary"
-              className="px-4 py-2"
+              className="px-3 py-2 -mr-2 rounded-lg active:bg-slate-200/50 dark:active:bg-slate-800/50"
             >
-              <UIText variant="caption">{t('onboarding.skip', lang)}</UIText>
-            </Button>
+              <UIText variant="caption" className="text-slate-500 dark:text-slate-400 font-medium">
+                {t('onboarding.skip', lang)}
+              </UIText>
+            </Pressable>
           </View>
 
-          <ScrollView
+          <Animated.ScrollView
             ref={scrollViewRef}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            onScroll={handleScroll}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+              { 
+                useNativeDriver: false,
+                listener: handleScroll,
+              }
+            )}
             scrollEventThrottle={16}
             contentContainerStyle={{ flexGrow: 1 }}
             className="flex-1"
@@ -284,15 +343,13 @@ export default function OnboardingScreen() {
                 </View>
               );
             })}
-          </ScrollView>
+          </Animated.ScrollView>
 
-          <View className="px-6 pb-4">
-            <View className="h-2 w-full rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
-              <View
-                className={`h-full rounded-full ${accent.progress}`}
-                style={{ width: `${progressWidth}%` }}
-              />
-            </View>
+          {/* Dot indicators */}
+          <View className="flex-row justify-center items-center py-6">
+            {slides.map((_, index) => (
+              <DotIndicator key={index} index={index} />
+            ))}
           </View>
 
           <View
@@ -306,14 +363,7 @@ export default function OnboardingScreen() {
             </Button>
             {currentSlide > 0 && (
               <Button
-                onPress={() => {
-                  const prevSlide = currentSlide - 1;
-                  setCurrentSlide(prevSlide);
-                  scrollViewRef.current?.scrollTo({
-                    x: prevSlide * SCREEN_WIDTH,
-                    animated: true,
-                  });
-                }}
+                onPress={handlePrevious}
                 variant="outline"
                 className="w-full"
               >

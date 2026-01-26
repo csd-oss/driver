@@ -1,5 +1,5 @@
-import { Pressable, Text } from 'react-native';
 import { useFontScaleContext } from '@/contexts/FontScaleContext';
+import { Pressable, Text } from 'react-native';
 
 const variantStyles = {
   default:
