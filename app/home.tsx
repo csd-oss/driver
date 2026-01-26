@@ -5,13 +5,13 @@ import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage } from '@/src/lib/settings';
-import { calculateAccuracy, getLast7Days, getReadinessBreakdown, loadStats, resetStats } from '@/src/lib/stats';
-import { getReadinessMode, updateSettings, clearCache } from '@/src/lib/settings';
-import { loadProgress, resetProgress } from '@/src/lib/storage';
+import { calculateAccuracy, getLast7Days, getReadinessBreakdown, loadStats } from '@/src/lib/stats';
+import { getReadinessMode } from '@/src/lib/settings';
+import { loadProgress } from '@/src/lib/storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -120,34 +120,6 @@ export default function HomeScreen() {
   const readinessInfo = getReadinessStatusInfo();
   const readinessBarWidth = `${Math.max(readinessScore, 1)}%`;
 
-  const handleResetProgress = () => {
-    Alert.alert(
-      t('home.reset', lang),
-      'Are you sure you want to reset your progress? This will clear all mistakes and streaks.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            await resetProgress();
-            await resetStats(); // Reset all statistics including streaks
-            // Reset onboarding so user sees it again on next launch
-            await updateSettings({ hasOnboarded: false });
-            clearCache(); // Clear settings cache to ensure changes take effect
-            setMistakeCount(0);
-            setRecentAccuracy('—');
-            setStreak(0);
-            setReadinessScore(0);
-            setReadinessStatus('needsWork');
-            // Reload data to ensure UI is fully updated
-            await loadData();
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <Screen>
       <View className="flex-1 gap-6">
@@ -253,26 +225,6 @@ export default function HomeScreen() {
             {t('home.settings', lang)}
           </Button>
         </View>
-
-        <Divider />
-
-        <Card className="bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-indigo-500/10 border-transparent">
-          <View className="gap-3">
-            <UIText variant="subtitle" className="text-rose-600 dark:text-rose-200">
-              {t('home.reset', lang)}
-            </UIText>
-            <UIText variant="body" className="text-slate-600 dark:text-slate-300">
-              Clear your progress and start fresh. This action cannot be undone.
-            </UIText>
-            <Button
-              onPress={handleResetProgress}
-              variant="secondary"
-              className="w-full"
-            >
-              {t('home.reset', lang)}
-            </Button>
-          </View>
-        </Card>
       </View>
     </Screen>
   );

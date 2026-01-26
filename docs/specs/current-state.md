@@ -1,7 +1,7 @@
 # CURRENT STATE SPECIFICATION — Driver SK (Slovakia Driving Exam App)
 
 **Last Updated:** January 26, 2026  
-**Version:** 1.5.0  
+**Version:** 1.6.0  
 **Status:** Production MVP
 
 ---
@@ -26,18 +26,19 @@
   - Realistic mock exam simulation
 
 ### 1.2 Core Features (Implemented)
-1. **Smart Study** - Adaptive question selection prioritizing mistakes, unseen questions, and weak categories
-2. **Smart Study Reason Labels** - Visual indicators explaining why each question was selected (mistake, new question, weak area, review)
-3. **Mistakes Review** - Focused practice on incorrectly answered questions with clear answer indicators
-4. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
-5. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
-6. **Progress Tracking** - Mistake tracking with mastery system (2 correct answers removes from mistakes)
-7. **Statistics Dashboard** - Comprehensive statistics tracking with visual emphasis (hero progress summary, coverage bar, and 7-day activity bars)
-8. **Exam Readiness Score** - Composite metric (0-100%) combining mistakes, performance, mock exams, and coverage with configurable calculation modes
-9. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
-10. **Offline Operation** - All data and images stored locally
-11. **Question Detail Modal** - Interactive review of wrong answers with full question context
-12. **Smart Practice Algorithm** - Intelligent question prioritization system that adapts to user's learning state
+1. **Onboarding Experience** - Premium onboarding flow with animated dot indicators, Slovakia-branded first slide, and clear value proposition across 5 slides
+2. **Smart Study** - Adaptive question selection prioritizing mistakes, unseen questions, and weak categories
+3. **Smart Study Reason Labels** - Visual indicators explaining why each question was selected (mistake, new question, weak area, review)
+4. **Mistakes Review** - Focused practice on incorrectly answered questions with clear answer indicators
+5. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
+6. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
+7. **Progress Tracking** - Mistake tracking with mastery system (2 correct answers removes from mistakes)
+8. **Statistics Dashboard** - Comprehensive statistics tracking with visual emphasis (hero progress summary, coverage bar, and 7-day activity bars)
+9. **Exam Readiness Score** - Composite metric (0-100%) combining mistakes, performance, mock exams, and coverage with configurable calculation modes
+10. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
+11. **Offline Operation** - All data and images stored locally
+12. **Question Detail Modal** - Interactive review of wrong answers with full question context
+13. **Smart Practice Algorithm** - Intelligent question prioritization system that adapts to user's learning state
 
 ### 1.3 Business Rules
 - **Scoring:** Each question has point value (`body`), exam pass threshold is `minbody` points
@@ -55,8 +56,16 @@
 ```
 App Launch
   ├─ Check hasOnboarded flag
-  │   ├─ false → IntroAnimation → LanguageSelect → Home
+  │   ├─ false → IntroAnimation → Onboarding (5 slides) → LanguageSelect → Home
   │   └─ true → Home (direct)
+  │
+  ├─ Onboarding Screen (first-time users)
+  │   ├─ 5 swipeable slides with animated dot indicators
+  │   ├─ Skip button (top right) to exit early
+  │   ├─ Change Language link (top left) → LanguageSelect (returns to onboarding)
+  │   ├─ Next/Previous buttons for navigation
+  │   ├─ Tappable dots to jump to specific slides
+  │   └─ Get Started button on final slide → LanguageSelect → Home
   │
   └─ Home Screen
       ├─ Your Progress Card (readiness score + accuracy + streak) → StatisticsScreen
@@ -245,6 +254,7 @@ driver/
 ├── app/                          # Expo Router screens
 │   ├── _layout.tsx               # Root layout with Stack navigator
 │   ├── index.tsx                 # IntroAnimation screen
+│   ├── onboarding.tsx            # Onboarding flow (5 slides)
 │   ├── language.tsx              # Language selection
 │   ├── home.tsx                  # Home screen (with progress preview card)
 │   ├── study.tsx                 # Study mode
@@ -371,8 +381,10 @@ driver/
 #### 3.4.7 Localization (`src/i18n/`)
 - **Simple System:** Key-based translation with language index (1-3)
 - **Fallback:** Falls back to lang 1 if translation missing
-- **Keys:** Organized by feature (home.*, study.*, mistakes.*, stats.*, readiness.*, settings.*, etc.)
+- **Keys:** Organized by feature (home.*, study.*, mistakes.*, stats.*, readiness.*, settings.*, onboarding.*, language.*, etc.)
 - **Languages:** Slovak (1), English (2), Hungarian (3)
+- **Onboarding Strings:** Slide titles and descriptions, navigation buttons (Next, Previous, Skip, Get Started), change language link
+- **Language Strings:** Selection title, description, language names, questions note
 - **Readiness Strings:** Title, status labels (Ready/Getting there/Needs work), component names, weight labels, warnings
 
 #### 3.4.8 UI Components
@@ -442,11 +454,42 @@ driver/
 #### IntroAnimation (`app/index.tsx`)
 - **Animation:** Letter-by-letter fade, scale, and lift animation
 - **Duration:** ~3-4 seconds total
-- **Navigation:** Routes to `/language` or `/home` based on onboarding status
+- **Navigation:** Routes to `/onboarding` or `/home` based on onboarding status
+
+#### Onboarding (`app/onboarding.tsx`)
+- **Purpose:** Premium onboarding experience for first-time users
+- **Slides (5 total):**
+  1. **Slovak Driving License** (🪪) - Welcome slide with 🇸🇰 Slovakia badge, explains app purpose
+  2. **Study Smarter** (🎯) - Adaptive algorithm benefits
+  3. **No Mistake Left Behind** (💪) - Mistake tracking feature
+  4. **Realistic Practice Tests** (⏱️) - Mock exam with 20-minute timer
+  5. **Watch Yourself Improve** (🏆) - Progress and readiness tracking
+- **Navigation:**
+  - Horizontal swipeable ScrollView with paging
+  - Animated dot indicators (scroll-driven, tappable)
+  - Next/Previous buttons at bottom
+  - Skip button (top right) to exit early
+  - Change Language link (top left) → Language screen with return to onboarding
+- **Visual Design:**
+  - Color-coded cards per slide (indigo, emerald, rose, amber, sky)
+  - Large emoji icons in circular containers
+  - Slovakia badge on first slide (🇸🇰 Slovakia)
+  - Clean header with language selector and skip option
+- **Animations:**
+  - Scroll-driven dot indicators (width: 8px → 24px, opacity: 40% → 100%)
+  - Fade-out animation on completion
+  - Delayed state updates to sync with scroll animations (prevents flickering)
+- **Technical:**
+  - Uses `Animated.ScrollView` with `Animated.event` for scroll tracking
+  - `scrollX` Animated.Value drives dot indicator interpolation
+  - Multi-language support for all slide content
+  - Respects safe areas with `useSafeAreaInsets()`
+- **Completion:** Sets `hasOnboarded=true`, navigates to Language screen (or Home if language already chosen)
 
 #### LanguageSelect (`app/language.tsx`)
 - **Options:** 3 language buttons (Slovak, English, Hungarian)
-- **Action:** Sets language, sets `hasOnboarded=true`, navigates to home
+- **Visual Highlight:** Amber-colored notice box emphasizing "Questions will be in this language"
+- **Action:** Sets language, sets `hasChosenLanguage=true`, navigates to onboarding (if from onboarding) or home
 
 #### Home (`app/home.tsx`)
 - **Display:** 
@@ -738,6 +781,12 @@ npm run reset-project
 **Manual Testing:**
 - ✅ All screens render correctly
 - ✅ Navigation flows work
+- ✅ Onboarding flow: All 5 slides display correctly with proper content
+- ✅ Onboarding navigation: Swipe, Next/Previous buttons, dot indicators work
+- ✅ Onboarding animations: Scroll-driven dots animate smoothly without flickering
+- ✅ Onboarding skip: Skip button exits to language/home correctly
+- ✅ Onboarding language change: Returns to onboarding after language selection
+- ✅ Language screen: Highlighted note about questions language displays correctly
 - ✅ Study mode with categories
 - ✅ Mistakes tracking and removal
 - ✅ Mock exam with timer
@@ -774,7 +823,22 @@ npm run reset-project
 
 This document reflects the current implementation state as of January 26, 2026. 
 
-**Recent Updates (v1.5.0):**
+**Recent Updates (v1.6.0):**
+- Premium Onboarding Experience: Complete redesign of first-time user experience
+  - 5-slide onboarding flow with clear Slovakia driving exam focus
+  - Animated scroll-driven dot indicators (replaces progress bar to eliminate flickering)
+  - Slovakia badge (🇸🇰) on welcome slide for clear branding
+  - Updated slide content: compelling, action-oriented copy highlighting key features
+  - Updated icons: 🪪 (license), 🎯 (smart study), 💪 (mistakes), ⏱️ (mock exams), 🏆 (progress)
+  - Tappable dots for direct slide navigation
+  - Synchronized animations: state updates delayed to match scroll animations
+  - Clean header: language selector + skip option (removed redundant step counter)
+- Language Screen Enhancement:
+  - Highlighted amber notice box: "Questions will be in this language"
+  - Clearer description emphasizing both app and exam questions use selected language
+  - Improved visual hierarchy and spacing
+
+**Previous Updates (v1.5.0):**
 - Exam Readiness Score: Composite metric feature implemented
   - Single score (0-100%) combining mistakes, performance, mock exams, and coverage
   - Weighted formula: Mistakes (30%), Performance (25%), Mock Exams (30%), Coverage (15%)

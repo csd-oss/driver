@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Switch } from 'react-native';
+import { View, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Screen } from '@/components/ui/screen';
@@ -8,6 +8,8 @@ import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { getSettings, updateSettings, clearCache } from '@/src/lib/settings';
+import { resetStats } from '@/src/lib/stats';
+import { resetProgress } from '@/src/lib/storage';
 import { t } from '@/src/i18n/i18n';
 
 export default function SettingsScreen() {
@@ -41,13 +43,30 @@ export default function SettingsScreen() {
     setUseConservativeReadiness(value);
   };
 
+  const handleResetProgress = () => {
+    Alert.alert(
+      t('home.reset', lang),
+      'Are you sure you want to reset your progress? This will clear all mistakes and streaks.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            await resetProgress();
+            await resetStats(); // Reset all statistics including streaks
+            // Reset onboarding so user sees it again on next launch
+            await updateSettings({ hasOnboarded: false });
+            clearCache(); // Clear settings cache to ensure changes take effect
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Screen header={<Header title={t('nav.settings', lang)} />}>
       <View className="flex-1 gap-6 mt-1">
-        <View className="items-start mt-2">
-          <UIText variant="title">{t('settings.languageTitle', lang)}</UIText>
-        </View>
-
         <Card className="gap-3">
           <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
             {t('settings.languageTitle', lang)}
@@ -104,6 +123,24 @@ export default function SettingsScreen() {
               thumbColor={useConservativeReadiness ? '#ffffff' : '#f4f3f4'}
               ios_backgroundColor="#cbd5e1"
             />
+          </View>
+        </Card>
+
+        <Card className="bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-indigo-500/10 border-transparent">
+          <View className="gap-3">
+            <UIText variant="subtitle" className="text-rose-600 dark:text-rose-200">
+              {t('home.reset', lang)}
+            </UIText>
+            <UIText variant="body" className="text-slate-600 dark:text-slate-300">
+              Clear your progress and start fresh. This action cannot be undone.
+            </UIText>
+            <Button
+              onPress={handleResetProgress}
+              variant="secondary"
+              className="w-full"
+            >
+              {t('home.reset', lang)}
+            </Button>
           </View>
         </Card>
       </View>
