@@ -6,7 +6,7 @@ import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage } from '@/src/lib/settings';
 import { calculateAccuracy, getLast7Days, getReadinessBreakdown, loadStats, resetStats } from '@/src/lib/stats';
-import { getReadinessMode } from '@/src/lib/settings';
+import { getReadinessMode, updateSettings, clearCache } from '@/src/lib/settings';
 import { loadProgress, resetProgress } from '@/src/lib/storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -132,6 +132,9 @@ export default function HomeScreen() {
           onPress: async () => {
             await resetProgress();
             await resetStats(); // Reset all statistics including streaks
+            // Reset onboarding so user sees it again on next launch
+            await updateSettings({ hasOnboarded: false });
+            clearCache(); // Clear settings cache to ensure changes take effect
             setMistakeCount(0);
             setRecentAccuracy('—');
             setStreak(0);

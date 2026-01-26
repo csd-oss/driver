@@ -86,7 +86,7 @@ export default function IntroAnimationScreen() {
       if (settings && settings.hasOnboarded) {
         router.replace('/home');
       } else {
-        router.replace('/language');
+        router.replace('/onboarding');
       }
     }, letters.length * 180 + 1500);
 

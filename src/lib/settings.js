@@ -1,8 +1,10 @@
 import { loadSettings, saveSettings } from './storage.js';
+import * as Localization from 'expo-localization';
 
 const DEFAULT_SETTINGS = {
-  lang: 1,
+  lang: 2,
   hasOnboarded: false,
+  hasChosenLanguage: false,
   selectedCategoryByLang: {
     "1": "all",
     "2": "all",
@@ -19,10 +21,31 @@ export const getSettings = async () => {
   }
   
   const stored = await loadSettings();
+  const resolveLanguage = (langValue) => {
+    if (langValue === 1 || langValue === 2 || langValue === 3) {
+      return langValue;
+    }
+    const locales =
+      typeof Localization.getLocales === 'function'
+        ? Localization.getLocales()
+        : [];
+    const primaryLocale = locales[0]?.languageCode || Localization.locale || '';
+    const normalized = String(primaryLocale).toLowerCase().split('-')[0];
+    if (normalized === 'sk') return 1;
+    if (normalized === 'hu') return 3;
+    return 2;
+  };
+
   if (stored) {
-    cachedSettings = { ...DEFAULT_SETTINGS, ...stored };
+    const resolvedLang = resolveLanguage(stored.lang);
+    cachedSettings = { ...DEFAULT_SETTINGS, ...stored, lang: resolvedLang };
+    if (stored.lang !== resolvedLang) {
+      await saveSettings(cachedSettings);
+    }
   } else {
-    cachedSettings = { ...DEFAULT_SETTINGS };
+    const resolvedLang = resolveLanguage(undefined);
+    cachedSettings = { ...DEFAULT_SETTINGS, lang: resolvedLang };
+    await saveSettings(cachedSettings);
   }
   
   return cachedSettings;

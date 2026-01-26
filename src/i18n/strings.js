@@ -152,6 +152,11 @@ export const STR = {
     2: 'Select Language',
     3: 'Válasszon nyelvet',
   },
+  'language.description': {
+    1: 'Vyberte si preferovaný jazyk pre aplikáciu a otázky, ktoré sa budú používať na štúdium.',
+    2: 'Choose your preferred language for the app and the language of questions which will be used to study.',
+    3: 'Válassza ki az alkalmazáshoz és a tanuláshoz használt kérdések nyelvét.',
+  },
   'language.lang1': {
     1: 'Slovenčina',
     2: 'Slovak',
@@ -441,5 +446,80 @@ export const STR = {
     1: 'Uskutočnené testy',
     2: 'Exams taken',
     3: 'Elvégzett vizsgák',
+  },
+  'onboarding.welcome.title': {
+    1: 'Vitajte v aplikácii',
+    2: 'Welcome to the App',
+    3: 'Üdvözöljük az alkalmazásban',
+  },
+  'onboarding.welcome.description': {
+    1: 'Pripravte sa na vodičský test s inteligentným systémom štúdia, ktorý sa prispôsobuje vášmu pokroku.',
+    2: 'Prepare for your driving test with an intelligent study system that adapts to your progress.',
+    3: 'Készüljön fel a vezetési vizsgára egy intelligens tanulási rendszerrel, amely alkalmazkodik az előrehaladásához.',
+  },
+  'onboarding.smartStudy.title': {
+    1: 'Inteligentné štúdium',
+    2: 'Smart Study',
+    3: 'Okos tanulás',
+  },
+  'onboarding.smartStudy.description': {
+    1: 'Aplikácia automaticky identifikuje vaše chyby a slabé oblasti, potom vytvorí personalizovaný plán na ich opravu.',
+    2: 'The app automatically identifies your mistakes and weak areas, then creates a personalized plan to fix them.',
+    3: 'Az alkalmazás automatikusan azonosítja a hibáit és gyenge területeit, majd személyre szabott tervet készít a javításukhoz.',
+  },
+  'onboarding.mistakes.title': {
+    1: 'Sledovanie chýb',
+    2: 'Track Your Mistakes',
+    3: 'Hibák követése',
+  },
+  'onboarding.mistakes.description': {
+    1: 'Všetky vaše chyby sú uložené a môžete sa k nim vrátiť kedykoľvek. Opakujte ich, kým ich nezvládnete.',
+    2: 'All your mistakes are saved and you can review them anytime. Practice them until you master them.',
+    3: 'Minden hibája mentve van, és bármikor áttekintheti őket. Gyakorolja őket, amíg elsajátítja őket.',
+  },
+  'onboarding.mockExam.title': {
+    1: 'Skúšobné testy',
+    2: 'Mock Exams',
+    3: 'Próba vizsgák',
+  },
+  'onboarding.mockExam.description': {
+    1: 'Cvičte skutočné testy s časovým limitom. Sledujte svoje skóre a zistite, či ste pripravení na skutočný test.',
+    2: 'Practice real exams with time limits. Track your scores and see if you\'re ready for the real test.',
+    3: 'Gyakoroljon valódi vizsgákat időkorláttal. Kövesse nyomon pontszámait, és nézze meg, kész-e a valódi vizsgára.',
+  },
+  'onboarding.progress.title': {
+    1: 'Sledujte svoj pokrok',
+    2: 'Track Your Progress',
+    3: 'Kövesse nyomon előrehaladását',
+  },
+  'onboarding.progress.description': {
+    1: 'Pozrite si svoje štatistiky, presnosť, sériu dní a skóre pripravenosti. Viditeľne vidíte, ako sa zlepšujete.',
+    2: 'View your statistics, accuracy, daily streaks, and readiness score. See your improvement clearly.',
+    3: 'Tekintse meg statisztikáit, pontosságát, napi sorozatait és felkészültségi pontszámát. Láthatóan láthatja a fejlődését.',
+  },
+  'onboarding.changeLanguage': {
+    1: 'Zmeniť jazyk',
+    2: 'Change language',
+    3: 'Nyelv módosítása',
+  },
+  'onboarding.next': {
+    1: 'Ďalšie',
+    2: 'Next',
+    3: 'Következő',
+  },
+  'onboarding.previous': {
+    1: 'Predchádzajúce',
+    2: 'Previous',
+    3: 'Előző',
+  },
+  'onboarding.skip': {
+    1: 'Preskočiť',
+    2: 'Skip',
+    3: 'Kihagyás',
+  },
+  'onboarding.getStarted': {
+    1: 'Začať',
+    2: 'Get Started',
+    3: 'Kezdés',
   },
 };
