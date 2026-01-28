@@ -40,9 +40,18 @@ export default function LanguageSelectScreen() {
     router.replace(fromOnboarding ? '/onboarding' : '/home');
   };
 
+  const handleBack = () => {
+    if (fromOnboarding) {
+      router.back();
+    } else {
+      // If came from onboarding completion/skip, go back to onboarding
+      router.replace('/onboarding');
+    }
+  };
+
   return (
     <Screen
-      header={<Header title={t('language.selectTitle', currentLang)} showBack />}
+      header={<Header title={t('language.selectTitle', currentLang)} showBack onBackPress={handleBack} />}
     >
       <View className="flex-1 w-full items-center justify-center">
         <View className="w-full max-w-md gap-5 px-5">
