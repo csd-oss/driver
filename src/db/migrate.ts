@@ -6,17 +6,8 @@ import { database } from './index';
  */
 export async function runMigrations(): Promise<void> {
   try {
-    // Create all tables
+    // Create all tables and run schema migrations
     createTables();
-    
-    // Create migrations tracking table
-    database.execSync(`
-      CREATE TABLE IF NOT EXISTS __drizzle_migrations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        hash TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )
-    `);
 
     // Run view definitions
     await createViews();
@@ -62,6 +53,8 @@ function createTables(): void {
       lang INTEGER NOT NULL,
       question_id TEXT NOT NULL,
       streak_count INTEGER NOT NULL DEFAULT 0,
+      next_review_at INTEGER,
+      interval_days INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       synced_at INTEGER,
@@ -69,6 +62,18 @@ function createTables(): void {
     )
   `);
   database.execSync(`CREATE INDEX IF NOT EXISTS mistakes_lang_idx ON mistakes(lang)`);
+  
+  // Add new columns to existing mistakes table if they don't exist (migration)
+  try {
+    database.execSync(`ALTER TABLE mistakes ADD COLUMN next_review_at INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    database.execSync(`ALTER TABLE mistakes ADD COLUMN interval_days INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Study sessions table
   database.execSync(`

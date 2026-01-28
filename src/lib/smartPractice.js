@@ -1,4 +1,5 @@
 import { database } from '../db/index';
+import * as AttemptsDB from '../db/queries/attempts';
 import * as MistakesDB from '../db/queries/mistakes';
 import {
   buildQuestionIndex,
@@ -117,6 +118,7 @@ const pickFromMistakes = ({ lang, selectedCategory, recentIds, mistakes, seenSet
     return null;
   }
   
+  // Mistakes are already sorted by next_review_at ASC (most overdue first) from getMistakes()
   // Filter by category if needed
   let candidates = selectedCategory === 'all' 
     ? [...mistakes] 
@@ -129,6 +131,73 @@ const pickFromMistakes = ({ lang, selectedCategory, recentIds, mistakes, seenSet
   // Minimum gap: don't show a mistake again until at least MIN_GAP other questions have been shown
   const MIN_GAP = 15;
   
+  // Find first candidate not in recent window (maintains due-date ordering)
+  for (const qid of candidates) {
+    if (!isRecent(qid, recentIds)) {
+      return findQuestionById(lang, qid);
+    }
+  }
+  
+  // All candidates are recent - check if any are outside the minimum gap window
+  const recentWindow = recentIds.slice(-MIN_GAP); // Last MIN_GAP questions
+  for (const qid of candidates) {
+    if (!recentWindow.includes(qid)) {
+      return findQuestionById(lang, qid);
+    }
+  }
+  
+  // All mistakes are within the minimum gap window - skip to next priority
+  // This prevents showing the same mistake with only a small gap
+  return null;
+};
+
+/**
+ * Priority 1.5: Pick a shaky question (low accuracy, slow response, or stale)
+ * @param {Object} params
+ * @param {number} params.lang - Language index
+ * @param {string} params.selectedCategory - Selected category ('all' or category text)
+ * @param {string[]} params.recentIds - Recent question IDs
+ * @param {Set<string>} params.mistakeSet - Set of mistake question IDs
+ * @returns {Promise<Object|null>} Question object or null
+ */
+const pickShakyQuestion = async ({ lang, selectedCategory, recentIds, mistakeSet }) => {
+  const perfStats = await AttemptsDB.getQuestionPerformanceStats(lang);
+  
+  if (!perfStats || perfStats.length === 0) {
+    return null;
+  }
+  
+  // Filter to shaky candidates
+  const shakyQids = perfStats.filter(row => {
+    const accuracy = row.correct / row.attempts;
+    const isShakyAccuracy = accuracy >= 0.3 && accuracy <= 0.7;
+    const isSlow = row.avg_response_time_ms > 15000;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const lastSeenSeconds = row.last_seen_at;
+    const daysSinceLastSeen = (nowSeconds - lastSeenSeconds) / (24 * 60 * 60);
+    const isStale = daysSinceLastSeen > 7;
+    
+    return isShakyAccuracy && 
+           !mistakeSet.has(row.question_id) && 
+           (isSlow || isStale);
+  }).map(r => r.question_id);
+  
+  if (shakyQids.length === 0) {
+    return null;
+  }
+  
+  // Filter by category if needed
+  let candidates = selectedCategory === 'all' 
+    ? [...shakyQids] 
+    : filterByCategory(lang, shakyQids, selectedCategory);
+  
+  if (candidates.length === 0) {
+    return null;
+  }
+  
+  // Minimum gap for shaky questions (similar to unseen)
+  const MIN_GAP = 5;
+  
   // Exclude recent questions (full 20-question window)
   const nonRecent = candidates.filter(qid => !isRecent(qid, recentIds));
   
@@ -139,17 +208,15 @@ const pickFromMistakes = ({ lang, selectedCategory, recentIds, mistakes, seenSet
   }
   
   // All candidates are recent - check if any are outside the minimum gap window
-  const recentWindow = recentIds.slice(-MIN_GAP); // Last MIN_GAP questions
+  const recentWindow = recentIds.slice(-MIN_GAP);
   const outsideMinGap = candidates.filter(qid => !recentWindow.includes(qid));
   
   if (outsideMinGap.length > 0) {
-    // Pick from candidates outside the minimum gap
     const randomIndex = Math.floor(Math.random() * outsideMinGap.length);
     return findQuestionById(lang, outsideMinGap[randomIndex]);
   }
   
-  // All mistakes are within the minimum gap window - skip to next priority
-  // This prevents showing the same mistake with only a small gap
+  // All candidates within minimum gap - skip to next priority
   return null;
 };
 
@@ -327,6 +394,9 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
   // Build seen set once for performance
   const seenSet = new Set(questionsSeen);
   
+  // Build mistake set for efficient lookup
+  const mistakeSet = new Set(mistakes);
+  
   // Helper to create return shape: { question, reason }
   const withReason = (question, type, category = null) => {
     if (!question) return null;
@@ -346,6 +416,15 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
     seenSet,
   });
   if (q1) return withReason(q1, 'mistake');
+  
+  // Priority 1.5: Shaky questions (low accuracy, slow response, or stale)
+  const q15 = await pickShakyQuestion({
+    lang,
+    selectedCategory,
+    recentIds,
+    mistakeSet,
+  });
+  if (q15) return withReason(q15, 'shaky');
   
   // Priority 2: Unseen questions
   const q2 = pickUnseen({

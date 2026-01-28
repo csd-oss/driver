@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { getDeviceId } from '../device';
-import { db } from '../index';
+import { database, db } from '../index';
 import { answerAttempts } from '../schema/answerAttempts';
 import { generateId } from '../utils';
 
@@ -124,6 +124,25 @@ export async function getAnswerHistory(
     .orderBy(desc(answerAttempts.createdAt))
     .limit(limit)
     .offset(offset);
+}
+
+/**
+ * Get question-level performance statistics
+ * Returns aggregated stats for each question with at least 2 attempts
+ */
+export async function getQuestionPerformanceStats(lang: number) {
+  return database.getAllAsync(`
+    SELECT 
+      question_id,
+      COUNT(*) as attempts,
+      SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct,
+      AVG(response_time_ms) as avg_response_time_ms,
+      MAX(created_at) as last_seen_at
+    FROM answer_attempts
+    WHERE lang = ? AND mode IN ('study', 'mistakes')
+    GROUP BY question_id
+    HAVING attempts >= 2
+  `, [lang]);
 }
 
 /**

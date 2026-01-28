@@ -442,6 +442,46 @@ export const STR = {
     2: 'Was in mistakes',
     3: 'Hibákban volt',
   },
+  'history.filterMistakes': {
+    1: 'Filtrovať chyby',
+    2: 'Filter mistakes',
+    3: 'Hibák szűrése',
+  },
+  'history.showOnlyMistakes': {
+    1: 'Zobraziť len chyby',
+    2: 'Show only mistakes',
+    3: 'Csak hibák mutatása',
+  },
+  'history.showAll': {
+    1: 'Zobraziť všetko',
+    2: 'Show all',
+    3: 'Összes mutatása',
+  },
+  'history.nextReview': {
+    1: 'Ďalšie opakovanie',
+    2: 'Next review',
+    3: 'Következő áttekintés',
+  },
+  'history.interval': {
+    1: 'Interval',
+    2: 'Interval',
+    3: 'Intervallum',
+  },
+  'history.dueNow': {
+    1: 'Teraz',
+    2: 'Due now',
+    3: 'Most',
+  },
+  'history.dueIn': {
+    1: 'O {days} dní',
+    2: 'Due in {days} days',
+    3: '{days} nap múlva',
+  },
+  'history.streak': {
+    1: 'Séria',
+    2: 'Streak',
+    3: 'Sorozat',
+  },
   'study.reason.mistake': {
     1: 'Oprava chyby',
     2: 'Fixing a mistake',
@@ -451,6 +491,11 @@ export const STR = {
     1: 'Nová otázka',
     2: 'New question',
     3: 'Új kérdés',
+  },
+  'study.reason.shaky': {
+    1: 'Nestabilná otázka',
+    2: 'Shaky question',
+    3: 'Bizonytalan kérdés',
   },
   'study.reason.weak': {
     1: 'Slabá oblasť: {category}',

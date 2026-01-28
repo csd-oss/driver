@@ -6,6 +6,8 @@ export const mistakes = sqliteTable('mistakes', {
   lang: integer('lang').notNull(),
   questionId: text('question_id').notNull(), // qid from question bank
   streakCount: integer('streak_count').notNull().default(0), // consecutive correct answers
+  nextReviewAt: integer('next_review_at', { mode: 'timestamp' }), // when to show again (null = immediately due)
+  intervalDays: integer('interval_days').notNull().default(0), // current interval (0, 1, 3, or 7)
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   syncedAt: integer('synced_at', { mode: 'timestamp' }), // null = not synced

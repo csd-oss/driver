@@ -14,8 +14,8 @@ export const applyAnswer = async (state, lang, qid, isCorrect) => {
     // Wrong answer: add to mistakes (or reset streak if already there)
     await MistakesDB.addMistake(lang, qid);
   } else {
-    // Correct answer: increment streak if in mistakes
-    await MistakesDB.incrementStreak(lang, qid);
+    // Correct answer: record correct answer (implements spaced repetition)
+    await MistakesDB.recordCorrectAnswer(lang, qid);
   }
   
   // Return updated state for backward compatibility

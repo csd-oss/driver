@@ -28,6 +28,8 @@ const getReasonLabel = (reason: any, lang: number) => {
   switch (reason.type) {
     case 'mistake':
       return t('study.reason.mistake', lang);
+    case 'shaky':
+      return t('study.reason.shaky', lang);
     case 'unseen':
       return t('study.reason.unseen', lang);
     case 'weak':
