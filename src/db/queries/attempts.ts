@@ -18,6 +18,7 @@ export interface AnswerAttemptData {
   questionShownAt: Date;
   answerSubmittedAt: Date;
   wasInMistakes: boolean;
+  responseTimeMs?: number; // Optional: for mock mode to use accumulated time instead of calculated
 }
 
 /**
@@ -25,7 +26,10 @@ export interface AnswerAttemptData {
  */
 export async function logAnswerAttempt(data: AnswerAttemptData): Promise<string> {
   const deviceId = await getDeviceId();
-  const responseTimeMs = data.answerSubmittedAt.getTime() - data.questionShownAt.getTime();
+  // Use provided responseTimeMs (for mock mode with accumulated time) or calculate it
+  const responseTimeMs = data.responseTimeMs !== undefined 
+    ? data.responseTimeMs 
+    : data.answerSubmittedAt.getTime() - data.questionShownAt.getTime();
   
   const id = generateId();
   

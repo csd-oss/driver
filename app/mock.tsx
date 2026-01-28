@@ -3,6 +3,7 @@ import { View, ScrollView, Alert, Pressable, Modal } from 'react-native';
 import { AspectImage } from '@/components/ui/aspect-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Screen } from '@/components/ui/screen';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,9 @@ export default function MockScreen() {
   const [mockExamId, setMockExamId] = useState(null);
   const [examStartedAt, setExamStartedAt] = useState(null);
   const [answers, setAnswers] = useState({});
-  const [questionShownAt, setQuestionShownAt] = useState({}); // Track when each question was shown
+  const [questionShownAt, setQuestionShownAt] = useState({}); // Track when each question was first shown
+  const [timeSpentMs, setTimeSpentMs] = useState({}); // Accumulated milliseconds per question
+  const currentQuestionStartedAtRef = useRef<Date | null>(null); // When current question view started
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
@@ -52,12 +55,68 @@ export default function MockScreen() {
     loadData();
   }, []);
 
+  // Helper function to save answered attempts (used on finish and early exit)
+  const saveAnsweredAttempts = useCallback(async (finalTimeSpent: { [key: string]: number }) => {
+    if (!mockExamId || !test || !examStartedAt) return;
+    
+    const finishTime = new Date();
+    
+    // Log only ANSWERED questions
+    for (const [qNoStr, answerIndex] of Object.entries(answers)) {
+      const qNo = parseInt(qNoStr, 10);
+      const question = getQuestionFromTest(test, qNo);
+      if (!question) continue;
+      
+      const categoryText = getCategoryForQuestion(test, qNo);
+      const wasInMistakes = await MistakesDB.isMistake(lang, question.qid);
+      const shownAt = questionShownAt[qNoStr] || examStartedAt;
+      const totalTimeMs = finalTimeSpent[qNoStr] || 0;
+      
+      await AttemptsDB.logAnswerAttempt({
+        lang,
+        questionId: question.qid,
+        mode: 'mock',
+        mockExamId,
+        categoryText,
+        selectedAnswerIndex: answerIndex,
+        correctAnswerIndex: question.correct,
+        isCorrect: answerIndex === question.correct,
+        points: question.points,
+        questionShownAt: shownAt,
+        answerSubmittedAt: finishTime,
+        wasInMistakes,
+        responseTimeMs: totalTimeMs,
+      });
+    }
+  }, [mockExamId, test, examStartedAt, answers, questionShownAt, lang]);
+
+  // Handle early exit (user navigates back)
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        // User leaving screen - save any answered questions
+        if (mockExamId && !isFinished && test && examStartedAt) {
+          // Accumulate current question time before saving
+          const finalTimeSpent = { ...timeSpentMs };
+          if (currentQuestionStartedAtRef.current) {
+            const elapsed = Date.now() - currentQuestionStartedAtRef.current.getTime();
+            const qNoStr = String(currentQuestion);
+            finalTimeSpent[qNoStr] = (finalTimeSpent[qNoStr] || 0) + elapsed;
+          }
+          saveAnsweredAttempts(finalTimeSpent);
+        }
+      };
+    }, [mockExamId, isFinished, test, examStartedAt, timeSpentMs, currentQuestion, saveAnsweredAttempts])
+  );
+
   const startNewTest = async (currentLang) => {
     const { test: newTest, testIndex: idx } = getRandomTestWithIndex(currentLang);
     setTest(newTest);
     setTestIndex(idx);
     setAnswers({});
     setQuestionShownAt({});
+    setTimeSpentMs({});
+    currentQuestionStartedAtRef.current = null;
     setIsFinished(false);
     setScore(0);
     setMaxScore(newTest?.maxbody || 0);
@@ -83,51 +142,28 @@ export default function MockScreen() {
     const startedAt = new Date();
     setExamStartedAt(startedAt);
     
-    // Track first question shown
+    // Track first question shown and start time tracking
     setQuestionShownAt({ [String(1)]: startedAt });
+    currentQuestionStartedAtRef.current = startedAt;
   };
 
   const handleFinish = useCallback(async () => {
     if (!test || testIndex === null || !mockExamId || !examStartedAt) return;
     
+    // Accumulate remaining time for current question
+    const finalTimeSpent = { ...timeSpentMs };
+    if (currentQuestionStartedAtRef.current) {
+      const elapsed = Date.now() - currentQuestionStartedAtRef.current.getTime();
+      const qNoStr = String(currentQuestion);
+      finalTimeSpent[qNoStr] = (finalTimeSpent[qNoStr] || 0) + elapsed;
+    }
+    
+    // Log answer attempts for ANSWERED questions only (with accumulated time)
+    await saveAnsweredAttempts(finalTimeSpent);
+    
     let totalScore = 0;
     let totalMax = 0;
     const questionResults = {};
-    
-    // Log all answer attempts before calculating score
-    for (let qNo = 1; qNo <= test.pocet; qNo++) {
-      const qNoStr = String(qNo);
-      const questionData = test.otazky[qNoStr];
-      if (!questionData || !questionData[0]) continue;
-      
-      const q = questionData[0];
-      const userAnswer = answers[qNoStr];
-      
-      if (userAnswer !== undefined) {
-        const question = getQuestionFromTest(test, qNo);
-        if (question) {
-          const categoryText = getCategoryForQuestion(test, qNo);
-          const wasInMistakes = await MistakesDB.isMistake(lang, question.qid);
-          const shownAt = questionShownAt[qNoStr] || examStartedAt;
-          const submittedAt = new Date(); // Use current time as final submission
-          
-          await AttemptsDB.logAnswerAttempt({
-            lang,
-            questionId: question.qid,
-            mode: 'mock',
-            mockExamId,
-            categoryText,
-            selectedAnswerIndex: userAnswer,
-            correctAnswerIndex: question.correct,
-            isCorrect: userAnswer === question.correct,
-            points: question.points,
-            questionShownAt: shownAt,
-            answerSubmittedAt: submittedAt,
-            wasInMistakes,
-          });
-        }
-      }
-    }
     
     // Calculate score
     for (let qNo = 1; qNo <= test.pocet; qNo++) {
@@ -139,11 +175,13 @@ export default function MockScreen() {
       totalMax += q.body;
       
       const userAnswer = answers[qNoStr];
-      if (userAnswer === q.platna) {
-        totalScore += q.body;
-        questionResults[qNoStr] = true;
-      } else {
-        questionResults[qNoStr] = false;
+      if (userAnswer !== undefined) {
+        if (userAnswer === q.platna) {
+          totalScore += q.body;
+          questionResults[qNoStr] = true;
+        } else {
+          questionResults[qNoStr] = false;
+        }
       }
     }
     
@@ -166,7 +204,7 @@ export default function MockScreen() {
       wrongCount,
       durationSec,
     }, examStartedAt);
-  }, [test, testIndex, answers, lang, timeRemaining, mockExamId, examStartedAt, questionShownAt]);
+  }, [test, testIndex, answers, lang, timeRemaining, mockExamId, examStartedAt, questionShownAt, timeSpentMs, currentQuestion, saveAnsweredAttempts]);
 
   useEffect(() => {
     if (timeRemaining > 0 && !isFinished) {
@@ -188,38 +226,12 @@ export default function MockScreen() {
     if (isFinished) return;
     
     const qNoStr = String(qNo);
-    const previousAnswer = answers[qNoStr];
     
+    // Only update answer state - logging happens at exam finish/exit
     setAnswers((prev) => ({
       ...prev,
       [qNoStr]: answerIndex,
     }));
-    
-    // Log answer attempt if this is the first time answering or answer changed
-    if (previousAnswer === undefined || previousAnswer !== answerIndex) {
-      const question = getQuestionFromTest(test, qNo);
-      if (question) {
-        const categoryText = getCategoryForQuestion(test, qNo);
-        const wasInMistakes = await MistakesDB.isMistake(lang, question.qid);
-        const shownAt = questionShownAt[qNoStr] || examStartedAt || new Date();
-        const submittedAt = new Date();
-        
-        await AttemptsDB.logAnswerAttempt({
-          lang,
-          questionId: question.qid,
-          mode: 'mock',
-          mockExamId,
-          categoryText,
-          selectedAnswerIndex: answerIndex,
-          correctAnswerIndex: question.correct,
-          isCorrect: answerIndex === question.correct,
-          points: question.points,
-          questionShownAt: shownAt,
-          answerSubmittedAt: submittedAt,
-          wasInMistakes,
-        });
-      }
-    }
     
     // Auto-scroll to navigation buttons after selecting an answer
     if (contentScrollRef.current) {
@@ -265,7 +277,17 @@ export default function MockScreen() {
   const handleQuestionNavigation = (qNo) => {
     const qNoStr = String(qNo);
     
-    // Track when question is shown
+    // Accumulate time for current question before navigating away
+    if (currentQuestionStartedAtRef.current && currentQuestion !== qNo) {
+      const elapsed = Date.now() - currentQuestionStartedAtRef.current.getTime();
+      const currentQNoStr = String(currentQuestion);
+      setTimeSpentMs(prev => ({
+        ...prev,
+        [currentQNoStr]: (prev[currentQNoStr] || 0) + elapsed,
+      }));
+    }
+    
+    // Track when question is first shown
     if (!questionShownAt[qNoStr]) {
       setQuestionShownAt(prev => ({
         ...prev,
@@ -273,7 +295,10 @@ export default function MockScreen() {
       }));
     }
     
+    // Start tracking time for the new question
+    currentQuestionStartedAtRef.current = new Date();
     setCurrentQuestion(qNo);
+    
     // Scroll to the question button in the navigation bar
     if (questionScrollRef.current) {
       const buttonWidth = 44;
