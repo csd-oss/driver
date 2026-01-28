@@ -8,21 +8,21 @@ import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
-import { loadProgress, saveProgress } from '@/src/lib/storage';
 import { applyAnswer } from '@/src/lib/engine';
-import { recordStudyAttempt, recordQuestionSeen, updateStreak } from '@/src/lib/stats';
 import { getSmartQuestion, pushRecent } from '@/src/lib/smartPractice';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
 import { CategorySelector } from '@/components/CategorySelector';
+import * as StudySessionDB from '@/src/db/queries/studySessions';
+import * as AttemptsDB from '@/src/db/queries/attempts';
+import * as MistakesDB from '@/src/db/queries/mistakes';
+import { getCategoryForQuestion } from '@/src/lib/categories';
+import { getTests, findQuestionById } from '@/src/lib/bank';
 
 /**
  * Get user-facing label for a reason
- * @param {Object} reason - Reason object with type and optional category
- * @param {number} lang - Language index
- * @returns {string} User-facing label
  */
-const getReasonLabel = (reason, lang) => {
+const getReasonLabel = (reason: any, lang: number) => {
   if (!reason || !reason.type) return '';
   
   switch (reason.type) {
@@ -46,16 +46,16 @@ export default function StudyScreen() {
   const nextButtonRef = useRef(null);
   const questionCardRef = useRef(null);
   const hasRecordedAnswer = useRef(false);
-  const hasRecordedSeen = useRef(false);
   const recentQuestionIds = useRef([]);
+  const sessionIdRef = useRef<string | null>(null);
+  const questionShownAtRef = useRef<Date | null>(null);
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
-  const [question, setQuestion] = useState(null);
-  const [reason, setReason] = useState(null);
+  const [question, setQuestion] = useState<any>(null);
+  const [reason, setReason] = useState<any>(null);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
-  const [progress, setProgress] = useState({ mistakesByLang: {}, streaksByLang: {} });
 
   const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
@@ -64,10 +64,13 @@ export default function StudyScreen() {
     const category = await getSelectedCategory(currentLang);
     setSelectedCategoryState(category);
     
-    const loadedProgress = await loadProgress();
-    if (loadedProgress) {
-      setProgress(loadedProgress);
-    }
+    // Create study session
+    const sessionId = await StudySessionDB.createStudySession({
+      lang: currentLang,
+      mode: 'study',
+      categoryText: category === 'all' ? undefined : category,
+    });
+    sessionIdRef.current = sessionId;
     
     loadNewQuestion(currentLang, category);
   }, []);
@@ -75,12 +78,20 @@ export default function StudyScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
+      
+      // Cleanup: end session when leaving screen
+      return () => {
+        if (sessionIdRef.current) {
+          // Note: We don't track questionsCount/correctCount here since we log attempts separately
+          StudySessionDB.endStudySession(sessionIdRef.current, 0, 0);
+        }
+      };
     }, [loadData])
   );
 
-  const loadNewQuestion = async (currentLang, category = selectedCategory) => {
+  const loadNewQuestion = async (currentLang: number, category: string = selectedCategory) => {
     // Use Smart Practice algorithm
-    const result = await getSmartQuestion({
+    const result: any = await getSmartQuestion({
       lang: currentLang,
       selectedCategory: category,
       recentIds: recentQuestionIds.current,
@@ -88,7 +99,7 @@ export default function StudyScreen() {
     
     // Reset flags for new question
     hasRecordedAnswer.current = false;
-    hasRecordedSeen.current = false;
+    questionShownAtRef.current = new Date();
     
     if (!result || !result.question) {
       setQuestion(null);
@@ -98,12 +109,6 @@ export default function StudyScreen() {
     
     const q = result.question;
     const r = result.reason;
-    
-    // Track question as seen when it loads
-    if (q && !hasRecordedSeen.current) {
-      await recordQuestionSeen({ lang: currentLang, qid: q.qid });
-      hasRecordedSeen.current = true;
-    }
     
     // Add to recent list
     if (q && q.qid) {
@@ -117,7 +122,7 @@ export default function StudyScreen() {
     setIsCorrect(false);
   };
 
-  const handleAnswer = async (answerIndex) => {
+  const handleAnswer = async (answerIndex: number) => {
     if (isAnswered || !question || hasRecordedAnswer.current) return;
     
     setSelectedAnswer(answerIndex);
@@ -126,26 +131,49 @@ export default function StudyScreen() {
     const correct = answerIndex === question.correct;
     setIsCorrect(correct);
     
-    // Update progress
-    const updatedProgress = applyAnswer(
-      progress,
-      lang,
-      question.qid,
-      correct
-    );
-    setProgress(updatedProgress);
-    await saveProgress(updatedProgress);
+    const answerSubmittedAt = new Date();
     
-    // Record stats (only once per question)
-    if (!hasRecordedAnswer.current) {
-      await recordStudyAttempt({
-        lang,
-        category: selectedCategory === 'all' ? null : selectedCategory,
-        isCorrect: correct,
-      });
-      await updateStreak({ lang, isMockPass: false });
-      hasRecordedAnswer.current = true;
+    // Update mistakes using new DB functions
+    await applyAnswer(null, lang, question.qid, correct);
+    
+    // Get category for the question
+    let categoryText = null;
+    if (selectedCategory !== 'all') {
+      categoryText = selectedCategory;
+    } else {
+      // Try to determine category from question
+      const tests = getTests(lang);
+      for (const test of tests) {
+        const qNo = Object.keys(test.otazky || {}).find(
+          qNo => String(test.otazky[qNo]?.[0]?.id) === question.qid
+        );
+        if (qNo) {
+          categoryText = getCategoryForQuestion(test, parseInt(qNo));
+          break;
+        }
+      }
     }
+    
+    // Check if question was in mistakes
+    const wasInMistakes = await MistakesDB.isMistake(lang, question.qid);
+    
+    // Log answer attempt with timing
+    await AttemptsDB.logAnswerAttempt({
+      lang,
+      questionId: question.qid,
+      mode: 'study',
+      sessionId: sessionIdRef.current || undefined,
+      categoryText: categoryText || undefined,
+      selectedAnswerIndex: answerIndex,
+      correctAnswerIndex: question.correct,
+      isCorrect: correct,
+      points: question.points,
+      questionShownAt: questionShownAtRef.current!,
+      answerSubmittedAt,
+      wasInMistakes,
+    });
+    
+    hasRecordedAnswer.current = true;
   };
 
   const handleNext = () => {
@@ -161,13 +189,25 @@ export default function StudyScreen() {
   const handleCategoryChange = async (categoryTxt: string | 'all') => {
     await setSelectedCategory(lang, categoryTxt);
     setSelectedCategoryState(categoryTxt);
+    
+    // End current session and start new one
+    if (sessionIdRef.current) {
+      await StudySessionDB.endStudySession(sessionIdRef.current, 0, 0);
+    }
+    
+    const newSessionId = await StudySessionDB.createStudySession({
+      lang,
+      mode: 'study',
+      categoryText: categoryTxt === 'all' ? undefined : categoryTxt,
+    });
+    sessionIdRef.current = newSessionId;
+    
     loadNewQuestion(lang, categoryTxt);
   };
 
   // Auto-scroll to Next button when answer is submitted
   useEffect(() => {
     if (isAnswered && scrollViewRef.current) {
-      // Small delay to ensure layout is complete
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
@@ -236,7 +276,7 @@ export default function StudyScreen() {
           ) : null}
 
           <View className="gap-3 mt-4">
-            {question.answers.map((answer, index) => {
+            {question.answers.map((answer: string, index: number) => {
               const answerNum = index + 1;
               const isSelected = selectedAnswer === answerNum;
               const isCorrectAnswer = answerNum === question.correct;
@@ -249,7 +289,6 @@ export default function StudyScreen() {
                   buttonVariant = 'default';
                   buttonClassName += 'bg-emerald-500 dark:bg-emerald-600 border border-emerald-400/60';
                 } else if (isSelected && !isCorrect) {
-                  // Wrong selected answer - use red/purple background
                   buttonClassName += 'bg-rose-500 dark:bg-rose-600 border border-rose-400/60';
                 }
               }

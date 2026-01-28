@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { getSettings, updateSettings, clearCache } from '@/src/lib/settings';
 import { resetStats } from '@/src/lib/stats';
-import { resetProgress } from '@/src/lib/storage';
+import * as MistakesDB from '@/src/db/queries/mistakes';
 import { t } from '@/src/i18n/i18n';
 
 export default function SettingsScreen() {
@@ -53,10 +53,14 @@ export default function SettingsScreen() {
           text: 'Reset',
           style: 'destructive',
           onPress: async () => {
-            await resetProgress();
+            // Reset mistakes from database
+            await MistakesDB.resetMistakes();
             await resetStats(); // Reset all statistics including streaks
-            // Reset onboarding so user sees it again on next launch
-            await updateSettings({ hasOnboarded: false });
+            // Reset onboarding and language selection so user sees them again on next launch
+            await updateSettings({ 
+              hasOnboarded: false,
+              hasChosenLanguage: false 
+            });
             clearCache(); // Clear settings cache to ensure changes take effect
           },
         },

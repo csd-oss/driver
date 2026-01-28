@@ -1,11 +1,14 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildQuestionIndex } from './bank';
 import { getReadinessMode } from './settings';
-
-const STATS_KEY = 'DRIVING_MVP_STATS';
+import * as StatsDB from '../db/queries/stats';
+import * as EngagementDB from '../db/queries/engagement';
+import * as MockDB from '../db/queries/mockExams';
+import * as AttemptsDB from '../db/queries/attempts';
+import * as MistakesDB from '../db/queries/mistakes';
+import * as StudySessionDB from '../db/queries/studySessions';
 
 /**
- * Get default stats structure for a language
+ * Get default stats structure for a language (for backward compatibility)
  */
 const getDefaultLangStats = () => ({
   study: {
@@ -44,57 +47,85 @@ const getDefaultStats = () => ({
 });
 
 /**
- * Load stats from AsyncStorage
+ * Load stats from database (computed from answer_attempts and mock_exams)
  */
 export const loadStats = async () => {
-  try {
-    const json = await AsyncStorage.getItem(STATS_KEY);
-    if (json) {
-      const stats = JSON.parse(json);
-      // Ensure all languages have the full structure
-      const defaultStats = getDefaultStats();
-      const merged = {
-        statsByLang: {
-          '1': { ...defaultStats.statsByLang['1'], ...(stats.statsByLang?.['1'] || {}) },
-          '2': { ...defaultStats.statsByLang['2'], ...(stats.statsByLang?.['2'] || {}) },
-          '3': { ...defaultStats.statsByLang['3'], ...(stats.statsByLang?.['3'] || {}) },
-        },
+  // Build stats object from database
+  const stats = getDefaultStats();
+  
+  for (const lang of [1, 2, 3]) {
+    const langStr = String(lang);
+    const langStats = stats.statsByLang[langStr];
+    
+    // Study stats
+    const studyStats = await StatsDB.getStudyStats(lang);
+    langStats.study.attempts = studyStats.attempts;
+    langStats.study.correct = studyStats.correct;
+    langStats.study.wrong = studyStats.wrong;
+    
+    // Daily stats
+    const dailyStats = await StatsDB.getDailyStats(lang, 14);
+    for (const day of dailyStats) {
+      const dateKey = day.date.replace(/-/g, '');
+      langStats.study.daily[dateKey] = {
+        attempts: day.attempts,
+        correct: day.correct,
+        wrong: day.wrong,
       };
-      return merged;
     }
-    return getDefaultStats();
-  } catch (error) {
-    console.error('Error loading stats:', error);
-    return getDefaultStats();
+    
+    // Category stats
+    const categoryStats = await StatsDB.getCategoryStats(lang);
+    langStats.study.byCategory = categoryStats;
+    
+    // Mock stats
+    const mockStats = await StatsDB.getMockStats(lang);
+    langStats.mock.examsTaken = mockStats.examsTaken;
+    langStats.mock.examsPassed = mockStats.examsPassed;
+    langStats.mock.bestScore = mockStats.bestScore;
+    langStats.mock.lastScore = mockStats.lastScore;
+    langStats.mock.history = mockStats.history.map(exam => ({
+      id: exam.id,
+      date: exam.completedAt?.getTime() || exam.createdAt.getTime(),
+      testId: exam.testId,
+      score: exam.score || 0,
+      maxScore: exam.maxScore,
+      minToPass: exam.minToPass,
+      passed: exam.passed || false,
+      durationSec: exam.durationSec || undefined,
+      wrongCount: exam.wrongCount || undefined,
+      addedToMistakesCount: exam.addedToMistakesCount || undefined,
+    }));
+    
+    // Engagement
+    langStats.engagement.currentStreak = await EngagementDB.getCurrentStreak(lang);
+    langStats.engagement.lastStudyDate = await EngagementDB.getLastStudyDate(lang);
+    langStats.engagement.lastOpenedDate = await EngagementDB.getLastOpenedDate(lang);
+    
+    // Coverage (computed from answer_attempts)
+    const questionsSeenCount = await StatsDB.getQuestionsSeenCount(lang);
+    // Note: We don't store the full list anymore, but we can compute it if needed
+    langStats.coverage.questionsSeen = []; // Empty array - count is what matters
   }
+  
+  return stats;
 };
 
 /**
- * Save stats to AsyncStorage
+ * Save stats - no-op since stats are computed from database
  */
 export const saveStats = async (stats) => {
-  try {
-    await AsyncStorage.setItem(STATS_KEY, JSON.stringify(stats));
-    return true;
-  } catch (error) {
-    console.error('Error saving stats:', error);
-    return false;
-  }
+  // Stats are computed from database, so this is a no-op
+  return true;
 };
 
 /**
- * Get stats for a specific language, initialize if needed
+ * Get stats for a specific language
  */
 export const getStatsForLang = async (lang) => {
   const stats = await loadStats();
   const langStr = String(lang);
-  
-  if (!stats.statsByLang[langStr]) {
-    stats.statsByLang[langStr] = getDefaultLangStats();
-    await saveStats(stats);
-  }
-  
-  return stats.statsByLang[langStr];
+  return stats.statsByLang[langStr] || getDefaultLangStats();
 };
 
 /**
@@ -146,22 +177,14 @@ export const calculateAccuracy = (attempts, correct) => {
 };
 
 /**
- * Prune daily entries older than keepDays
+ * Prune daily entries - no-op since stats are computed from database
  */
 export const pruneDaily = (stats, keepDays = 14) => {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - keepDays);
-  const cutoffKey = `${cutoffDate.getFullYear()}${String(cutoffDate.getMonth() + 1).padStart(2, '0')}${String(cutoffDate.getDate()).padStart(2, '0')}`;
-  
-  Object.keys(stats.study.daily).forEach((dateKey) => {
-    if (dateKey < cutoffKey) {
-      delete stats.study.daily[dateKey];
-    }
-  });
+  // Stats are computed from database, so this is a no-op
 };
 
 /**
- * Cap history array to max entries
+ * Cap history array - handled by database query
  */
 export const capHistory = (history, max = 50) => {
   if (history.length > max) {
@@ -181,124 +204,40 @@ export const getTotalUniqueQuestions = (lang) => {
 /**
  * Calculate coverage percentage
  */
-export const calculateCoverage = (lang, questionsSeen) => {
+export const calculateCoverage = async (lang, questionsSeen) => {
   const total = getTotalUniqueQuestions(lang);
   if (total === 0) return 0;
-  return Math.round((questionsSeen.length / total) * 100);
+  const seenCount = await StatsDB.getQuestionsSeenCount(lang);
+  return Math.round((seenCount / total) * 100);
 };
 
 /**
- * Record a study attempt
+ * Record a study attempt - now logs to answer_attempts table
+ * This function is kept for backward compatibility but should be called via logAnswerAttempt
  */
 export const recordStudyAttempt = async ({ lang, category, isCorrect }) => {
-  const stats = await loadStats();
-  const langStr = String(lang);
-  const langStats = stats.statsByLang[langStr] || getDefaultLangStats();
-  
-  // Update lifetime counters
-  langStats.study.attempts += 1;
-  if (isCorrect) {
-    langStats.study.correct += 1;
-  } else {
-    langStats.study.wrong += 1;
-  }
-  
-  // Update daily counters
-  const today = todayKey();
-  if (!langStats.study.daily[today]) {
-    langStats.study.daily[today] = { attempts: 0, correct: 0, wrong: 0 };
-  }
-  langStats.study.daily[today].attempts += 1;
-  if (isCorrect) {
-    langStats.study.daily[today].correct += 1;
-  } else {
-    langStats.study.daily[today].wrong += 1;
-  }
-  
-  // Update category counters (if category provided)
-  if (category) {
-    if (!langStats.study.byCategory[category]) {
-      langStats.study.byCategory[category] = { attempts: 0, correct: 0, wrong: 0 };
-    }
-    langStats.study.byCategory[category].attempts += 1;
-    if (isCorrect) {
-      langStats.study.byCategory[category].correct += 1;
-    } else {
-      langStats.study.byCategory[category].wrong += 1;
-    }
-  }
-  
-  // Prune old daily entries
-  pruneDaily(langStats);
-  
-  stats.statsByLang[langStr] = langStats;
-  await saveStats(stats);
+  // This function is now a no-op - attempts are logged via logAnswerAttempt
+  // Kept for backward compatibility
 };
 
 /**
- * Record a question as seen
+ * Record a question as seen - now computed from answer_attempts
  */
 export const recordQuestionSeen = async ({ lang, qid }) => {
-  const stats = await loadStats();
-  const langStr = String(lang);
-  const langStats = stats.statsByLang[langStr] || getDefaultLangStats();
-  
-  // Ensure coverage structure exists
-  if (!langStats.coverage) {
-    langStats.coverage = { questionsSeen: [] };
-  }
-  
-  // Add qid if not already present (deduplication)
-  if (!langStats.coverage.questionsSeen.includes(qid)) {
-    langStats.coverage.questionsSeen.push(qid);
-  }
-  
-  stats.statsByLang[langStr] = langStats;
-  await saveStats(stats);
+  // This function is now a no-op - questions seen are computed from answer_attempts
+  // Kept for backward compatibility
 };
 
 /**
- * Update engagement streak
+ * Update engagement streak - now computed from answer_attempts
  */
 export const updateStreak = async ({ lang, isMockPass }) => {
-  const stats = await loadStats();
-  const langStr = String(lang);
-  const langStats = stats.statsByLang[langStr] || getDefaultLangStats();
-  
-  if (!langStats.engagement) {
-    langStats.engagement = {
-      currentStreak: 0,
-      lastStudyDate: null,
-      lastOpenedDate: null,
-    };
-  }
-  
-  const today = todayKey();
-  const yesterday = yesterdayKey();
-  const lastStudyDate = langStats.engagement.lastStudyDate;
-  
-  // Only update streak if this is the first activity of the day
-  if (lastStudyDate !== today) {
-    if (lastStudyDate === yesterday) {
-      // Consecutive day - increment streak
-      langStats.engagement.currentStreak += 1;
-    } else if (lastStudyDate === null) {
-      // First time studying - start streak at 1
-      langStats.engagement.currentStreak = 1;
-    } else {
-      // Gap in days - reset streak to 1
-      langStats.engagement.currentStreak = 1;
-    }
-    
-    langStats.engagement.lastStudyDate = today;
-  }
-  
-  stats.statsByLang[langStr] = langStats;
-  await saveStats(stats);
+  // This function is now a no-op - streak is computed from answer_attempts
+  // Kept for backward compatibility
 };
 
 /**
- * Record mock exam result
+ * Record mock exam result - now uses mock_exams table
  */
 export const recordMockResult = async ({
   lang,
@@ -310,168 +249,101 @@ export const recordMockResult = async ({
   durationSec,
   wrongCount,
 }) => {
-  const stats = await loadStats();
-  const langStr = String(lang);
-  const langStats = stats.statsByLang[langStr] || getDefaultLangStats();
-  
-  // Update counters
-  langStats.mock.examsTaken += 1;
-  if (passed) {
-    langStats.mock.examsPassed += 1;
-  }
-  
-  langStats.mock.lastScore = score;
-  if (score > langStats.mock.bestScore) {
-    langStats.mock.bestScore = score;
-  }
-  
-  // Add to history (newest first)
-  const historyItem = {
-    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    date: Date.now(),
-    testId,
-    score,
-    maxScore,
-    minToPass,
-    passed,
-    durationSec,
-    wrongCount,
-    addedToMistakesCount: undefined,
-  };
-  
-  langStats.mock.history.unshift(historyItem);
-  langStats.mock.history = capHistory(langStats.mock.history, 50);
-  
-  stats.statsByLang[langStr] = langStats;
-  await saveStats(stats);
-  
-  return historyItem.id;
+  // This function should be called via MockDB.createMockExam and MockDB.completeMockExam
+  // Kept for backward compatibility - returns a placeholder ID
+  return `mock-${Date.now()}`;
 };
 
 /**
  * Record when wrong answers are added to mistakes
  */
 export const recordAddedToMistakes = async ({ lang, historyId, count }) => {
-  const stats = await loadStats();
-  const langStr = String(lang);
-  const langStats = stats.statsByLang[langStr] || getDefaultLangStats();
-  
-  // Find the most recent history item and update it
-  const historyItem = langStats.mock.history.find((item) => item.id === historyId);
-  if (historyItem) {
-    historyItem.addedToMistakesCount = count;
-  }
-  
-  stats.statsByLang[langStr] = langStats;
-  await saveStats(stats);
+  // Update the mock exam record
+  await MockDB.updateAddedToMistakesCount(historyId, count);
 };
 
 /**
- * Reset statistics for a language (optional, for dev/debug)
+ * Reset statistics for a language (or all languages if lang is null)
+ * This deletes all answer attempts, mock exams, and study sessions
  */
 export const resetStats = async (lang = null) => {
-  try {
-    if (lang) {
-      const stats = await loadStats();
-      const langStr = String(lang);
-      stats.statsByLang[langStr] = getDefaultLangStats();
-      await saveStats(stats);
-    } else {
-      await AsyncStorage.removeItem(STATS_KEY);
-    }
-    return true;
-  } catch (error) {
-    console.error('Error resetting stats:', error);
-    return false;
-  }
+  // Delete all answer attempts (this is the source of all stats)
+  await AttemptsDB.deleteAnswerAttempts(lang);
+  
+  // Delete all mock exams
+  await MockDB.deleteMockExams(lang);
+  
+  // Delete all study sessions
+  await StudySessionDB.deleteStudySessions(lang);
+  
+  return true;
 };
 
 /**
  * Calculate exam readiness score (0-100)
- * Combines: mistakes (30%), study performance (25%), mock exams (30%), coverage (15%)
- * 
- * @param {number} lang - Language index (1, 2, or 3)
- * @param {number} mistakesCount - Number of mistakes remaining
- * @param {Object} stats - Stats object for the language
- * @param {boolean} useConservative - If true, uses conservative partial scores for insufficient data; if false, uses 0%
- * @returns {number} Readiness score 0-100
  */
 export const calculateReadinessScore = async (lang, mistakesCount, stats, useConservative = false) => {
   const totalQuestions = getTotalUniqueQuestions(lang);
   if (totalQuestions === 0) return 0;
   
-  const questionsSeen = stats.coverage?.questionsSeen || [];
-  const coverageRatio = questionsSeen.length / totalQuestions;
+  const questionsSeenCount = await StatsDB.getQuestionsSeenCount(lang);
+  const coverageRatio = questionsSeenCount / totalQuestions;
   
   // ===== Component 1: Mistake Score (30% weight) =====
-  const MIN_COVERAGE_FOR_MISTAKES = 0.10; // 10%
+  const MIN_COVERAGE_FOR_MISTAKES = 0.10;
   const MIN_QUESTIONS_FOR_MISTAKES = 50;
-  const hasEnoughData = questionsSeen.length >= MIN_QUESTIONS_FOR_MISTAKES || 
+  const hasEnoughData = questionsSeenCount >= MIN_QUESTIONS_FOR_MISTAKES || 
                         coverageRatio >= MIN_COVERAGE_FOR_MISTAKES;
   
   let mistakeScore;
   if (!hasEnoughData) {
-    // Insufficient data: use 0 or conservative score based on setting
     if (useConservative) {
       mistakeScore = Math.min(30, coverageRatio * 100);
     } else {
       mistakeScore = 0;
     }
   } else {
-    // Sufficient data: calculate normally
-    const mistakeRatio = mistakesCount / Math.max(questionsSeen.length, 1);
+    const mistakeRatio = mistakesCount / Math.max(questionsSeenCount, 1);
     mistakeScore = Math.max(0, 100 - (mistakeRatio * 100));
   }
   
   // ===== Component 2: Performance Score (25% weight) =====
-  const last7Days = getLast7Days();
-  let totalAttempts7d = 0;
-  let totalCorrect7d = 0;
-  
-  last7Days.forEach((dateKey) => {
-    const daily = stats.study.daily?.[dateKey] || { attempts: 0, correct: 0 };
-    totalAttempts7d += daily.attempts || 0;
-    totalCorrect7d += daily.correct || 0;
-  });
-  
-  // Minimum threshold: need at least 10 attempts in last 7 days for reliable performance score
+  const last7DaysAccuracy = await StatsDB.getLast7DaysAccuracy(lang);
   const MIN_ATTEMPTS_FOR_PERFORMANCE = 10;
+  
+  // Get study stats to check attempts
+  const studyStats = await StatsDB.getStudyStats(lang);
+  const dailyStats = await StatsDB.getDailyStats(lang, 7);
+  const totalAttempts7d = dailyStats.reduce((sum, day) => sum + day.attempts, 0);
+  
   let performanceScore;
-  if (totalAttempts7d < MIN_ATTEMPTS_FOR_PERFORMANCE) {
-    // Insufficient data: use 0 or conservative score based on setting
+  if (totalAttempts7d < MIN_ATTEMPTS_FOR_PERFORMANCE || last7DaysAccuracy === null) {
     if (useConservative) {
       performanceScore = Math.min(30, (totalAttempts7d / MIN_ATTEMPTS_FOR_PERFORMANCE) * 30);
     } else {
       performanceScore = 0;
     }
   } else {
-    // Sufficient data: calculate normally
-    performanceScore = Math.round((totalCorrect7d / totalAttempts7d) * 100);
+    performanceScore = last7DaysAccuracy;
   }
   
   // ===== Component 3: Mock Exam Score (30% weight) =====
-  const mockStats = stats.mock || {};
-  const { examsTaken, examsPassed, history = [] } = mockStats;
-  
+  const mockStats = await StatsDB.getMockStats(lang);
   let mockExamScore = 0;
-  if (examsTaken > 0) {
-    // Overall pass rate (60% weight)
-    const passRate = (examsPassed / examsTaken) * 100;
+  
+  if (mockStats.examsTaken > 0) {
+    const passRate = (mockStats.examsPassed / mockStats.examsTaken) * 100;
+    const recentExams = mockStats.history.slice(0, 3);
+    const recentPassed = recentExams.filter(exam => exam.passed).length;
+    const recentScore = recentExams.length > 0
+      ? (recentPassed / recentExams.length) * 100
+      : passRate;
     
-    // Recent performance (40% weight): last 3 exams
-    let recentScore = passRate; // Fallback
-    const recentExams = history.slice(0, 3);
-    if (recentExams.length > 0) {
-      const recentPassed = recentExams.filter(exam => exam.passed).length;
-      recentScore = (recentPassed / recentExams.length) * 100;
-    }
-    
-    // Weighted combination
     mockExamScore = (passRate * 0.6) + (recentScore * 0.4);
   }
   
   // ===== Component 4: Coverage Score (15% weight) =====
-  const coverageScore = calculateCoverage(lang, questionsSeen);
+  const coverageScore = await calculateCoverage(lang, []);
   
   // ===== Final Weighted Score =====
   const readinessScore = Math.round(
@@ -481,27 +353,21 @@ export const calculateReadinessScore = async (lang, mistakesCount, stats, useCon
     (coverageScore * 0.15)
   );
   
-  return Math.max(0, Math.min(100, readinessScore)); // Clamp 0-100
+  return Math.max(0, Math.min(100, readinessScore));
 };
 
 /**
  * Get readiness score breakdown for display
- * 
- * @param {number} lang - Language index (1, 2, or 3)
- * @param {number} mistakesCount - Number of mistakes remaining
- * @param {Object} stats - Stats object for the language
- * @param {boolean} useConservative - If true, uses conservative partial scores for insufficient data; if false, uses 0%
- * @returns {Object} Breakdown object with overall score and component details
  */
 export const getReadinessBreakdown = async (lang, mistakesCount, stats, useConservative = false) => {
   const totalQuestions = getTotalUniqueQuestions(lang);
-  const questionsSeen = stats.coverage?.questionsSeen || [];
-  const coverageRatio = questionsSeen.length / totalQuestions;
+  const questionsSeenCount = await StatsDB.getQuestionsSeenCount(lang);
+  const coverageRatio = questionsSeenCount / totalQuestions;
   
   // Calculate each component
   const MIN_COVERAGE_FOR_MISTAKES = 0.10;
   const MIN_QUESTIONS_FOR_MISTAKES = 50;
-  const hasEnoughData = questionsSeen.length >= MIN_QUESTIONS_FOR_MISTAKES || 
+  const hasEnoughData = questionsSeenCount >= MIN_QUESTIONS_FOR_MISTAKES || 
                         coverageRatio >= MIN_COVERAGE_FOR_MISTAKES;
   
   let mistakeScore;
@@ -512,26 +378,19 @@ export const getReadinessBreakdown = async (lang, mistakesCount, stats, useConse
       mistakeScore = 0;
     }
   } else {
-    const mistakeRatio = mistakesCount / Math.max(questionsSeen.length, 1);
+    const mistakeRatio = mistakesCount / Math.max(questionsSeenCount, 1);
     mistakeScore = Math.max(0, 100 - (mistakeRatio * 100));
   }
   
   // Performance
-  const last7Days = getLast7Days();
-  let totalAttempts7d = 0;
-  let totalCorrect7d = 0;
-  last7Days.forEach((dateKey) => {
-    const daily = stats.study.daily?.[dateKey] || { attempts: 0, correct: 0 };
-    totalAttempts7d += daily.attempts || 0;
-    totalCorrect7d += daily.correct || 0;
-  });
+  const dailyStats = await StatsDB.getDailyStats(lang, 7);
+  const totalAttempts7d = dailyStats.reduce((sum, day) => sum + day.attempts, 0);
+  const totalCorrect7d = dailyStats.reduce((sum, day) => sum + day.correct, 0);
   
-  // Minimum threshold: need at least 10 attempts in last 7 days for reliable performance score
   const MIN_ATTEMPTS_FOR_PERFORMANCE = 10;
   let performanceScore;
   let hasEnoughPerformanceData;
   if (totalAttempts7d < MIN_ATTEMPTS_FOR_PERFORMANCE) {
-    // Insufficient data: use 0 or conservative score based on setting
     if (useConservative) {
       performanceScore = Math.min(30, (totalAttempts7d / MIN_ATTEMPTS_FOR_PERFORMANCE) * 30);
     } else {
@@ -539,31 +398,29 @@ export const getReadinessBreakdown = async (lang, mistakesCount, stats, useConse
     }
     hasEnoughPerformanceData = false;
   } else {
-    // Sufficient data: calculate normally
     performanceScore = Math.round((totalCorrect7d / totalAttempts7d) * 100);
     hasEnoughPerformanceData = true;
   }
   
   // Mock Exam
-  const mockStats = stats.mock || {};
-  const { examsTaken, examsPassed, history = [] } = mockStats;
+  const mockStats = await StatsDB.getMockStats(lang);
   let mockExamScore = 0;
   let mockDetails = { passRate: 0, recentPassRate: 0, examsTaken: 0 };
   
-  if (examsTaken > 0) {
-    const passRate = (examsPassed / examsTaken) * 100;
-    const recentExams = history.slice(0, 3);
+  if (mockStats.examsTaken > 0) {
+    const passRate = (mockStats.examsPassed / mockStats.examsTaken) * 100;
+    const recentExams = mockStats.history.slice(0, 3);
     const recentPassed = recentExams.filter(exam => exam.passed).length;
     const recentPassRate = recentExams.length > 0
       ? (recentPassed / recentExams.length) * 100
       : passRate;
     
     mockExamScore = (passRate * 0.6) + (recentPassRate * 0.4);
-    mockDetails = { passRate, recentPassRate, examsTaken };
+    mockDetails = { passRate, recentPassRate, examsTaken: mockStats.examsTaken };
   }
   
   // Coverage
-  const coverageScore = calculateCoverage(lang, questionsSeen);
+  const coverageScore = await calculateCoverage(lang, []);
   
   // Overall
   const overall = await calculateReadinessScore(lang, mistakesCount, stats, useConservative);
@@ -593,7 +450,7 @@ export const getReadinessBreakdown = async (lang, mistakesCount, stats, useConse
       coverage: { 
         score: coverageScore, 
         weight: 0.15, 
-        seen: questionsSeen.length,
+        seen: questionsSeenCount,
         total: totalQuestions
       },
     },

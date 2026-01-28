@@ -1,14 +1,14 @@
 # CURRENT STATE SPECIFICATION — Driver SK (Slovakia Driving Exam App)
 
-**Last Updated:** January 26, 2026  
-**Version:** 1.6.0  
-**Status:** Production MVP
+**Last Updated:** January 28, 2026  
+**Version:** 2.0.0  
+**Status:** Production MVP (SQLite Migration Complete)
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-**Driver SK** is a fully functional Expo React Native mobile application designed to help users prepare for Slovakia driving license exams. The app provides comprehensive question bank access, adaptive study modes with intelligent question selection, mistake tracking, mock exam simulations, exam readiness scoring, and multi-language support (Slovak, English, Hungarian). All functionality works completely offline with local data storage and embedded images.
+**Driver SK** is a fully functional Expo React Native mobile application designed to help users prepare for Slovakia driving license exams. The app provides comprehensive question bank access, adaptive study modes with intelligent question selection, mistake tracking, mock exam simulations, exam readiness scoring, and multi-language support (Slovak, English, Hungarian). All functionality works completely offline with local SQLite database storage and embedded images. The app uses Drizzle ORM for type-safe database operations and comprehensive answer attempt logging with full timing data for future analytics.
 
 ---
 
@@ -136,54 +136,109 @@ App Launch
 
 ### 2.5 Data Flow
 
-**Settings Storage:**
+**Database Architecture:**
+The app uses SQLite with Drizzle ORM for all persistent data storage. All user-generated data is stored in normalized relational tables with proper foreign keys and indexes.
+
+**Settings Storage (`settings` table):**
 ```
-AsyncStorage → DRIVING_MVP_SETTINGS
-  ├─ lang: number (1-3)
+SQLite → settings (single row, id=1)
+  ├─ lang: integer (1-3)
   ├─ hasOnboarded: boolean
-  ├─ selectedCategoryByLang: { "1": string, "2": string, "3": string }
+  ├─ hasChosenLanguage: boolean
   └─ useConservativeReadiness: boolean (default: false)
 ```
 
-**Progress Storage:**
+**Category Selections (`category_selections` table):**
 ```
-AsyncStorage → DRIVING_MVP_PROGRESS
-  ├─ mistakesByLang: { "1": string[], "2": string[], "3": string[] }
-  └─ streaksByLang: { "1": { [qid]: number }, "2": {...}, "3": {...} }
+SQLite → category_selections (one row per language)
+  ├─ lang: integer (1, 2, or 3)
+  └─ categoryText: text (default: 'all')
 ```
 
-**Statistics Storage:**
+**Progress Storage (`mistakes` table):**
 ```
-AsyncStorage → DRIVING_MVP_STATS
-  └─ statsByLang: {
-       "1": {
-         study: {
-           attempts: number,
-           correct: number,
-           wrong: number,
-           daily: { [yyyyMMdd]: { attempts, correct, wrong } },
-           byCategory: { [category]: { attempts, correct, wrong } }
-         },
-         mock: {
-           examsTaken: number,
-           examsPassed: number,
-           bestScore: number,
-           lastScore: number,
-           history: Array<{id, date, testId, score, maxScore, minToPass, passed, durationSec, wrongCount, addedToMistakesCount}>
-         },
-         engagement: {
-           currentStreak: number,
-           lastStudyDate: string | null,  // yyyyMMdd
-           lastOpenedDate: string | null
-         },
-         coverage: {
-           questionsSeen: string[]  // Array of question IDs seen at least once
-         }
-       },
-       "2": {...},
-       "3": {...}
-     }
+SQLite → mistakes
+  ├─ id: text (UUID, sync-ready)
+  ├─ deviceId: text (device identifier)
+  ├─ lang: integer (1, 2, or 3)
+  ├─ questionId: text (qid from question bank)
+  ├─ streakCount: integer (consecutive correct answers)
+  ├─ createdAt: timestamp
+  ├─ updatedAt: timestamp
+  └─ syncedAt: timestamp | null (for future cloud sync)
 ```
+
+**Answer Attempts (`answer_attempts` table - NEW):**
+```
+SQLite → answer_attempts (complete history log)
+  ├─ id: text (UUID, sync-ready)
+  ├─ deviceId: text
+  ├─ lang: integer
+  ├─ questionId: text
+  ├─ mode: text ('study' | 'mock' | 'mistakes')
+  ├─ sessionId: text (FK to study_sessions, nullable)
+  ├─ mockExamId: text (FK to mock_exams, nullable)
+  ├─ categoryText: text (nullable)
+  ├─ selectedAnswerIndex: integer (1, 2, or 3)
+  ├─ correctAnswerIndex: integer (1, 2, or 3)
+  ├─ isCorrect: boolean
+  ├─ points: integer
+  ├─ questionShownAt: timestamp (NEW - timing data)
+  ├─ answerSubmittedAt: timestamp (NEW - timing data)
+  ├─ responseTimeMs: integer (NEW - calculated timing)
+  ├─ wasInMistakes: boolean
+  ├─ createdAt: timestamp
+  └─ syncedAt: timestamp | null (for future cloud sync)
+```
+
+**Mock Exams (`mock_exams` table):**
+```
+SQLite → mock_exams
+  ├─ id: text (UUID, sync-ready)
+  ├─ deviceId: text
+  ├─ lang: integer
+  ├─ testId: text ("L{lang}-T{testIndex}")
+  ├─ startedAt: timestamp
+  ├─ completedAt: timestamp | null
+  ├─ durationSec: integer | null
+  ├─ score: integer | null
+  ├─ maxScore: integer
+  ├─ minToPass: integer
+  ├─ passed: boolean | null
+  ├─ wrongCount: integer | null
+  ├─ addedToMistakesCount: integer (default: 0)
+  ├─ createdAt: timestamp
+  └─ syncedAt: timestamp | null
+```
+
+**Study Sessions (`study_sessions` table - NEW):**
+```
+SQLite → study_sessions
+  ├─ id: text (UUID, sync-ready)
+  ├─ deviceId: text
+  ├─ lang: integer
+  ├─ mode: text ('study' | 'mistakes')
+  ├─ categoryText: text | null
+  ├─ startedAt: timestamp
+  ├─ endedAt: timestamp | null
+  ├─ questionsCount: integer (default: 0)
+  ├─ correctCount: integer (default: 0)
+  └─ syncedAt: timestamp | null
+```
+
+**Statistics (Computed from Database Views):**
+All statistics are computed on-demand from `answer_attempts` and `mock_exams` tables using SQL views:
+- `v_study_stats` - Lifetime study statistics (attempts, correct, wrong)
+- `v_daily_stats` - Daily aggregates for last 14 days
+- `v_category_stats` - Per-category statistics with accuracy
+- `v_mock_stats` - Mock exam aggregates (exams taken, passed, best/last score)
+- `v_questions_seen` - Unique questions seen per language
+
+**Engagement Metrics:**
+Computed from `answer_attempts`:
+- `currentStreak` - Calculated from distinct study dates
+- `lastStudyDate` - Most recent study date
+- `lastOpenedDate` - Most recent activity date
 
 **Question Data:**
 ```
@@ -218,8 +273,12 @@ data5.js → data[lang-1] → tests[] → test object
 - **NativeWind:** ^4.2.1 (Tailwind CSS for React Native)
 - **Tailwind CSS:** ^3.4.19
 
-**Storage:**
-- **@react-native-async-storage/async-storage:** 2.2.0
+**Database & Storage:**
+- **expo-sqlite:** ~16.0.0 (SQLite database for local storage)
+- **drizzle-orm:** ^0.39.0 (Type-safe ORM for SQLite)
+- **expo-crypto:** ~14.1.0 (UUID generation for sync-ready primary keys)
+- **drizzle-kit:** ^0.30.0 (dev) (Migration generation and schema management)
+- **@react-native-async-storage/async-storage:** 2.2.0 (DEPRECATED - used only for device ID caching)
 
 **Internationalization:**
 - **i18n-js:** ^4.5.1
@@ -243,9 +302,10 @@ data5.js → data[lang-1] → tests[] → test object
 **Layers:**
 1. **Presentation Layer** (`app/`): Screen components using Expo Router
 2. **Business Logic Layer** (`src/lib/`): Core functionality (bank, engine, settings, categories)
-3. **Data Layer** (`data/`): Static question data and image manifest
-4. **UI Components** (`components/ui/`): Reusable UI primitives
-5. **Storage Layer** (`src/lib/storage.js`): AsyncStorage abstraction
+3. **Database Layer** (`src/db/`): SQLite database with Drizzle ORM, queries, and migrations
+4. **Data Layer** (`data/`): Static question data and image manifest
+5. **UI Components** (`components/ui/`): Reusable UI primitives
+6. **Storage Layer** (`src/lib/storage.js`): DEPRECATED - AsyncStorage wrapper (kept for backward compatibility)
 
 ### 3.3 File Structure
 
@@ -264,14 +324,37 @@ driver/
 │   └── settings.tsx             # Settings
 │
 ├── src/
+│   ├── db/                       # Database layer (SQLite + Drizzle)
+│   │   ├── index.ts              # Database connection & initialization
+│   │   ├── migrate.ts            # Migration runner (creates tables & views)
+│   │   ├── utils.ts              # UUID generation utilities
+│   │   ├── device.ts             # Device ID management
+│   │   ├── schema/               # Drizzle table schemas
+│   │   │   ├── index.ts          # Export all tables
+│   │   │   ├── settings.ts      # Settings table
+│   │   │   ├── categorySelections.ts
+│   │   │   ├── mistakes.ts       # Mistakes table (sync-ready)
+│   │   │   ├── answerAttempts.ts # Answer attempts table (sync-ready)
+│   │   │   ├── mockExams.ts     # Mock exams table (sync-ready)
+│   │   │   └── studySessions.ts # Study sessions table (sync-ready)
+│   │   ├── queries/             # Typed query functions
+│   │   │   ├── settings.ts      # Settings CRUD
+│   │   │   ├── categorySelections.ts
+│   │   │   ├── mistakes.ts      # Mistake operations
+│   │   │   ├── attempts.ts      # Answer attempt logging
+│   │   │   ├── mockExams.ts     # Mock exam operations
+│   │   │   ├── studySessions.ts # Study session management
+│   │   │   ├── stats.ts         # Statistics queries (uses views)
+│   │   │   └── engagement.ts    # Streak calculations
+│   │   └── views.sql             # SQL view definitions
 │   ├── lib/                      # Business logic
 │   │   ├── bank.js              # Question bank helpers
-│   │   ├── engine.js             # Learning engine (mistakes/streaks)
-│   │   ├── settings.js           # Settings management
-│   │   ├── storage.js            # AsyncStorage wrapper
-│   │   ├── stats.js              # Statistics tracking
+│   │   ├── engine.js             # Learning engine (mistakes/streaks) - uses DB
+│   │   ├── settings.js           # Settings management - uses DB
+│   │   ├── storage.js            # DEPRECATED - AsyncStorage wrapper
+│   │   ├── stats.js              # Statistics tracking - uses DB views
 │   │   ├── categories.js         # Category helpers
-│   │   └── smartPractice.js      # Smart Practice algorithm
+│   │   └── smartPractice.js      # Smart Practice algorithm - uses DB
 │   │
 │   └── i18n/                     # Internationalization
 │       ├── i18n.js               # Translation function
@@ -294,6 +377,10 @@ driver/
 │   ├── imageManifest.js          # Static image require map
 │   └── minv_images/              # Local image files (90 files)
 │
+├── drizzle/                      # Drizzle migration files (future)
+│   ├── migrations/               # Generated migration SQL files
+│   └── meta/                     # Migration metadata
+├── drizzle.config.ts             # Drizzle Kit configuration
 ├── scripts/
 │   ├── genImageManifest.mjs      # Image manifest generator
 │   └── reset-project.js          # Project reset utility
@@ -401,27 +488,80 @@ driver/
   - Consistent visual language across Study, Mistakes, and Mock Exam modes
   - Modal components respect safe areas using `useSafeAreaInsets()`
 
-#### 3.4.9 Storage (`src/lib/storage.js`)
-- **Keys:**
-  - `DRIVING_MVP_SETTINGS` - User settings (includes language, readiness mode, categories)
-  - `DRIVING_MVP_PROGRESS` - Learning progress
-  - `DRIVING_MVP_STATS` - Statistics data
-- **Operations:** Load, save, reset (progress only)
-- **Settings Caching:** In-memory cache in `settings.js` for performance
-- **Settings Functions:**
-  - `getReadinessMode()` - Get current readiness calculation mode (strict/conservative)
+#### 3.4.9 Database Storage (`src/db/`)
 
-#### 3.4.10 Statistics System (`src/lib/stats.js`)
-- **Tracking:** Comprehensive statistics tracking per language
-- **Core Functions:**
-  - `loadStats()` - Load statistics from AsyncStorage
-  - `saveStats(stats)` - Persist statistics
-  - `getStatsForLang(lang)` - Get stats for specific language
-  - `recordStudyAttempt({ lang, category, isCorrect })` - Track study answers
-  - `recordQuestionSeen({ lang, qid })` - Track questions displayed
-  - `recordMockResult({ lang, testId, score, maxScore, minToPass, passed, durationSec, wrongCount })` - Track mock exams
-  - `recordAddedToMistakes({ lang, historyId, count })` - Update mock history
-  - `updateStreak({ lang, isMockPass })` - Update engagement streak
+**Database:** SQLite database (`driver.db`) managed by Drizzle ORM
+
+**Tables:**
+1. **`settings`** - Single row (id=1) storing user preferences
+2. **`category_selections`** - One row per language for category preference
+3. **`mistakes`** - Active mistakes with streak tracking (sync-ready with UUID)
+4. **`answer_attempts`** - Complete history log of every answer attempt with timing data (sync-ready)
+5. **`mock_exams`** - Mock exam sessions and results (sync-ready)
+6. **`study_sessions`** - Study/mistakes mode session tracking (sync-ready)
+
+**Database Views (Computed Statistics):**
+- `v_questions_seen` - Unique questions seen per language
+- `v_daily_stats` - Daily aggregates (last 14 days)
+- `v_category_stats` - Per-category statistics with accuracy
+- `v_study_stats` - Lifetime study statistics
+- `v_mock_stats` - Mock exam aggregates
+
+**Migration System:**
+- **Current (v2.0.0):** Manual table creation in `src/db/migrate.ts` (runs on app startup)
+  - Uses raw SQL with `CREATE TABLE IF NOT EXISTS` for idempotency
+  - No versioning or migration tracking
+  - Suitable for initial migration and fresh installs
+- **Future (Planned):** Drizzle Kit versioned migrations (`npx drizzle-kit generate`)
+  - Migration files stored in `drizzle/migrations/` with version numbers
+  - Migration tracking table `__drizzle_migrations` tracks applied migrations
+  - Supports incremental schema evolution, rollbacks, and production-safe updates
+  - See section 6.5 for detailed migration versioning implementation plan
+
+**Sync-Ready Design:**
+- All user-generated tables use UUID primary keys (`text('id').primaryKey()`)
+- Each record tracks `deviceId` for multi-device sync
+- `syncedAt` field tracks sync status (null = not synced)
+- Tables ready for future cloud sync without schema changes
+
+**Query Layer:**
+- Typed query functions in `src/db/queries/` provide type-safe database access
+- All queries use Drizzle ORM for compile-time type safety
+- Statistics computed from views (no redundant data storage)
+
+**Deprecated Storage:**
+- `src/lib/storage.js` - AsyncStorage wrapper (DEPRECATED, kept for backward compatibility)
+- Old AsyncStorage keys no longer used: `DRIVING_MVP_SETTINGS`, `DRIVING_MVP_PROGRESS`, `DRIVING_MVP_STATS`
+
+#### 3.4.10 Statistics System (`src/lib/stats.js` + `src/db/queries/stats.ts`)
+
+**Database-Backed Statistics:**
+- All statistics computed from `answer_attempts` and `mock_exams` tables
+- No redundant storage - statistics calculated on-demand using SQL views
+- Full answer attempt history enables rich future analytics
+
+**Core Functions:**
+- `loadStats()` - Computes statistics from database (maintains backward-compatible API)
+- `getStatsForLang(lang)` - Gets stats for specific language from database
+- Statistics queries in `src/db/queries/stats.ts`:
+  - `getStudyStats(lang)` - Lifetime study statistics
+  - `getDailyStats(lang, days)` - Daily aggregates for last N days
+  - `getCategoryStats(lang)` - Per-category statistics with accuracy
+  - `getMockStats(lang)` - Mock exam aggregates
+  - `getQuestionsSeenCount(lang)` - Count of unique questions seen
+  - `getLast7DaysAccuracy(lang)` - 7-day accuracy percentage
+
+**Answer Attempt Logging:**
+- Every answer attempt logged to `answer_attempts` table with:
+  - Full timing data (`questionShownAt`, `answerSubmittedAt`, `responseTimeMs`)
+  - Context (mode, session, category)
+  - Answer details (selected, correct, points)
+  - Metadata (was in mistakes, etc.)
+
+**Engagement Tracking (`src/db/queries/engagement.ts`):**
+- `getCurrentStreak(lang)` - Calculated from distinct study dates in `answer_attempts`
+- `getLastStudyDate(lang)` - Most recent study date
+- `getLastOpenedDate(lang)` - Most recent activity date
 - **Readiness Score Functions:**
   - `calculateReadinessScore(lang, mistakesCount, stats, useConservative)` - Calculate composite readiness score (0-100%)
     - Combines: Mistakes (30%), Performance (25%), Mock Exams (30%), Coverage (15%)
@@ -437,12 +577,12 @@ driver/
   - `pruneDaily(stats, keepDays)` - Remove old daily entries
   - `capHistory(history, max)` - Limit history array size
 - **Tracking Rules:**
-  - Study attempts tracked only on first answer submission per question view
-  - Questions marked as "seen" when displayed (not just answered)
-  - Streak increments when last study was yesterday, resets on gap
-  - Daily stats kept for last 14 days (auto-pruned)
-  - Mock history capped at 50 entries
-  - Coverage tracks unique questions seen vs total in bank
+  - Every answer attempt logged to `answer_attempts` table with full timing
+  - Questions marked as "seen" when displayed (computed from `answer_attempts`)
+  - Streak calculated from distinct study dates in `answer_attempts`
+  - Daily stats computed from `answer_attempts` (no pruning needed - views filter by date)
+  - Mock history stored in `mock_exams` table (no artificial cap, can query last N)
+  - Coverage computed from distinct `question_id` values in `answer_attempts`
 - **Readiness Score Calculation:**
   - **Mistake Score (30%):** Requires minimum 10% coverage OR 50 questions seen; otherwise 0% (strict) or capped at 30% (conservative)
   - **Performance Score (25%):** Requires minimum 10 attempts in last 7 days; otherwise 0% (strict) or capped at 30% (conservative)
@@ -519,37 +659,47 @@ driver/
   - Smart Practice algorithm for intelligent question selection
   - Category filtering integrated into priority system
   - Recent question tracking (in-memory, max 20) for anti-repetition
-  - Progress tracking, auto-scroll
+  - Progress tracking via database, auto-scroll
+- **Database Integration:**
+  - Creates `study_sessions` entry when screen opens
+  - Tracks `questionShownAt` timestamp when question loads
+  - Logs every answer attempt to `answer_attempts` table with:
+    - Full timing data (`questionShownAt`, `answerSubmittedAt`, `responseTimeMs`)
+    - Session ID linking to `study_sessions`
+    - Category context
+    - Answer details and correctness
+  - Updates `mistakes` table directly (no intermediate state)
 - **Statistics Tracking:**
-  - Tracks question as "seen" when displayed
-  - Records first answer attempt only (prevents double-counting)
-  - Updates daily statistics
-  - Updates category statistics (if category selected)
-  - Updates engagement streak on first answer of day
+  - Answer attempts logged to database (computed statistics via views)
+  - Questions seen computed from `answer_attempts` table
+  - Daily and category statistics computed from database views
+  - Engagement streak calculated from distinct study dates
 - **Visual Clarity:** Clear distinction between correct and incorrect answers with color-coded backgrounds
 - **Smart Practice Integration:**
-  - Uses `getSmartQuestion()` from `smartPractice.js`
+  - Uses `getSmartQuestion()` from `smartPractice.js` (queries database for mistakes/stats)
   - Maintains `recentQuestionIds` ref for anti-repetition
   - Automatically prioritizes mistakes, unseen questions, and weak categories
 
 #### Mistakes (`app/mistakes.tsx`)
 - **Features:**
   - Category selector
-  - Filtered mistake list
+  - Filtered mistake list (loaded from `mistakes` table)
   - Shuffled question order
-  - Mastery streak display
+  - Mastery streak display (from `mistakes.streakCount`)
   - Empty state handling
   - Answer buttons with enhanced visual feedback (same as Study mode):
     - Correct answer: Green background (emerald-500/600)
     - Wrong selected answer: Red/purple background (rose-500/600) with white text
     - Other answers: Neutral outline styling
+- **Database Integration:**
+  - Creates `study_sessions` record when screen opens (mode: 'mistakes')
+  - Loads mistakes from `mistakes` table (not AsyncStorage)
+  - Logs every answer attempt to `answer_attempts` table with timing
+  - Updates mistakes table directly (add/remove/increment streak)
 - **Logic:** Category filtering, dynamic list updates, graceful navigation
 - **Statistics Tracking:**
-  - Tracks question as "seen" when displayed
-  - Records first answer attempt only (prevents double-counting)
-  - Updates daily statistics
-  - Updates category statistics (if category selected)
-  - Updates engagement streak on first answer of day
+  - Every answer attempt logged to database with full context
+  - Statistics computed from database views
 - **Visual Clarity:** Consistent visual language with Study mode for unified user experience
 
 #### Mock (`app/mock.tsx`)
@@ -572,13 +722,17 @@ driver/
     - Images fill full modal width
     - Smooth scrolling with proper height constraints
     - Close button at bottom
+- **Database Integration:**
+  - Creates `mock_exams` record when exam starts (stores testId, maxScore, minToPass)
+  - Tracks `questionShownAt` for each question when navigated to
+  - Logs every answer attempt to `answer_attempts` table (mode: 'mock') with timing
+  - Updates `mock_exams` record on finish (score, passed, duration, wrongCount)
+  - Updates `addedToMistakesCount` when wrong answers added to mistakes
 - **Logic:** Score calculation, pass/fail determination, wrong answer collection, modal state management
 - **Statistics Tracking:**
-  - Tracks test index for stable test ID generation (format: "L{lang}-T{testIndex}")
-  - Marks all questions in exam as "seen" when exam starts
-  - Records mock exam result on finish (score, pass/fail, duration, wrong count)
-  - Updates engagement streak if exam passed
-  - Records count when wrong answers added to mistakes
+  - Every answer attempt logged with full timing data
+  - Mock exam history stored in `mock_exams` table
+  - Engagement streak computed from database (includes passed mock exams)
 
 #### Statistics (`app/stats.tsx`)
 - **Features:**
@@ -659,26 +813,31 @@ driver/
 ### 3.7 Performance Optimizations
 
 1. **Cached Question Indices:** Built once per language, reused
-2. **Settings Caching:** In-memory cache to avoid AsyncStorage reads
+2. **Settings Caching:** In-memory cache to avoid database reads
 3. **Image Manifest:** Static requires for fast image loading
 4. **Lazy Loading:** Screens load data on focus (useFocusEffect)
 5. **Efficient Filtering:** Category filtering uses cached test lookups
-6. **Smart Practice Optimizations:**
-   - Seen set built once per session (not per question)
+6. **Database Indexes:** All foreign keys and frequently queried columns indexed
+7. **Database Views:** Statistics computed via views (no redundant storage)
+8. **Smart Practice Optimizations:**
+   - Seen set built once per session from database query
    - Uses cached question indices from `buildQuestionIndex()`
-   - Category stats map is small and fast to read
-   - Recent IDs list is small (max 20 items)
+   - Category stats queried from database view (efficient)
+   - Recent IDs list is small (max 20 items, in-memory)
    - No repeated full bank scans
    - Minimum gap windows use efficient array slicing (`slice(-MIN_GAP)`)
    - Two-tier filtering prevents unnecessary priority fallthroughs
+9. **Answer Attempt Logging:** Efficient batch inserts, indexes on frequently queried columns
 
 ### 3.8 Error Handling
 
 - **Missing Images:** Placeholder text displayed, no crashes
 - **Missing Questions:** "Question not found" message, reload option
 - **Empty States:** Proper empty state UI for mistakes, categories
-- **Storage Errors:** Console errors logged, graceful degradation
+- **Database Errors:** Console errors logged, graceful degradation, migration errors don't crash app
 - **Invalid Data:** Fallbacks to defaults (lang 1, empty arrays)
+- **Migration Failures:** Tables created with `IF NOT EXISTS` for idempotency
+- **Sync Errors:** Future sync operations will handle conflicts gracefully (local-first approach)
 
 ### 3.9 Platform-Specific Considerations
 
@@ -700,7 +859,11 @@ driver/
 - **react-native:** 0.81.5
 - **expo-router:** ~6.0.22
 - **nativewind:** ^4.2.1
-- **@react-native-async-storage/async-storage:** 2.2.0
+- **expo-sqlite:** ~16.0.0 (SQLite database)
+- **drizzle-orm:** ^0.39.0 (Type-safe ORM)
+- **drizzle-kit:** ^0.30.0 (Migration management - dev dependency)
+- **expo-crypto:** ~14.1.0 (UUID generation)
+- **@react-native-async-storage/async-storage:** 2.2.0 (Deprecated - used only for device ID caching)
 - **i18n-js:** ^4.5.1
 
 ### 4.2 Configuration Files
@@ -723,30 +886,39 @@ driver/
 **metro.config.js:**
 - Standard Expo Metro configuration
 
+**drizzle.config.ts:**
+- Schema path: `./src/db/schema/index.ts`
+- Migration output: `./drizzle/migrations`
+- Dialect: `sqlite`
+- Used for generating migrations with `npx drizzle-kit generate`
+
 ---
 
 ## 5. KNOWN LIMITATIONS & FUTURE CONSIDERATIONS
 
 ### 5.1 Current Limitations
-1. **No Backend:** All data is static, no sync across devices
+1. **No Backend:** All data is local, no sync across devices (schema is sync-ready for future implementation)
 2. **No User Accounts:** No login or user profiles
 3. **No Offline Updates:** Question data updates require app update
 4. **Timer Only in Mock:** Study mode has no timer
 5. **No Charts:** Statistics displayed as text/metrics only (no visual charts)
-6. **Limited History:** Mock exam history capped at 50 entries
+6. **Manual Migrations:** Current migration system uses manual SQL (will migrate to Drizzle Kit versioning)
+7. **No Migration Versioning:** Tables created directly without migration tracking (planned for future)
 
 ### 5.2 Potential Enhancements
 1. **Visual Charts:** Add charts/graphs for accuracy trends, study activity over time
 2. **Exam History Detail:** Detailed exam history screen with per-question review links
-3. **Category Breakdown:** Category-specific accuracy statistics
-4. **Unique Questions Tracking:** Track which specific questions have been seen (partially implemented via coverage)
+3. **Category Breakdown:** Category-specific accuracy statistics (now possible via `v_category_stats` view)
+4. **Question Difficulty Scoring:** Analyze `responseTimeMs` and success rate from `answer_attempts` to score question difficulty
 5. **Favorites System:** Bookmark questions for later review
 6. **Study Plans:** Structured learning paths
 7. **Explanation Text:** Add explanations for correct answers
 8. **Achievements:** Gamification with badges/achievements
-9. **Backend Sync:** Cloud sync for progress across devices
+9. **Backend Sync:** Cloud sync for progress across devices (schema already sync-ready with UUIDs and `deviceId`)
 10. **Question Updates:** OTA updates for question data
 11. **Readiness Score Enhancements:** Historical trends, category-specific readiness, personalized recommendations
+12. **Advanced Analytics:** Response time analysis, learning curves, time-of-day patterns (enabled by `answer_attempts` timing data)
+13. **Drizzle Kit Migrations:** Migrate to proper versioned migrations using `drizzle-kit generate` for schema evolution tracking
 
 ---
 
@@ -770,9 +942,82 @@ npm run reset-project
 
 ### 6.4 Code Style
 - Uses ESLint with Expo config
-- TypeScript for some components (CategorySelector, contexts)
+- TypeScript for database layer (`src/db/`), some components (CategorySelector, contexts)
 - JavaScript for most screens and lib files
 - NativeWind for styling (className prop)
+
+### 6.5 Database Migrations
+
+**Current Approach (v2.0.0):**
+- Manual table creation in `src/db/migrate.ts` using raw SQL
+- Tables created with `CREATE TABLE IF NOT EXISTS` for idempotency
+- Views created on app startup via `CREATE VIEW IF NOT EXISTS`
+- No migration versioning (tables created if missing)
+- Migration function `runMigrations()` called on app startup in `app/_layout.tsx`
+- Suitable for initial migration and fresh installs
+- **Limitation:** Cannot track schema evolution or rollback changes
+
+**Future Migration Strategy (Planned):**
+- **Goal:** Migrate to proper versioned migrations using Drizzle Kit
+- **Benefits:**
+  - Track schema changes over time with versioned migration files
+  - Support incremental schema evolution (add columns, modify tables, etc.)
+  - Enable rollback capabilities for schema changes
+  - Track applied migrations to prevent re-execution
+  - Better collaboration and deployment workflows
+  - Production-safe schema updates
+
+**Migration Versioning Implementation Plan:**
+1. **Migration Generation:**
+   - Use `npx drizzle-kit generate` to create migration SQL files
+   - Migration files stored in `drizzle/migrations/` directory
+   - Each migration file named with timestamp and description (e.g., `0001_initial_schema.sql`)
+   - Migration metadata stored in `drizzle/meta/` directory
+
+2. **Migration Tracking:**
+   - Drizzle Kit creates `__drizzle_migrations` table automatically
+   - Tracks applied migrations with hash, timestamp, and name
+   - Prevents duplicate execution of migrations
+
+3. **Migration Runner:**
+   - Update `src/db/migrate.ts` to use Drizzle Kit's migration runner
+   - Execute pending migrations on app startup
+   - Verify migration integrity using hash checksums
+   - Handle migration failures gracefully (log errors, don't crash app)
+
+4. **Schema Evolution Workflow:**
+   - Modify schema files in `src/db/schema/`
+   - Run `npx drizzle-kit generate` to create migration SQL
+   - Review generated migration files for correctness
+   - Test migrations on development database
+   - Commit migration files to version control
+   - Migration runner executes pending migrations on app startup
+
+5. **Migration Best Practices:**
+   - Always review generated migrations before committing
+   - Test migrations on development/staging before production
+   - Use transactions where possible for atomic schema changes
+   - Document breaking changes in migration files
+   - Keep migrations small and focused (one logical change per migration)
+
+**Migration Files Structure (Future):**
+```
+drizzle/
+├── migrations/
+│   ├── 0001_initial_schema.sql
+│   ├── 0002_add_sync_fields.sql
+│   ├── 0003_add_indexes.sql
+│   └── ...
+└── meta/
+    ├── _journal.json
+    └── 0001_snapshot.json
+```
+
+**Transition Strategy:**
+- Current manual migration (`src/db/migrate.ts`) will remain until Drizzle Kit migration system is implemented
+- Initial migration will create all tables and views (equivalent to current manual approach)
+- Subsequent migrations will handle schema evolution incrementally
+- Migration runner will handle both initial setup and incremental updates seamlessly
 
 ---
 
@@ -821,9 +1066,21 @@ npm run reset-project
 
 ## END OF CURRENT STATE SPECIFICATION
 
-This document reflects the current implementation state as of January 26, 2026. 
+This document reflects the current implementation state as of January 28, 2026. 
 
-**Recent Updates (v1.6.0):**
+**Recent Updates (v2.0.0):**
+- **SQLite Migration:** Complete migration from AsyncStorage to SQLite database
+  - All user data now stored in normalized SQLite database using Drizzle ORM
+  - Comprehensive `answer_attempts` table logs every answer with full timing data (`questionShownAt`, `answerSubmittedAt`, `responseTimeMs`)
+  - Database views compute all statistics (no redundant storage)
+  - Sync-ready schema with UUID primary keys, `deviceId`, and `syncedAt` fields
+  - Type-safe query layer in `src/db/queries/`
+  - Migration system creates tables and views on app startup
+  - Backward-compatible APIs maintained in `src/lib/` layer
+  - Future-ready for cloud sync and advanced analytics
+  - **Migration Versioning:** Current implementation uses manual table creation; future migration to Drizzle Kit versioned migrations planned for proper schema evolution tracking
+
+**Previous Updates (v1.6.0):**
 - Premium Onboarding Experience: Complete redesign of first-time user experience
   - 5-slide onboarding flow with clear Slovakia driving exam focus
   - Animated scroll-driven dot indicators (replaces progress bar to eliminate flickering)
@@ -890,4 +1147,4 @@ This document reflects the current implementation state as of January 26, 2026.
 - UI Improvements: Larger, more button-like question items in results list
 - Modal Enhancements: Proper safe zone handling, full-width images, smooth scrolling
 
-For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`. For Smart Practice Mode specification, see `docs/specs/smart-practice.md`. For Smart Study Reason Labels specification, see `docs/specs/why-q-smart.md`. For Readiness Score implementation plan, see `.cursor/plans/readiness_score_implementation_eae787b5.plan.md`.
+For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`. For Smart Practice Mode specification, see `docs/specs/smart-practice.md`. For Smart Study Reason Labels specification, see `docs/specs/why-q-smart.md`. For Readiness Score implementation plan, see `.cursor/plans/readiness_score_implementation_eae787b5.plan.md`. For SQLite migration plan, see `.cursor/plans/sqlite_migration_with_drizzle_98d9308c.plan.md`.

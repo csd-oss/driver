@@ -4,10 +4,11 @@ import { Divider } from '@/components/ui/divider';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
-import { getLanguage } from '@/src/lib/settings';
-import { calculateAccuracy, getLast7Days, getReadinessBreakdown, loadStats } from '@/src/lib/stats';
-import { getReadinessMode } from '@/src/lib/settings';
-import { loadProgress } from '@/src/lib/storage';
+import { getLanguage, getReadinessMode } from '@/src/lib/settings';
+import { getReadinessBreakdown, loadStats } from '@/src/lib/stats';
+import * as MistakesDB from '@/src/db/queries/mistakes';
+import * as StatsDB from '@/src/db/queries/stats';
+import * as EngagementDB from '@/src/db/queries/engagement';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -17,7 +18,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [lang, setLang] = useState(1);
   const [mistakeCount, setMistakeCount] = useState(0);
-  const [recentAccuracy, setRecentAccuracy] = useState('—');
+  const [recentAccuracy, setRecentAccuracy] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
   const [readinessScore, setReadinessScore] = useState(0);
   const [readinessStatus, setReadinessStatus] = useState('needsWork');
@@ -26,41 +27,22 @@ export default function HomeScreen() {
     const currentLang = await getLanguage();
     setLang(currentLang);
     
-    // Load progress for mistake count
-    const progress = await loadProgress();
-    const langStr = String(currentLang);
-    let mistakesCount = 0;
-    if (progress && progress.mistakesByLang) {
-      const mistakes = progress.mistakesByLang[langStr] || [];
-      mistakesCount = mistakes.length;
-      setMistakeCount(mistakesCount);
-    }
+    // Load mistake count from database
+    const mistakesCount = await MistakesDB.getMistakesCount(currentLang);
+    setMistakeCount(mistakesCount);
     
-    // Load stats for accuracy and streak
+    // Get 7-day accuracy
+    const accuracy7d = await StatsDB.getLast7DaysAccuracy(currentLang);
+    setRecentAccuracy(accuracy7d);
+    
+    // Get streak
+    const currentStreak = await EngagementDB.getCurrentStreak(currentLang);
+    setStreak(currentStreak);
+    
+    // Calculate readiness score
     const stats = await loadStats();
-    const langStats = stats.statsByLang?.[langStr];
-    
+    const langStats = stats.statsByLang?.[String(currentLang)];
     if (langStats) {
-      // Calculate 7-day accuracy
-      const last7Days = getLast7Days();
-      let totalAttempts = 0;
-      let totalCorrect = 0;
-      
-      last7Days.forEach((dateKey) => {
-        const daily = langStats.study.daily?.[dateKey];
-        if (daily) {
-          totalAttempts += daily.attempts || 0;
-          totalCorrect += daily.correct || 0;
-        }
-      });
-      
-      const accuracy = calculateAccuracy(totalAttempts, totalCorrect);
-      setRecentAccuracy(accuracy);
-      
-      // Get streak
-      setStreak(langStats.engagement?.currentStreak || 0);
-      
-      // Calculate readiness score (use mistakesCount from above)
       const useConservative = await getReadinessMode();
       const breakdown = await getReadinessBreakdown(currentLang, mistakesCount, langStats, useConservative);
       setReadinessScore(breakdown.overall);
@@ -74,8 +56,6 @@ export default function HomeScreen() {
         setReadinessStatus('needsWork');
       }
     } else {
-      setRecentAccuracy('—');
-      setStreak(0);
       setReadinessScore(0);
       setReadinessStatus('needsWork');
     }
@@ -87,9 +67,6 @@ export default function HomeScreen() {
     }, [loadData])
   );
 
-  const accuracyValue = typeof recentAccuracy === 'number' ? recentAccuracy : null;
-  const accuracyWidth = `${accuracyValue !== null ? Math.max(accuracyValue, 1) : 0}%`;
-  
   // Get readiness status colors and label
   const getReadinessStatusInfo = () => {
     switch (readinessStatus) {
@@ -168,7 +145,7 @@ export default function HomeScreen() {
                     Accuracy (7d)
                   </UIText>
                   <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
-                    {recentAccuracy}{accuracyValue !== null ? '%' : ''}
+                    {recentAccuracy !== null ? `${recentAccuracy}%` : '—'}
                   </UIText>
                 </View>
                 <View className="items-end">

@@ -32,8 +32,11 @@ export default function LanguageSelectScreen() {
     await updateSettings({
       lang,
       hasChosenLanguage: true,
+      // Only set hasOnboarded if not coming from onboarding (i.e., selecting after onboarding completion)
       ...(fromOnboarding ? {} : { hasOnboarded: true }),
     });
+    // If coming from onboarding (via change language link), go back to onboarding
+    // Otherwise, go to home (normal flow after onboarding completion)
     router.replace(fromOnboarding ? '/onboarding' : '/home');
   };
 

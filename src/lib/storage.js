@@ -1,3 +1,7 @@
+/**
+ * @deprecated This file is deprecated. Use database queries from src/db/queries/ instead.
+ * Kept for backward compatibility and tests.
+ */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SETTINGS_KEY = 'DRIVING_MVP_SETTINGS';

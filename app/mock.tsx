@@ -11,13 +11,14 @@ import { Card } from '@/components/ui/card';
 import { Divider } from '@/components/ui/divider';
 import { Header } from '@/components/ui/header';
 import { getLanguage } from '@/src/lib/settings';
-import { loadProgress, saveProgress } from '@/src/lib/storage';
 import { getRandomTestWithIndex, getQuestionFromTest } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
-import { recordMockResult, recordAddedToMistakes, recordQuestionSeen, recordStudyAttempt, updateStreak } from '@/src/lib/stats';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
+import * as MockDB from '@/src/db/queries/mockExams';
+import * as AttemptsDB from '@/src/db/queries/attempts';
+import * as MistakesDB from '@/src/db/queries/mistakes';
 
 export default function MockScreen() {
   const router = useRouter();
@@ -26,14 +27,15 @@ export default function MockScreen() {
   const [lang, setLang] = useState(1);
   const [test, setTest] = useState(null);
   const [testIndex, setTestIndex] = useState(null);
-  const [lastHistoryId, setLastHistoryId] = useState(null);
+  const [mockExamId, setMockExamId] = useState(null);
+  const [examStartedAt, setExamStartedAt] = useState(null);
   const [answers, setAnswers] = useState({});
+  const [questionShownAt, setQuestionShownAt] = useState({}); // Track when each question was shown
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
   const [passed, setPassed] = useState(false);
   const [results, setResults] = useState({});
-  const [progress, setProgress] = useState({ mistakesByLang: {}, streaksByLang: {} });
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [selectedQuestionDetail, setSelectedQuestionDetail] = useState(null);
@@ -43,12 +45,6 @@ export default function MockScreen() {
   const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
     setLang(currentLang);
-    
-    const loadedProgress = await loadProgress();
-    if (loadedProgress) {
-      setProgress(loadedProgress);
-    }
-    
     startNewTest(currentLang);
   }, []);
 
@@ -61,37 +57,79 @@ export default function MockScreen() {
     setTest(newTest);
     setTestIndex(idx);
     setAnswers({});
+    setQuestionShownAt({});
     setIsFinished(false);
     setScore(0);
     setMaxScore(newTest?.maxbody || 0);
     setPassed(false);
     setResults({});
     setCurrentQuestion(1);
-    setLastHistoryId(null);
+    setMockExamId(null);
+    setExamStartedAt(null);
     
     if (newTest && newTest.cas > 0) {
       setTimeRemaining(newTest.cas);
     }
     
-    // Track all questions in mock exam as seen
-    if (newTest && newTest.otazky) {
-      for (let qNo = 1; qNo <= newTest.pocet; qNo++) {
-        const qNoStr = String(qNo);
-        const questionData = newTest.otazky[qNoStr];
-        if (questionData && questionData[0] && questionData[0].id) {
-          await recordQuestionSeen({ lang: currentLang, qid: String(questionData[0].id) });
-        }
-      }
-    }
+    // Create mock exam session
+    const testId = `L${currentLang}-T${idx}`;
+    const examId = await MockDB.createMockExam({
+      lang: currentLang,
+      testId,
+      maxScore: newTest.maxbody,
+      minToPass: newTest.minbody,
+    });
+    setMockExamId(examId);
+    const startedAt = new Date();
+    setExamStartedAt(startedAt);
+    
+    // Track first question shown
+    setQuestionShownAt({ [String(1)]: startedAt });
   };
 
   const handleFinish = useCallback(async () => {
-    if (!test || testIndex === null) return;
+    if (!test || testIndex === null || !mockExamId || !examStartedAt) return;
     
     let totalScore = 0;
     let totalMax = 0;
     const questionResults = {};
     
+    // Log all answer attempts before calculating score
+    for (let qNo = 1; qNo <= test.pocet; qNo++) {
+      const qNoStr = String(qNo);
+      const questionData = test.otazky[qNoStr];
+      if (!questionData || !questionData[0]) continue;
+      
+      const q = questionData[0];
+      const userAnswer = answers[qNoStr];
+      
+      if (userAnswer !== undefined) {
+        const question = getQuestionFromTest(test, qNo);
+        if (question) {
+          const categoryText = getCategoryForQuestion(test, qNo);
+          const wasInMistakes = await MistakesDB.isMistake(lang, question.qid);
+          const shownAt = questionShownAt[qNoStr] || examStartedAt;
+          const submittedAt = new Date(); // Use current time as final submission
+          
+          await AttemptsDB.logAnswerAttempt({
+            lang,
+            questionId: question.qid,
+            mode: 'mock',
+            mockExamId,
+            categoryText,
+            selectedAnswerIndex: userAnswer,
+            correctAnswerIndex: question.correct,
+            isCorrect: userAnswer === question.correct,
+            points: question.points,
+            questionShownAt: shownAt,
+            answerSubmittedAt: submittedAt,
+            wasInMistakes,
+          });
+        }
+      }
+    }
+    
+    // Calculate score
     for (let qNo = 1; qNo <= test.pocet; qNo++) {
       const qNoStr = String(qNo);
       const questionData = test.otazky[qNoStr];
@@ -118,50 +156,17 @@ export default function MockScreen() {
     setResults(questionResults);
     setIsFinished(true);
     
-    // Record each question as a study attempt for accuracy tracking
-    for (let qNo = 1; qNo <= test.pocet; qNo++) {
-      const qNoStr = String(qNo);
-      const questionData = test.otazky[qNoStr];
-      if (!questionData || !questionData[0]) continue;
-      
-      const q = questionData[0];
-      const userAnswer = answers[qNoStr];
-      const isCorrect = userAnswer === q.platna;
-      
-      // Get category for the question
-      const questionCategory = getCategoryForQuestion(test, qNo);
-      
-      // Record as study attempt (category will be null if not categorized)
-      await recordStudyAttempt({
-        lang,
-        category: questionCategory || null,
-        isCorrect,
-      });
-    }
-    
-    // Record mock exam result
-    const testId = `L${lang}-T${testIndex}`;
+    // Complete mock exam
     const initialTime = test.cas || 0;
     const durationSec = initialTime > 0 && timeRemaining > 0 ? initialTime - timeRemaining : undefined;
     
-    const historyId = await recordMockResult({
-      lang,
-      testId,
+    await MockDB.completeMockExam(mockExamId, {
       score: totalScore,
-      maxScore: totalMax,
-      minToPass: test.minbody,
       passed: testPassed,
-      durationSec,
       wrongCount,
-    });
-    
-    setLastHistoryId(historyId);
-    
-    // Update streak if passed
-    if (testPassed) {
-      await updateStreak({ lang, isMockPass: true });
-    }
-  }, [test, testIndex, answers, lang, timeRemaining]);
+      durationSec,
+    }, examStartedAt);
+  }, [test, testIndex, answers, lang, timeRemaining, mockExamId, examStartedAt, questionShownAt]);
 
   useEffect(() => {
     if (timeRemaining > 0 && !isFinished) {
@@ -179,12 +184,43 @@ export default function MockScreen() {
     }
   }, [timeRemaining, isFinished, handleFinish]);
 
-  const handleAnswer = (qNo, answerIndex) => {
+  const handleAnswer = async (qNo, answerIndex) => {
     if (isFinished) return;
+    
+    const qNoStr = String(qNo);
+    const previousAnswer = answers[qNoStr];
+    
     setAnswers((prev) => ({
       ...prev,
-      [qNo]: answerIndex,
+      [qNoStr]: answerIndex,
     }));
+    
+    // Log answer attempt if this is the first time answering or answer changed
+    if (previousAnswer === undefined || previousAnswer !== answerIndex) {
+      const question = getQuestionFromTest(test, qNo);
+      if (question) {
+        const categoryText = getCategoryForQuestion(test, qNo);
+        const wasInMistakes = await MistakesDB.isMistake(lang, question.qid);
+        const shownAt = questionShownAt[qNoStr] || examStartedAt || new Date();
+        const submittedAt = new Date();
+        
+        await AttemptsDB.logAnswerAttempt({
+          lang,
+          questionId: question.qid,
+          mode: 'mock',
+          mockExamId,
+          categoryText,
+          selectedAnswerIndex: answerIndex,
+          correctAnswerIndex: question.correct,
+          isCorrect: answerIndex === question.correct,
+          points: question.points,
+          questionShownAt: shownAt,
+          answerSubmittedAt: submittedAt,
+          wasInMistakes,
+        });
+      }
+    }
+    
     // Auto-scroll to navigation buttons after selecting an answer
     if (contentScrollRef.current) {
       setTimeout(() => {
@@ -196,7 +232,6 @@ export default function MockScreen() {
   const handleAddWrongToMistakes = async () => {
     if (!test) return;
     
-    let updatedProgress = { ...progress };
     let wrongCount = 0;
     
     for (let qNo = 1; qNo <= test.pocet; qNo++) {
@@ -208,17 +243,14 @@ export default function MockScreen() {
       const userAnswer = answers[qNoStr];
       
       if (userAnswer !== q.platna) {
-        updatedProgress = applyAnswer(updatedProgress, lang, String(q.id), false);
+        await applyAnswer(null, lang, String(q.id), false);
         wrongCount += 1;
       }
     }
     
-    setProgress(updatedProgress);
-    await saveProgress(updatedProgress);
-    
-    // Record added to mistakes count in history
-    if (lastHistoryId && wrongCount > 0) {
-      await recordAddedToMistakes({ lang, historyId: lastHistoryId, count: wrongCount });
+    // Update added to mistakes count
+    if (mockExamId && wrongCount > 0) {
+      await MockDB.updateAddedToMistakesCount(mockExamId, wrongCount);
     }
     
     Alert.alert('Success', 'Wrong answers added to mistakes');
@@ -231,10 +263,20 @@ export default function MockScreen() {
   };
 
   const handleQuestionNavigation = (qNo) => {
+    const qNoStr = String(qNo);
+    
+    // Track when question is shown
+    if (!questionShownAt[qNoStr]) {
+      setQuestionShownAt(prev => ({
+        ...prev,
+        [qNoStr]: new Date(),
+      }));
+    }
+    
     setCurrentQuestion(qNo);
     // Scroll to the question button in the navigation bar
     if (questionScrollRef.current) {
-      const buttonWidth = 44; // Approximate width of each button
+      const buttonWidth = 44;
       const scrollPosition = Math.max(0, (qNo - 1) * buttonWidth - 100);
       questionScrollRef.current.scrollTo({ x: scrollPosition, animated: true });
     }
@@ -538,18 +580,18 @@ export default function MockScreen() {
             // Determine styles based on state and theme
             let backgroundColor, borderColor, shadowStyle, textColor;
             if (isCurrent) {
-              backgroundColor = isDark ? '#6366f1' : '#4f46e5'; // indigo-500/600
-              borderColor = isDark ? '#6366f1' : '#4338ca'; // indigo-500/700
+              backgroundColor = isDark ? '#6366f1' : '#4f46e5';
+              borderColor = isDark ? '#6366f1' : '#4338ca';
               shadowStyle = { shadowColor: '#6366f1', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.3, shadowRadius: 2, elevation: 2 };
               textColor = '#ffffff';
             } else if (hasAnswer) {
-              backgroundColor = isDark ? 'rgba(67, 56, 202, 0.6)' : '#e0e7ff'; // indigo-900/60 or indigo-100
-              borderColor = isDark ? '#4338ca' : '#818cf8'; // indigo-700 or indigo-300
-              textColor = isDark ? '#c7d2fe' : '#4338ca'; // indigo-200 or indigo-700
+              backgroundColor = isDark ? 'rgba(67, 56, 202, 0.6)' : '#e0e7ff';
+              borderColor = isDark ? '#4338ca' : '#818cf8';
+              textColor = isDark ? '#c7d2fe' : '#4338ca';
             } else {
-              backgroundColor = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.8)'; // slate-900/70 or white/80
-              borderColor = isDark ? '#334155' : '#e2e8f0'; // slate-700 or slate-200
-              textColor = isDark ? '#cbd5e1' : '#334155'; // slate-300 or slate-700
+              backgroundColor = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.8)';
+              borderColor = isDark ? '#334155' : '#e2e8f0';
+              textColor = isDark ? '#cbd5e1' : '#334155';
             }
 
             return (

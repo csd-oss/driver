@@ -7,7 +7,9 @@ import {
 } from './bank';
 import { getCategoryForQuestion } from './categories';
 import { loadStats } from './stats';
-import { loadProgress } from './storage';
+import * as MistakesDB from '../db/queries/mistakes';
+import * as StatsDB from '../db/queries/stats';
+import { database } from '../db/index';
 
 /**
  * Check if a question ID is in the recent list
@@ -299,14 +301,20 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
     lang = 1;
   }
   
-  // Load required data
-  const progress = await loadProgress();
+  // Load required data from database
+  const mistakes = await MistakesDB.getMistakes(lang);
   const stats = await loadStats();
-  
   const langStr = String(lang);
-  const mistakes = progress?.mistakesByLang?.[langStr] || [];
   const langStats = stats?.statsByLang?.[langStr] || {};
-  const questionsSeen = langStats?.coverage?.questionsSeen || [];
+  
+  // Get questions seen from database
+  const seenResult = await database.getAllAsync(
+    `SELECT DISTINCT question_id
+    FROM answer_attempts
+    WHERE lang = ?`,
+    [lang]
+  );
+  const questionsSeen = seenResult.map((row) => row.question_id);
   
   // Build seen set once for performance
   const seenSet = new Set(questionsSeen);

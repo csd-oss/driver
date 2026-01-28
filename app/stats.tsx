@@ -5,7 +5,7 @@ import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage, getReadinessMode } from '@/src/lib/settings';
 import { calculateAccuracy, calculateCoverage, getLast7Days, getReadinessBreakdown, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
-import { loadProgress } from '@/src/lib/storage';
+import * as MistakesDB from '@/src/db/queries/mistakes';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState, useEffect } from 'react';
@@ -23,13 +23,9 @@ export default function StatsScreen() {
     const currentLang = await getLanguage();
     setLang(currentLang);
     
-    // Load progress for mistake count
-    const progress = await loadProgress();
-    if (progress && progress.mistakesByLang) {
-      const langStr = String(currentLang);
-      const mistakes = progress.mistakesByLang[langStr] || [];
-      setMistakeCount(mistakes.length);
-    }
+    // Load mistake count from database
+    const mistakesCount = await MistakesDB.getMistakesCount(currentLang);
+    setMistakeCount(mistakesCount);
     
     // Load stats
     const loadedStats = await loadStats();

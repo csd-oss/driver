@@ -4,40 +4,40 @@ overview: Migrate from AsyncStorage to SQLite using Drizzle ORM, redesigning the
 todos:
   - id: setup-deps
     content: Install expo-sqlite, drizzle-orm, drizzle-kit and create drizzle.config.ts
-    status: pending
+    status: completed
   - id: define-schema
     content: Create all table schemas in src/db/schema/ with proper types and indexes
-    status: pending
+    status: completed
   - id: create-views
     content: Define SQL views for computed statistics (daily, category, study, mock)
-    status: pending
+    status: completed
   - id: query-layer
     content: Implement typed query functions in src/db/queries/ for all operations
-    status: pending
+    status: completed
   - id: refactor-settings
     content: Refactor settings.js to use SQLite settings table
-    status: pending
+    status: completed
   - id: refactor-mistakes
     content: Refactor engine.js to use SQLite mistakes table with streaks
-    status: pending
+    status: completed
   - id: refactor-stats
     content: Refactor stats.js to use views and answer_attempts queries
-    status: pending
+    status: completed
   - id: update-study
     content: Update study.tsx to track timing and log answer_attempts
-    status: pending
+    status: completed
   - id: update-mistakes-screen
     content: Update mistakes.tsx to track timing and log answer_attempts
-    status: pending
+    status: completed
   - id: update-mock
     content: Update mock.tsx to use mock_exams table and log all attempts
-    status: pending
+    status: completed
   - id: update-home-stats
     content: Update home.tsx and stats.tsx to use new query layer
-    status: pending
+    status: completed
   - id: cleanup
     content: Remove deprecated AsyncStorage code and test all functionality
-    status: pending
+    status: completed
 isProject: false
 ---
 

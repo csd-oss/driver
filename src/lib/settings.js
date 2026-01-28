@@ -1,131 +1,134 @@
-import { loadSettings, saveSettings } from './storage.js';
 import * as Localization from 'expo-localization';
+import * as SettingsDB from '../db/queries/settings';
+import * as CategoryDB from '../db/queries/categorySelections';
 
-const DEFAULT_SETTINGS = {
-  lang: 2,
-  hasOnboarded: false,
-  hasChosenLanguage: false,
-  selectedCategoryByLang: {
-    "1": "all",
-    "2": "all",
-    "3": "all",
-  },
-  useConservativeReadiness: false, // If true, uses conservative partial scores for insufficient data; if false, uses 0%
-};
-
+// Cache for settings (maintains backward compatibility)
 let cachedSettings = null;
 
+/**
+ * Detect language from device locale
+ * Returns: 1 (Slovak), 2 (English), or 3 (Hungarian)
+ */
+const detectLanguageFromDevice = () => {
+  const locales =
+    typeof Localization.getLocales === 'function'
+      ? Localization.getLocales()
+      : [];
+  const primaryLocale = locales[0]?.languageCode || Localization.locale || '';
+  const normalized = String(primaryLocale).toLowerCase().split('-')[0];
+  if (normalized === 'sk') return 1; // Slovak
+  if (normalized === 'hu') return 3; // Hungarian
+  return 2; // English (default for any other language)
+};
+
+/**
+ * Get settings (with caching for backward compatibility)
+ */
 export const getSettings = async () => {
   if (cachedSettings) {
     return cachedSettings;
   }
   
-  const stored = await loadSettings();
-  const resolveLanguage = (langValue) => {
-    if (langValue === 1 || langValue === 2 || langValue === 3) {
-      return langValue;
-    }
-    const locales =
-      typeof Localization.getLocales === 'function'
-        ? Localization.getLocales()
-        : [];
-    const primaryLocale = locales[0]?.languageCode || Localization.locale || '';
-    const normalized = String(primaryLocale).toLowerCase().split('-')[0];
-    if (normalized === 'sk') return 1;
-    if (normalized === 'hu') return 3;
-    return 2;
-  };
-
-  if (stored) {
-    const resolvedLang = resolveLanguage(stored.lang);
-    cachedSettings = { ...DEFAULT_SETTINGS, ...stored, lang: resolvedLang };
-    if (stored.lang !== resolvedLang) {
-      await saveSettings(cachedSettings);
+  const dbSettings = await SettingsDB.getSettings();
+  
+  // If user hasn't chosen a language, detect from device
+  // Otherwise, use the stored language
+  let resolvedLang;
+  if (!dbSettings.hasChosenLanguage) {
+    resolvedLang = detectLanguageFromDevice();
+    // Update DB with detected language
+    if (dbSettings.lang !== resolvedLang) {
+      await SettingsDB.setLanguage(resolvedLang);
     }
   } else {
-    const resolvedLang = resolveLanguage(undefined);
-    cachedSettings = { ...DEFAULT_SETTINGS, lang: resolvedLang };
-    await saveSettings(cachedSettings);
+    // User has chosen language, use stored value
+    resolvedLang = dbSettings.lang;
   }
   
-  return cachedSettings;
+  // Build settings object matching old format
+  const settings = {
+    lang: resolvedLang,
+    hasOnboarded: dbSettings.hasOnboarded,
+    hasChosenLanguage: dbSettings.hasChosenLanguage,
+    selectedCategoryByLang: {
+      "1": await CategoryDB.getCategorySelection(1),
+      "2": await CategoryDB.getCategorySelection(2),
+      "3": await CategoryDB.getCategorySelection(3),
+    },
+    useConservativeReadiness: dbSettings.useConservativeReadiness,
+  };
+  
+  cachedSettings = settings;
+  return settings;
 };
 
+/**
+ * Update settings
+ */
 export const updateSettings = async (updates) => {
   const current = await getSettings();
   const updated = { ...current, ...updates };
+  
+  // Update database
+  if (updates.lang !== undefined) {
+    await SettingsDB.setLanguage(updates.lang);
+  }
+  if (updates.hasOnboarded !== undefined) {
+    await SettingsDB.updateSettings({ hasOnboarded: updates.hasOnboarded });
+  }
+  if (updates.hasChosenLanguage !== undefined) {
+    await SettingsDB.updateSettings({ hasChosenLanguage: updates.hasChosenLanguage });
+  }
+  if (updates.useConservativeReadiness !== undefined) {
+    await SettingsDB.setReadinessMode(updates.useConservativeReadiness);
+  }
+  if (updates.selectedCategoryByLang) {
+    for (const [langStr, categoryText] of Object.entries(updates.selectedCategoryByLang)) {
+      await CategoryDB.setCategorySelection(Number(langStr), categoryText);
+    }
+  }
+  
   cachedSettings = updated;
-  await saveSettings(updated);
   return updated;
 };
 
+/**
+ * Get current language
+ */
 export const getLanguage = async () => {
   const settings = await getSettings();
   return settings.lang;
 };
 
+/**
+ * Clear cache
+ */
 export const clearCache = () => {
   cachedSettings = null;
 };
 
 /**
  * Get selected category for a language
- * @param {number} lang - Language index (1, 2, or 3)
- * @returns {Promise<string>} Selected category ("all" or category text)
  */
 export const getSelectedCategory = async (lang) => {
-  const settings = await getSettings();
-  const langStr = String(lang);
-  
-  // Ensure selectedCategoryByLang exists
-  if (!settings.selectedCategoryByLang) {
-    settings.selectedCategoryByLang = {
-      "1": "all",
-      "2": "all",
-      "3": "all",
-    };
-  }
-  
-  return settings.selectedCategoryByLang[langStr] || "all";
+  return await CategoryDB.getCategorySelection(lang);
 };
 
 /**
  * Set selected category for a language
- * @param {number} lang - Language index (1, 2, or 3)
- * @param {string} categoryTxt - Category text or "all"
- * @returns {Promise<Object>} Updated settings
  */
 export const setSelectedCategory = async (lang, categoryTxt) => {
-  const current = await getSettings();
-  const langStr = String(lang);
-  
-  // Ensure selectedCategoryByLang exists
-  if (!current.selectedCategoryByLang) {
-    current.selectedCategoryByLang = {
-      "1": "all",
-      "2": "all",
-      "3": "all",
-    };
+  await CategoryDB.setCategorySelection(lang, categoryTxt || 'all');
+  // Invalidate cache
+  if (cachedSettings) {
+    cachedSettings.selectedCategoryByLang[String(lang)] = categoryTxt || 'all';
   }
-  
-  const updated = {
-    ...current,
-    selectedCategoryByLang: {
-      ...current.selectedCategoryByLang,
-      [langStr]: categoryTxt || "all",
-    },
-  };
-  
-  cachedSettings = updated;
-  await saveSettings(updated);
-  return updated;
+  return await getSettings();
 };
 
 /**
  * Get readiness calculation mode
- * @returns {Promise<boolean>} true if using conservative mode, false if using strict (0%) mode
  */
 export const getReadinessMode = async () => {
-  const settings = await getSettings();
-  return settings.useConservativeReadiness || false;
+  return await SettingsDB.getReadinessMode();
 };

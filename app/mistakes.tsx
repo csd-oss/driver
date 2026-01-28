@@ -9,14 +9,15 @@ import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
-import { loadProgress, saveProgress } from '@/src/lib/storage';
 import { findQuestionById, getTestForQuestion } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
-import { recordStudyAttempt, recordQuestionSeen, updateStreak } from '@/src/lib/stats';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
 import { CategorySelector } from '@/components/CategorySelector';
+import * as MistakesDB from '@/src/db/queries/mistakes';
+import * as StudySessionDB from '@/src/db/queries/studySessions';
+import * as AttemptsDB from '@/src/db/queries/attempts';
 
 // Fisher-Yates shuffle algorithm
 const shuffleArray = (array) => {
@@ -34,7 +35,8 @@ export default function MistakesScreen() {
   const nextButtonRef = useRef(null);
   const questionCardRef = useRef(null);
   const hasRecordedAnswer = useRef(false);
-  const hasRecordedSeen = useRef(false);
+  const sessionIdRef = useRef(null);
+  const questionShownAtRef = useRef(null);
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [mistakes, setMistakes] = useState([]);
@@ -45,7 +47,7 @@ export default function MistakesScreen() {
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
-  const [progress, setProgress] = useState({ mistakesByLang: {}, streaksByLang: {} });
+  const [streak, setStreakState] = useState(0);
 
   // Filter mistakes by category
   const filterMistakesByCategory = useCallback((mistakeList, currentLang, category) => {
@@ -72,34 +74,45 @@ export default function MistakesScreen() {
     const category = await getSelectedCategory(currentLang);
     setSelectedCategoryState(category);
     
-    const loadedProgress = await loadProgress();
-    if (loadedProgress) {
-      setProgress(loadedProgress);
-      const langStr = String(currentLang);
-      const mistakeList = loadedProgress.mistakesByLang?.[langStr] || [];
-      setMistakes(mistakeList);
-      
-      // Filter mistakes by category
-      const filtered = filterMistakesByCategory(mistakeList, currentLang, category);
-      setFilteredMistakes(filtered);
-      
-      if (filtered.length > 0) {
-        // Shuffle the filtered mistakes list for random order
-        const shuffled = shuffleArray(filtered);
-        setShuffledMistakes(shuffled);
-        await loadQuestion(shuffled[0], currentLang);
-        setCurrentIndex(0);
-      } else {
-        setQuestion(null);
-        setCurrentIndex(0);
-        setShuffledMistakes([]);
-      }
+    // Create study session
+    const sessionId = await StudySessionDB.createStudySession({
+      lang: currentLang,
+      mode: 'mistakes',
+      categoryText: category === 'all' ? null : category,
+    });
+    sessionIdRef.current = sessionId;
+    
+    // Load mistakes from database
+    const mistakeList = await MistakesDB.getMistakes(currentLang);
+    setMistakes(mistakeList);
+    
+    // Filter mistakes by category
+    const filtered = filterMistakesByCategory(mistakeList, currentLang, category);
+    setFilteredMistakes(filtered);
+    
+    if (filtered.length > 0) {
+      // Shuffle the filtered mistakes list for random order
+      const shuffled = shuffleArray(filtered);
+      setShuffledMistakes(shuffled);
+      await loadQuestion(shuffled[0], currentLang);
+      setCurrentIndex(0);
+    } else {
+      setQuestion(null);
+      setCurrentIndex(0);
+      setShuffledMistakes([]);
     }
   }, [filterMistakesByCategory]);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
+      
+      // Cleanup: end session when leaving screen
+      return () => {
+        if (sessionIdRef.current) {
+          StudySessionDB.endStudySession(sessionIdRef.current, 0, 0);
+        }
+      };
     }, [loadData])
   );
 
@@ -108,13 +121,7 @@ export default function MistakesScreen() {
     
     // Reset flags for new question
     hasRecordedAnswer.current = false;
-    hasRecordedSeen.current = false;
-    
-    // Track question as seen when it loads
-    if (q && !hasRecordedSeen.current) {
-      await recordQuestionSeen({ lang: currentLang, qid: q.qid });
-      hasRecordedSeen.current = true;
-    }
+    questionShownAtRef.current = new Date();
     
     setQuestion(q);
     setSelectedAnswer(null);
@@ -131,30 +138,45 @@ export default function MistakesScreen() {
     const correct = answerIndex === question.correct;
     setIsCorrect(correct);
     
-    // Update progress
-    const updatedProgress = applyAnswer(
-      progress,
-      lang,
-      question.qid,
-      correct
-    );
-    setProgress(updatedProgress);
-    await saveProgress(updatedProgress);
+    const answerSubmittedAt = new Date();
     
-    // Record stats (only once per question)
-    if (!hasRecordedAnswer.current) {
-      await recordStudyAttempt({
-        lang,
-        category: selectedCategory === 'all' ? null : selectedCategory,
-        isCorrect: correct,
-      });
-      await updateStreak({ lang, isMockPass: false });
-      hasRecordedAnswer.current = true;
+    // Update mistakes using new DB functions
+    await applyAnswer(null, lang, question.qid, correct);
+    
+    // Get category for the question
+    let categoryText = null;
+    if (selectedCategory !== 'all') {
+      categoryText = selectedCategory;
+    } else {
+      const test = getTestForQuestion(lang, question.qid);
+      if (test && question.qNo) {
+        categoryText = getCategoryForQuestion(test, question.qNo);
+      }
     }
     
+    // Check if question was in mistakes
+    const wasInMistakes = true; // Always true in mistakes screen
+    
+    // Log answer attempt with timing
+    await AttemptsDB.logAnswerAttempt({
+      lang,
+      questionId: question.qid,
+      mode: 'mistakes',
+      sessionId: sessionIdRef.current,
+      categoryText,
+      selectedAnswerIndex: answerIndex,
+      correctAnswerIndex: question.correct,
+      isCorrect: correct,
+      points: question.points,
+      questionShownAt: questionShownAtRef.current,
+      answerSubmittedAt,
+      wasInMistakes,
+    });
+    
+    hasRecordedAnswer.current = true;
+    
     // Reload mistakes list (in case question was removed)
-    const langStr = String(lang);
-    const updatedMistakes = updatedProgress.mistakesByLang?.[langStr] || [];
+    const updatedMistakes = await MistakesDB.getMistakes(lang);
     setMistakes(updatedMistakes);
     
     // Filter mistakes by category
@@ -191,7 +213,8 @@ export default function MistakesScreen() {
   };
 
   const handleNext = async () => {
-    const updatedMistakes = progress.mistakesByLang?.[String(lang)] || [];
+    // Reload mistakes from DB
+    const updatedMistakes = await MistakesDB.getMistakes(lang);
     
     // Filter by category
     const filtered = filterMistakesByCategory(updatedMistakes, lang, selectedCategory);
@@ -216,7 +239,6 @@ export default function MistakesScreen() {
     }
     
     // Pick a random next question from the shuffled list
-    // Avoid picking the same question if there are multiple options
     let nextIndex;
     if (currentShuffled.length === 1) {
       nextIndex = 0;
@@ -242,6 +264,18 @@ export default function MistakesScreen() {
     await setSelectedCategory(lang, categoryTxt);
     setSelectedCategoryState(categoryTxt);
     
+    // End current session and start new one
+    if (sessionIdRef.current) {
+      await StudySessionDB.endStudySession(sessionIdRef.current, 0, 0);
+    }
+    
+    const newSessionId = await StudySessionDB.createStudySession({
+      lang,
+      mode: 'mistakes',
+      categoryText: categoryTxt === 'all' ? null : categoryTxt,
+    });
+    sessionIdRef.current = newSessionId;
+    
     // Re-filter mistakes
     const filtered = filterMistakesByCategory(mistakes, lang, categoryTxt);
     setFilteredMistakes(filtered);
@@ -261,12 +295,18 @@ export default function MistakesScreen() {
   // Auto-scroll to Next button when answer is submitted
   useEffect(() => {
     if (isAnswered && scrollViewRef.current) {
-      // Small delay to ensure layout is complete
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
   }, [isAnswered]);
+
+  // Get streak from database
+  useEffect(() => {
+    if (question?.qid) {
+      MistakesDB.getStreak(lang, question.qid).then(setStreakState);
+    }
+  }, [lang, question?.qid]);
 
   // Show empty state if no mistakes at all
   if (mistakes.length === 0) {
@@ -323,8 +363,6 @@ export default function MistakesScreen() {
     );
   }
 
-  const langStr = String(lang);
-  const streak = progress.streaksByLang?.[langStr]?.[question.qid] || 0;
   const mastery = Math.floor(streak / 2);
 
   const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
@@ -390,7 +428,6 @@ export default function MistakesScreen() {
                   buttonVariant = 'default';
                   buttonClassName += 'bg-emerald-500 dark:bg-emerald-600 border border-emerald-400/60';
                 } else if (isSelected && !isCorrect) {
-                  // Wrong selected answer - use red/purple background
                   buttonClassName += 'bg-rose-500 dark:bg-rose-600 border border-rose-400/60';
                 }
               }
