@@ -110,6 +110,23 @@ export async function getRecentQuestionIds(
 }
 
 /**
+ * Get answer history with pagination
+ * Returns all answer attempts for a language, ordered by most recent first
+ */
+export async function getAnswerHistory(
+  lang: number,
+  limit: number = 50,
+  offset: number = 0
+) {
+  return db.select()
+    .from(answerAttempts)
+    .where(eq(answerAttempts.lang, lang))
+    .orderBy(desc(answerAttempts.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+/**
  * Delete all answer attempts for a language (or all languages if lang is null)
  */
 export async function deleteAnswerAttempts(lang: number | null = null): Promise<void> {

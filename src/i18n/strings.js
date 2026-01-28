@@ -362,6 +362,86 @@ export const STR = {
     2: 'of {total}',
     3: '{total}-ból',
   },
+  'stats.reviewHistory': {
+    1: 'Prehľad odpovedí',
+    2: 'Review History',
+    3: 'Válaszok áttekintése',
+  },
+  'history.title': {
+    1: 'História odpovedí',
+    2: 'Answer History',
+    3: 'Válasz történet',
+  },
+  'history.empty': {
+    1: 'Zatiaľ nem máte žiadne odpovede na prezeranie.',
+    2: 'You have no answers to review yet.',
+    3: 'Még nincsenek válaszok az áttekintéshez.',
+  },
+  'history.responseTime': {
+    1: 'Čas odpovede',
+    2: 'Response time',
+    3: 'Válaszidő',
+  },
+  'history.questionShownAt': {
+    1: 'Otázka zobrazená',
+    2: 'Question shown at',
+    3: 'Kérdés megjelenítve',
+  },
+  'history.answeredAt': {
+    1: 'Odpoveď odoslaná',
+    2: 'Answered at',
+    3: 'Válasz elküldve',
+  },
+  'history.date': {
+    1: 'Dátum',
+    2: 'Date',
+    3: 'Dátum',
+  },
+  'history.correct': {
+    1: 'Správne',
+    2: 'Correct',
+    3: 'Helyes',
+  },
+  'history.incorrect': {
+    1: 'Nesprávne',
+    2: 'Incorrect',
+    3: 'Helytelen',
+  },
+  'history.correctAnswer': {
+    1: 'Správna odpoveď',
+    2: 'Correct answer',
+    3: 'Helyes válasz',
+  },
+  'history.yourAnswer': {
+    1: 'Vaša odpoveď',
+    2: 'Your answer',
+    3: 'Az Ön válasza',
+  },
+  'history.modeStudy': {
+    1: 'Štúdium',
+    2: 'Study',
+    3: 'Tanulás',
+  },
+  'history.modeMock': {
+    1: 'Test',
+    2: 'Mock',
+    3: 'Próba',
+  },
+  'history.modeMistakes': {
+    1: 'Chyby',
+    2: 'Mistakes',
+    3: 'Hibák',
+  },
+  'history.points': {
+    1: 'Body',
+    2: 'Points',
+    3: 'Pontok',
+  },
+  'history.wasInMistakes': {
+    1: 'Bola v chybách',
+    2: 'Was in mistakes',
+    3: 'Hibákban volt',
+  },
   'study.reason.mistake': {
     1: 'Oprava chyby',
     2: 'Fixing a mistake',

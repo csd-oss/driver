@@ -2,6 +2,7 @@ import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
+import { Button } from '@/components/ui/button';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage, getReadinessMode } from '@/src/lib/settings';
 import { calculateAccuracy, getLast7Days, getReadinessBreakdown, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
@@ -510,6 +511,20 @@ export default function StatsScreen() {
               <UIText variant="body" className="font-semibold">{formatLastStudyDate()}</UIText>
             </View>
           </View>
+        </Card>
+
+        {/* Answer History Card */}
+        <Card className="gap-4">
+          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+            {t('stats.reviewHistory', lang)}
+          </UIText>
+          <Button
+            onPress={() => router.push('/answer-history')}
+            variant="outline"
+            className="w-full"
+          >
+            {t('stats.reviewHistory', lang)}
+          </Button>
         </Card>
       </ScrollView>
     </Screen>
