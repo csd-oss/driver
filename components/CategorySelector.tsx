@@ -31,7 +31,7 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
         onPress={() => setModalVisible(true)}
         className="w-full"
       >
-        <Card className="p-3">
+        <Card className="p-3 bg-white dark:bg-slate-900">
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <UIText variant="caption" className="text-slate-500 dark:text-slate-400 mb-1">
@@ -62,7 +62,7 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
             onPress={(e) => e.stopPropagation()}
             className="w-full max-w-md"
           >
-            <Card className="max-h-[80%] bg-white dark:bg-slate-900">
+            <View className="max-h-[80%] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg p-4">
               <View className="mb-4">
                 <UIText variant="subtitle" className="mb-2">
                   {t('category.select', lang)}
@@ -76,7 +76,7 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
                     onPress={() => handleSelect('all')}
                     className={`p-4 rounded-xl border ${
                       selectedCategory === 'all'
-                        ? 'bg-indigo-100 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700'
+                        ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-300 dark:border-indigo-700'
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                     }`}
                   >
@@ -95,7 +95,7 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
                       onPress={() => handleSelect(category)}
                       className={`p-4 rounded-xl border ${
                         selectedCategory === category
-                          ? 'bg-indigo-100 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700'
+                          ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-300 dark:border-indigo-700'
                           : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                       }`}
                     >
@@ -119,7 +119,7 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
                   {t('nav.back', lang)}
                 </Button>
               </View>
-            </Card>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
