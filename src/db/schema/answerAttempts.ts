@@ -1,6 +1,6 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
-import { studySessions } from './studySessions';
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { mockExams } from './mockExams';
+import { studySessions } from './studySessions';
 
 export const answerAttempts = sqliteTable('answer_attempts', {
   id: text('id').primaryKey(), // UUID - sync-ready

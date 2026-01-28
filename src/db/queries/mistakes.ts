@@ -1,8 +1,8 @@
+import { and, eq } from 'drizzle-orm';
+import { getDeviceId } from '../device';
 import { db } from '../index';
 import { mistakes } from '../schema/mistakes';
-import { eq, and } from 'drizzle-orm';
 import { generateId } from '../utils';
-import { getDeviceId } from '../device';
 
 /**
  * Get all mistake question IDs for a language

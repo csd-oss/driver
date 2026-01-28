@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const studySessions = sqliteTable('study_sessions', {
   id: text('id').primaryKey(), // UUID - sync-ready

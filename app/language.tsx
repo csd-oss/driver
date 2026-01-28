@@ -4,9 +4,9 @@ import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
-import { getLanguage, updateSettings, clearCache } from '@/src/lib/settings';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { clearCache, getLanguage, updateSettings } from '@/src/lib/settings';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 

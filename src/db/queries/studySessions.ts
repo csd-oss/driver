@@ -1,8 +1,8 @@
+import { eq } from 'drizzle-orm';
+import { getDeviceId } from '../device';
 import { db } from '../index';
 import { studySessions } from '../schema/studySessions';
-import { eq } from 'drizzle-orm';
 import { generateId } from '../utils';
-import { getDeviceId } from '../device';
 
 export interface StudySessionData {
   lang: number;

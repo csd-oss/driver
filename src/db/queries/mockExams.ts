@@ -1,8 +1,8 @@
+import { desc, eq } from 'drizzle-orm';
+import { getDeviceId } from '../device';
 import { db } from '../index';
 import { mockExams } from '../schema/mockExams';
-import { eq, desc } from 'drizzle-orm';
 import { generateId } from '../utils';
-import { getDeviceId } from '../device';
 
 export interface MockExamData {
   lang: number;

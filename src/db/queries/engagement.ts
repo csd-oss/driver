@@ -1,7 +1,4 @@
-import { db, database } from '../index';
-import { sql } from 'drizzle-orm';
-import { answerAttempts } from '../schema/answerAttempts';
-import { mockExams } from '../schema/mockExams';
+import { database } from '../index';
 
 /**
  * Get current streak for a language

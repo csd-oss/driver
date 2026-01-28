@@ -1,8 +1,8 @@
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { getDeviceId } from '../device';
 import { db } from '../index';
 import { answerAttempts } from '../schema/answerAttempts';
-import { eq, and, desc } from 'drizzle-orm';
 import { generateId } from '../utils';
-import { getDeviceId } from '../device';
 
 export interface AnswerAttemptData {
   lang: number;
@@ -70,6 +70,43 @@ export async function getQuestionAttempts(lang: number, questionId: string) {
       )
     )
     .orderBy(desc(answerAttempts.createdAt));
+}
+
+/**
+ * Get recent question IDs from answer attempts
+ * Returns distinct question IDs from the most recent attempts, ordered by creation time
+ */
+export async function getRecentQuestionIds(
+  lang: number,
+  limit: number = 20
+): Promise<string[]> {
+  const results = await db
+    .select({ questionId: answerAttempts.questionId })
+    .from(answerAttempts)
+    .where(
+      and(
+        eq(answerAttempts.lang, lang),
+        inArray(answerAttempts.mode, ['study', 'mistakes'])
+      )
+    )
+    .orderBy(desc(answerAttempts.createdAt))
+    .limit(limit * 2); // Get more records to account for duplicates
+  
+  // Extract unique questionIds, preserving order (most recent first)
+  const seen = new Set<string>();
+  const uniqueIds: string[] = [];
+  
+  for (const result of results) {
+    if (!seen.has(result.questionId)) {
+      seen.add(result.questionId);
+      uniqueIds.push(result.questionId);
+      if (uniqueIds.length >= limit) {
+        break;
+      }
+    }
+  }
+  
+  return uniqueIds;
 }
 
 /**

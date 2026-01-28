@@ -1,14 +1,14 @@
-import { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { FontScaleProvider } from '@/contexts/FontScaleContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { runMigrations } from '@/src/db/migrate';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
-import { getLanguage, getSettings, updateSettings, clearCache } from '@/src/lib/settings';
+import { clearCache, getLanguage, getSettings, updateSettings } from '@/src/lib/settings';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {

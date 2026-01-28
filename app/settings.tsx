@@ -1,16 +1,16 @@
-import { useState, useCallback } from 'react';
-import { View, Switch, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import { Screen } from '@/components/ui/screen';
 import { Button } from '@/components/ui/button';
-import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
-import { getSettings, updateSettings, clearCache } from '@/src/lib/settings';
-import { resetStats } from '@/src/lib/stats';
+import { Screen } from '@/components/ui/screen';
+import { UIText } from '@/components/ui/text';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import { t } from '@/src/i18n/i18n';
+import { clearCache, getSettings, updateSettings } from '@/src/lib/settings';
+import { resetStats } from '@/src/lib/stats';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Alert, Switch, View } from 'react-native';
 
 export default function SettingsScreen() {
   const router = useRouter();

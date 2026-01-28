@@ -1,6 +1,6 @@
 import * as Localization from 'expo-localization';
-import * as SettingsDB from '../db/queries/settings';
 import * as CategoryDB from '../db/queries/categorySelections';
+import * as SettingsDB from '../db/queries/settings';
 
 // Cache for settings (maintains backward compatibility)
 let cachedSettings = null;

@@ -1,23 +1,23 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { View, ScrollView } from 'react-native';
+import { CategorySelector } from '@/components/CategorySelector';
 import { AspectImage } from '@/components/ui/aspect-image';
-import { useFocusEffect } from '@react-navigation/native';
-import { Screen } from '@/components/ui/screen';
 import { Button } from '@/components/ui/button';
-import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
-import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
-import { applyAnswer } from '@/src/lib/engine';
-import { getSmartQuestion, pushRecent } from '@/src/lib/smartPractice';
+import { Screen } from '@/components/ui/screen';
+import { UIText } from '@/components/ui/text';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
-import { t } from '@/src/i18n/i18n';
-import { CategorySelector } from '@/components/CategorySelector';
-import * as StudySessionDB from '@/src/db/queries/studySessions';
 import * as AttemptsDB from '@/src/db/queries/attempts';
 import * as MistakesDB from '@/src/db/queries/mistakes';
+import * as StudySessionDB from '@/src/db/queries/studySessions';
+import { t } from '@/src/i18n/i18n';
+import { getTests } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
-import { getTests, findQuestionById } from '@/src/lib/bank';
+import { applyAnswer } from '@/src/lib/engine';
+import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
+import { getSmartQuestion, pushRecent } from '@/src/lib/smartPractice';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollView, View } from 'react-native';
 
 /**
  * Get user-facing label for a reason
@@ -46,7 +46,7 @@ export default function StudyScreen() {
   const nextButtonRef = useRef(null);
   const questionCardRef = useRef(null);
   const hasRecordedAnswer = useRef(false);
-  const recentQuestionIds = useRef([]);
+  const recentQuestionIds = useRef<string[]>([]);
   const sessionIdRef = useRef<string | null>(null);
   const questionShownAtRef = useRef<Date | null>(null);
   const [lang, setLang] = useState(1);
@@ -63,6 +63,10 @@ export default function StudyScreen() {
     
     const category = await getSelectedCategory(currentLang);
     setSelectedCategoryState(category);
+    
+    // Initialize recent questions from DB to preserve window across app exits
+    const recentFromDb = await AttemptsDB.getRecentQuestionIds(currentLang, 20);
+    recentQuestionIds.current = recentFromDb;
     
     // Create study session
     const sessionId = await StudySessionDB.createStudySession({

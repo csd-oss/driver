@@ -1,3 +1,5 @@
+import { database } from '../db/index';
+import * as MistakesDB from '../db/queries/mistakes';
 import {
   buildQuestionIndex,
   findQuestionById,
@@ -7,9 +9,6 @@ import {
 } from './bank';
 import { getCategoryForQuestion } from './categories';
 import { loadStats } from './stats';
-import * as MistakesDB from '../db/queries/mistakes';
-import * as StatsDB from '../db/queries/stats';
-import { database } from '../db/index';
 
 /**
  * Check if a question ID is in the recent list
@@ -210,15 +209,20 @@ const pickUnseen = ({ lang, selectedCategory, recentIds, seenSet }) => {
 
 /**
  * Priority 3: Pick a question from the weakest category
+ * Uses time-weighted category stats (recent performance weighted more heavily)
  * @param {Object} params
  * @param {number} params.lang - Language index
  * @param {string} params.selectedCategory - Selected category ('all' or category text)
  * @param {string[]} params.recentIds - Recent question IDs
- * @param {Object} params.stats - Language stats object
+ * @param {Object} params.stats - Language stats object (may contain time-weighted stats)
  * @returns {Object|null} Question object or null
  */
-const pickFromWeakCategory = ({ lang, selectedCategory, recentIds, stats }) => {
-  const byCategory = stats?.study?.byCategory || {};
+const pickFromWeakCategory = async ({ lang, selectedCategory, recentIds, stats }) => {
+  // Use time-weighted category stats if available, otherwise fall back to regular stats
+  const timeWeightedStats = await StatsDB.getTimeWeightedCategoryStats(lang);
+  const byCategory = timeWeightedStats && Object.keys(timeWeightedStats).length > 0 
+    ? timeWeightedStats 
+    : (stats?.study?.byCategory || {});
   
   // Filter categories with attempts > 0
   const categoriesWithAttempts = Object.keys(byCategory).filter(category => {
@@ -231,9 +235,13 @@ const pickFromWeakCategory = ({ lang, selectedCategory, recentIds, stats }) => {
   }
   
   // Calculate accuracy for each category and sort by lowest (weakest first)
+  // For time-weighted stats, accuracy is already a percentage (0-100), so convert to 0-1
   const categoryAccuracies = categoriesWithAttempts.map(category => {
     const catStats = byCategory[category];
-    const accuracy = catStats.attempts > 0 ? catStats.correct / catStats.attempts : 1;
+    // If accuracy is > 1, it's a percentage, otherwise it's a ratio
+    const accuracy = catStats.accuracy > 1 
+      ? catStats.accuracy / 100 
+      : (catStats.attempts > 0 ? catStats.correct / catStats.attempts : 1);
     return { category, accuracy, attempts: catStats.attempts };
   });
   
@@ -348,8 +356,8 @@ export const getSmartQuestion = async ({ lang, selectedCategory, recentIds = [] 
   });
   if (q2) return withReason(q2, 'unseen');
   
-  // Priority 3: Weakest category
-  const q3 = pickFromWeakCategory({
+  // Priority 3: Weakest category (using time-weighted stats)
+  const q3 = await pickFromWeakCategory({
     lang,
     selectedCategory,
     recentIds,

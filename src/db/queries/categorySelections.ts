@@ -1,6 +1,6 @@
+import { eq } from 'drizzle-orm';
 import { db } from '../index';
 import { categorySelections } from '../schema/categorySelections';
-import { eq } from 'drizzle-orm';
 
 /**
  * Get category selection for a language

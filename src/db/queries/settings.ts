@@ -1,7 +1,7 @@
-import { db } from '../index';
-import { settings } from '../schema/settings';
 import { eq } from 'drizzle-orm';
 import * as Localization from 'expo-localization';
+import { db } from '../index';
+import { settings } from '../schema/settings';
 
 const SETTINGS_ID = 1; // Single row, always ID 1
 

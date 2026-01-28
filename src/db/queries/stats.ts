@@ -1,6 +1,5 @@
-import { db, database } from '../index';
 import { sql } from 'drizzle-orm';
-import { answerAttempts } from '../schema/answerAttempts';
+import { database, db } from '../index';
 import { mockExams } from '../schema/mockExams';
 
 /**

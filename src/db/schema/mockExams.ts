@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const mockExams = sqliteTable('mock_exams', {
   id: text('id').primaryKey(), // UUID - sync-ready
