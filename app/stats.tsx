@@ -4,7 +4,7 @@ import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage, getReadinessMode } from '@/src/lib/settings';
-import { calculateAccuracy, calculateCoverage, getLast7Days, getReadinessBreakdown, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
+import { calculateAccuracy, getLast7Days, getReadinessBreakdown, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -108,12 +108,14 @@ export default function StatsScreen() {
     ? Math.round((stats.mock.examsPassed / stats.mock.examsTaken) * 100)
     : 0;
   
-  // Calculate coverage
-  const questionsSeen = stats.coverage?.questionsSeen || [];
-  const coverage = calculateCoverage(lang, questionsSeen);
+  // Calculate coverage directly from questionsSeenCount
+  const questionsSeenCount = stats.coverage?.questionsSeenCount || 0;
+  const coverage = totalUniqueQuestions > 0 
+    ? Math.round((questionsSeenCount / totalUniqueQuestions) * 100) 
+    : 0;
   
   // Calculate progress bar width - ensure minimum 1% for visibility when there's progress
-  const progressBarPercentage = questionsSeen.length > 0 ? Math.max(coverage, 1) : 0;
+  const progressBarPercentage = questionsSeenCount > 0 ? Math.max(coverage, 1) : 0;
   
   // Get readiness status colors
   const getReadinessStatusInfo = (score) => {
@@ -222,7 +224,7 @@ export default function StatsScreen() {
 
             <View className="mt-1">
               <View className="h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
-                {questionsSeen.length > 0 && (
+                {questionsSeenCount > 0 && (
                   <View
                     className="h-full rounded-full bg-indigo-500"
                     style={{ width: `${progressBarPercentage}%` }}
@@ -230,7 +232,7 @@ export default function StatsScreen() {
                 )}
               </View>
               <UIText variant="caption" className="mt-2 text-slate-600 dark:text-slate-300">
-                {questionsSeen.length} {t('stats.ofTotal', lang).replace('{total}', String(totalUniqueQuestions))}
+                {questionsSeenCount} {t('stats.ofTotal', lang).replace('{total}', String(totalUniqueQuestions))}
               </UIText>
             </View>
 

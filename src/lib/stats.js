@@ -104,8 +104,9 @@ export const loadStats = async () => {
     
     // Coverage (computed from answer_attempts)
     const questionsSeenCount = await StatsDB.getQuestionsSeenCount(lang);
-    // Note: We don't store the full list anymore, but we can compute it if needed
-    langStats.coverage.questionsSeen = []; // Empty array - count is what matters
+    // Store the count directly - the array is no longer needed
+    langStats.coverage.questionsSeen = []; // Empty array for backward compatibility
+    langStats.coverage.questionsSeenCount = questionsSeenCount;
   }
   
   return stats;
