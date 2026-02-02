@@ -100,7 +100,7 @@ export default function RootLayout() {
         apiKey={posthogKey} 
         options={{ 
           host: posthogHost,
-          captureNativeAppLifecycleEvents: true,  // Auto-track app open/close/background
+          captureAppLifecycleEvents: true,  // Auto-track app open/close/background
         }}
       >
         <PostHogIdentify />
