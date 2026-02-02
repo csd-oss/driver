@@ -1,4 +1,4 @@
-import { and, eq, isNull, lte, or, asc, sql, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { getDeviceId } from '../device';
 import { db } from '../index';
 import { mistakes } from '../schema/mistakes';

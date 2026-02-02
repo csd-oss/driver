@@ -20,9 +20,12 @@ import { t } from '@/src/i18n/i18n';
 import * as MockDB from '@/src/db/queries/mockExams';
 import * as AttemptsDB from '@/src/db/queries/attempts';
 import * as MistakesDB from '@/src/db/queries/mistakes';
+import { trackEvent, trackScreenView } from '@/src/lib/analytics';
+import { usePostHog } from 'posthog-react-native';
 
 export default function MockScreen() {
   const router = useRouter();
+  const posthog = usePostHog();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const [lang, setLang] = useState(1);
@@ -93,6 +96,8 @@ export default function MockScreen() {
   // Handle early exit (user navigates back)
   useFocusEffect(
     useCallback(() => {
+      trackScreenView(posthog, 'Mock Exam');
+      
       return () => {
         // User leaving screen - save any answered questions
         if (mockExamId && !isFinished && test && examStartedAt) {

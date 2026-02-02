@@ -18,6 +18,8 @@ import { CategorySelector } from '@/components/CategorySelector';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import * as StudySessionDB from '@/src/db/queries/studySessions';
 import * as AttemptsDB from '@/src/db/queries/attempts';
+import { trackEvent, trackScreenView } from '@/src/lib/analytics';
+import { usePostHog } from 'posthog-react-native';
 
 // Fisher-Yates shuffle algorithm
 const shuffleArray = (array) => {
@@ -31,12 +33,16 @@ const shuffleArray = (array) => {
 
 export default function MistakesScreen() {
   const router = useRouter();
+  const posthog = usePostHog();
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
   const questionCardRef = useRef(null);
   const hasRecordedAnswer = useRef(false);
   const sessionIdRef = useRef(null);
+  const sessionStartTimeRef = useRef(null);
   const questionShownAtRef = useRef(null);
+  const questionsAnsweredRef = useRef(0);
+  const correctCountRef = useRef(0);
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [mistakes, setMistakes] = useState([]);
@@ -81,6 +87,9 @@ export default function MistakesScreen() {
       categoryText: category === 'all' ? null : category,
     });
     sessionIdRef.current = sessionId;
+    sessionStartTimeRef.current = new Date();
+    questionsAnsweredRef.current = 0;
+    correctCountRef.current = 0;
     
     // Load mistakes from database
     const mistakeList = await MistakesDB.getMistakes(currentLang);
@@ -105,15 +114,35 @@ export default function MistakesScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      trackScreenView(posthog, 'Mistakes');
+      
       loadData();
       
       // Cleanup: end session when leaving screen
       return () => {
-        if (sessionIdRef.current) {
-          StudySessionDB.endStudySession(sessionIdRef.current, 0, 0);
+        if (sessionIdRef.current && sessionStartTimeRef.current) {
+          const durationSeconds = Math.round(
+            (Date.now() - sessionStartTimeRef.current.getTime()) / 1000
+          );
+          
+          trackEvent(posthog, 'study_session_ended', {
+            session_id: sessionIdRef.current,
+            mode: 'mistakes',
+            duration_seconds: durationSeconds,
+            questions_answered: questionsAnsweredRef.current,
+            correct_count: correctCountRef.current,
+            category: selectedCategory,
+            language: lang,
+          });
+          
+          StudySessionDB.endStudySession(
+            sessionIdRef.current,
+            questionsAnsweredRef.current,
+            correctCountRef.current
+          );
         }
       };
-    }, [loadData])
+    }, [loadData, posthog])
   );
 
   const loadQuestion = async (qid, currentLang) => {
@@ -137,6 +166,12 @@ export default function MistakesScreen() {
     
     const correct = answerIndex === question.correct;
     setIsCorrect(correct);
+    
+    // Track session metrics
+    questionsAnsweredRef.current += 1;
+    if (correct) {
+      correctCountRef.current += 1;
+    }
     
     const answerSubmittedAt = new Date();
     

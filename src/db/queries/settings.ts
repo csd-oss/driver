@@ -10,6 +10,7 @@ export interface SettingsData {
   hasOnboarded: boolean;
   hasChosenLanguage: boolean;
   useConservativeReadiness: boolean;
+  analyticsOptOut: boolean;
 }
 
 /**
@@ -43,6 +44,7 @@ export async function getSettings(): Promise<SettingsData> {
       hasOnboarded: false,
       hasChosenLanguage: false,
       useConservativeReadiness: false,
+      analyticsOptOut: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -52,6 +54,7 @@ export async function getSettings(): Promise<SettingsData> {
       hasOnboarded: false,
       hasChosenLanguage: false,
       useConservativeReadiness: false,
+      analyticsOptOut: false,
     };
   }
   
@@ -61,6 +64,7 @@ export async function getSettings(): Promise<SettingsData> {
     hasOnboarded: s.hasOnboarded,
     hasChosenLanguage: s.hasChosenLanguage,
     useConservativeReadiness: s.useConservativeReadiness,
+    analyticsOptOut: s.analyticsOptOut ?? false,
   };
 }
 
@@ -104,4 +108,19 @@ export async function getReadinessMode(): Promise<boolean> {
  */
 export async function setReadinessMode(useConservative: boolean): Promise<void> {
   await updateSettings({ useConservativeReadiness: useConservative });
+}
+
+/**
+ * Get analytics opt-out status
+ */
+export async function getAnalyticsOptOut(): Promise<boolean> {
+  const s = await getSettings();
+  return s.analyticsOptOut;
+}
+
+/**
+ * Set analytics opt-out status
+ */
+export async function setAnalyticsOptOut(optOut: boolean): Promise<void> {
+  await updateSettings({ analyticsOptOut: optOut });
 }

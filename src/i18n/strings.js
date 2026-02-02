@@ -207,6 +207,21 @@ export const STR = {
     2: 'Uses partial scores instead of 0%',
     3: 'Részleges pontszámot használ 0% helyett',
   },
+  'settings.analyticsTitle': {
+    1: 'Analytika',
+    2: 'Analytics',
+    3: 'Analitika',
+  },
+  'settings.analyticsOptOut': {
+    1: 'Zakázať analytiku',
+    2: 'Disable analytics',
+    3: 'Analitika letiltása',
+  },
+  'settings.analyticsOptOutDesc': {
+    1: 'Zastaví odosielanie anonymných údajov o používaní aplikácie',
+    2: 'Stops sending anonymous usage data',
+    3: 'Leállítja az anonim használati adatok küldését',
+  },
   'nav.back': {
     1: 'Späť',
     2: 'Back',

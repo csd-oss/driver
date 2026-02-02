@@ -6,6 +6,7 @@ export const settings = sqliteTable('settings', {
   hasOnboarded: integer('has_onboarded', { mode: 'boolean' }).notNull().default(false),
   hasChosenLanguage: integer('has_chosen_language', { mode: 'boolean' }).notNull().default(false),
   useConservativeReadiness: integer('use_conservative_readiness', { mode: 'boolean' }).notNull().default(false),
+  analyticsOptOut: integer('analytics_opt_out', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });

@@ -8,13 +8,16 @@ import * as StatsDB from '@/src/db/queries/stats';
 import { t } from '@/src/i18n/i18n';
 import { getLanguage, getReadinessMode } from '@/src/lib/settings';
 import { getReadinessBreakdown, loadStats } from '@/src/lib/stats';
+import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { usePostHog } from 'posthog-react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const posthog = usePostHog();
   const [lang, setLang] = useState(1);
   const [mistakeCount, setMistakeCount] = useState(0);
   const [recentAccuracy, setRecentAccuracy] = useState<number | null>(null);
@@ -62,8 +65,9 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      trackScreenView(posthog, 'Home');
       loadData();
-    }, [loadData])
+    }, [loadData, posthog])
   );
 
   // Get readiness status colors and label
@@ -99,7 +103,10 @@ export default function HomeScreen() {
   return (
     <Screen>
       <View className="flex-1 gap-6">
-        <Pressable onPress={() => router.push('/stats')}>
+        <Pressable onPress={() => {
+          trackEvent(posthog, 'home_stats_clicked', { language: lang });
+          router.push('/stats');
+        }}>
           <Card className="mt-2 overflow-hidden bg-gradient-to-r from-indigo-500/15 via-sky-500/10 to-emerald-500/10 border-indigo-200/60 dark:border-indigo-700/40">
             <View className="gap-4">
               <View className="flex-row items-center justify-between">
@@ -168,7 +175,10 @@ export default function HomeScreen() {
             {t('home.smartStudyBlurb', lang)}
           </UIText>
           <Button
-            onPress={() => router.push('/study')}
+            onPress={() => {
+              trackEvent(posthog, 'home_study_clicked', { language: lang });
+              router.push('/study');
+            }}
             variant="default"
             className="w-full"
           >
@@ -178,7 +188,10 @@ export default function HomeScreen() {
 
         <View className="gap-3">
           <Button
-            onPress={() => router.push('/mistakes')}
+            onPress={() => {
+              trackEvent(posthog, 'home_mistakes_clicked', { language: lang });
+              router.push('/mistakes');
+            }}
             variant="outline"
             className="w-full"
           >
@@ -186,7 +199,10 @@ export default function HomeScreen() {
           </Button>
 
           <Button
-            onPress={() => router.push('/mock')}
+            onPress={() => {
+              trackEvent(posthog, 'home_mock_clicked', { language: lang });
+              router.push('/mock');
+            }}
             variant="outline"
             className="w-full"
           >
@@ -194,7 +210,10 @@ export default function HomeScreen() {
           </Button>
 
           <Button
-            onPress={() => router.push('/settings')}
+            onPress={() => {
+              trackEvent(posthog, 'home_settings_clicked', { language: lang });
+              router.push('/settings');
+            }}
             variant="secondary"
             className="w-full"
           >

@@ -5,13 +5,16 @@ import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { clearCache, getLanguage, updateSettings } from '@/src/lib/settings';
+import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
+import { usePostHog } from 'posthog-react-native';
 
 export default function LanguageSelectScreen() {
   const router = useRouter();
+  const posthog = usePostHog();
   const params = useLocalSearchParams();
   const fromOnboarding = params?.from === 'onboarding';
   const [currentLang, setCurrentLang] = useState(1);
@@ -23,11 +26,19 @@ export default function LanguageSelectScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      trackScreenView(posthog, 'Language Selection');
       loadLanguage();
-    }, [loadLanguage])
+    }, [loadLanguage, posthog])
   );
 
   const handleLanguageSelect = async (lang) => {
+    // Track language selection
+    trackEvent(posthog, 'language_selected', {
+      selected_language: lang,
+      previous_language: currentLang,
+      from_onboarding: fromOnboarding,
+    });
+    
     clearCache();
     await updateSettings({
       lang,

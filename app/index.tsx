@@ -3,12 +3,24 @@ import { View, Text, Animated, Platform, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/ui/screen';
 import { getSettings } from '@/src/lib/settings';
+import { trackScreenView } from '@/src/lib/analytics';
+import { usePostHog } from 'posthog-react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 export default function IntroAnimationScreen() {
   const router = useRouter();
+  const posthog = usePostHog();
   const text = 'Cool Auto School';
   const words = text.split(' ');
   const letters = text.split('');
+  
+  // Track screen view
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView(posthog, 'Intro Animation');
+    }, [posthog])
+  );
   
   // Create animated values for each letter
   // One for fade/initial position, one for lift animation, one for scale

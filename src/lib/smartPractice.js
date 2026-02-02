@@ -2,11 +2,11 @@ import { database } from '../db/index';
 import * as AttemptsDB from '../db/queries/attempts';
 import * as MistakesDB from '../db/queries/mistakes';
 import {
-  buildQuestionIndex,
-  findQuestionById,
-  flattenRandomQuestion,
-  getTestForQuestion,
-  getTests,
+    buildQuestionIndex,
+    findQuestionById,
+    flattenRandomQuestion,
+    getTestForQuestion,
+    getTests,
 } from './bank';
 import { getCategoryForQuestion } from './categories';
 import { loadStats } from './stats';

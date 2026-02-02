@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { clearCache, getLanguage, getSettings, updateSettings } from '@/src/lib/settings';
+import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -13,6 +14,9 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePostHog } from 'posthog-react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 interface OnboardingSlide {
   title: string;
@@ -23,6 +27,7 @@ interface OnboardingSlide {
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const posthog = usePostHog();
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -31,11 +36,42 @@ export default function OnboardingScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const scrollX = useRef(new Animated.Value(0)).current;
   const isCompactHeight = SCREEN_HEIGHT < 720;
+  const hasTrackedStart = useRef(false);
+  const lastTrackedSlide = useRef<number | null>(null);
+
+  // Track screen view and onboarding start
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView(posthog, 'Onboarding');
+      
+      if (!hasTrackedStart.current) {
+        trackEvent(posthog, 'onboarding_started', {
+          language: lang,
+        });
+        hasTrackedStart.current = true;
+      }
+    }, [posthog, lang])
+  );
 
   // Load language
   useEffect(() => {
     getLanguage().then(setLang);
   }, []);
+
+  // Track slide views
+  useEffect(() => {
+    if (lastTrackedSlide.current !== currentSlide && hasTrackedStart.current) {
+      const slide = slides[currentSlide];
+      trackEvent(posthog, 'onboarding_slide_viewed', {
+        slide_index: currentSlide,
+        slide_title: slide.title,
+        slide_color: slide.color,
+        total_slides: slides.length,
+        language: lang,
+      });
+      lastTrackedSlide.current = currentSlide;
+    }
+  }, [currentSlide, posthog, lang]);
 
   const slides: OnboardingSlide[] = [
     {
@@ -73,6 +109,15 @@ export default function OnboardingScreen() {
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
       const nextSlide = currentSlide + 1;
+      
+      // Track navigation
+      trackEvent(posthog, 'onboarding_next_clicked', {
+        from_slide: currentSlide,
+        to_slide: nextSlide,
+        slide_title: slides[currentSlide].title,
+        language: lang,
+      });
+      
       // Scroll first, then update state after animation completes
       scrollViewRef.current?.scrollTo({
         x: nextSlide * SCREEN_WIDTH,
@@ -88,6 +133,15 @@ export default function OnboardingScreen() {
   const handlePrevious = () => {
     if (currentSlide > 0) {
       const prevSlide = currentSlide - 1;
+      
+      // Track navigation
+      trackEvent(posthog, 'onboarding_previous_clicked', {
+        from_slide: currentSlide,
+        to_slide: prevSlide,
+        slide_title: slides[currentSlide].title,
+        language: lang,
+      });
+      
       scrollViewRef.current?.scrollTo({
         x: prevSlide * SCREEN_WIDTH,
         animated: true,
@@ -97,10 +151,18 @@ export default function OnboardingScreen() {
   };
 
   const handleSkip = () => {
+    trackEvent(posthog, 'onboarding_skipped', {
+      current_slide: currentSlide,
+      slide_title: slides[currentSlide].title,
+      total_slides: slides.length,
+      language: lang,
+    });
     handleFinish();
   };
 
   const handleFinish = async () => {
+    const wasSkipped = currentSlide < slides.length - 1;
+    
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 300,
@@ -109,6 +171,14 @@ export default function OnboardingScreen() {
       // Mark onboarding as complete
       await updateSettings({ hasOnboarded: true });
       clearCache(); // Clear cache to ensure fresh settings are loaded
+      
+      // Track completion
+      trackEvent(posthog, 'onboarding_completed', {
+        completed_slide: currentSlide,
+        total_slides: slides.length,
+        was_skipped: wasSkipped,
+        language: lang,
+      });
       
       const settings = await getSettings();
       // If user already selected language during onboarding, skip language screen
@@ -129,6 +199,16 @@ export default function OnboardingScreen() {
   };
 
   const goToSlide = (index: number) => {
+    // Track dot navigation
+    if (index !== currentSlide) {
+      trackEvent(posthog, 'onboarding_dot_clicked', {
+        from_slide: currentSlide,
+        to_slide: index,
+        slide_title: slides[index].title,
+        language: lang,
+      });
+    }
+    
     scrollViewRef.current?.scrollTo({
       x: index * SCREEN_WIDTH,
       animated: true,
@@ -268,9 +348,13 @@ export default function OnboardingScreen() {
             style={{ paddingTop: Math.max(8, insets.top * 0.6) }}
           >
             <Pressable
-              onPress={() =>
-                router.push({ pathname: '/language', params: { from: 'onboarding' } })
-              }
+              onPress={() => {
+                trackEvent(posthog, 'onboarding_language_change_clicked', {
+                  current_slide: currentSlide,
+                  current_language: lang,
+                });
+                router.push({ pathname: '/language', params: { from: 'onboarding' } });
+              }}
               className="px-3 py-2 -ml-2 rounded-lg active:bg-slate-200/50 dark:active:bg-slate-800/50"
             >
               <UIText variant="caption" className="text-slate-600 dark:text-slate-400">

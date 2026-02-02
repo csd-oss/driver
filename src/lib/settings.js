@@ -56,6 +56,7 @@ export const getSettings = async () => {
       "3": await CategoryDB.getCategorySelection(3),
     },
     useConservativeReadiness: dbSettings.useConservativeReadiness,
+    analyticsOptOut: dbSettings.analyticsOptOut ?? false,
   };
   
   cachedSettings = settings;
@@ -81,6 +82,9 @@ export const updateSettings = async (updates) => {
   }
   if (updates.useConservativeReadiness !== undefined) {
     await SettingsDB.setReadinessMode(updates.useConservativeReadiness);
+  }
+  if (updates.analyticsOptOut !== undefined) {
+    await SettingsDB.setAnalyticsOptOut(updates.analyticsOptOut);
   }
   if (updates.selectedCategoryByLang) {
     for (const [langStr, categoryText] of Object.entries(updates.selectedCategoryByLang)) {

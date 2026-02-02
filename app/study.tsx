@@ -15,9 +15,11 @@ import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
 import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
 import { getSmartQuestion, pushRecent } from '@/src/lib/smartPractice';
+import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
+import { usePostHog } from 'posthog-react-native';
 
 /**
  * Get user-facing label for a reason
@@ -44,13 +46,17 @@ const getReasonLabel = (reason: any, lang: number) => {
 };
 
 export default function StudyScreen() {
+  const posthog = usePostHog();
   const scrollViewRef = useRef(null);
   const nextButtonRef = useRef(null);
   const questionCardRef = useRef(null);
   const hasRecordedAnswer = useRef(false);
   const recentQuestionIds = useRef<string[]>([]);
   const sessionIdRef = useRef<string | null>(null);
+  const sessionStartTimeRef = useRef<Date | null>(null);
   const questionShownAtRef = useRef<Date | null>(null);
+  const questionsAnsweredRef = useRef<number>(0);
+  const correctCountRef = useRef<number>(0);
   const [lang, setLang] = useState(1);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [question, setQuestion] = useState<any>(null);
@@ -77,22 +83,44 @@ export default function StudyScreen() {
       categoryText: category === 'all' ? undefined : category,
     });
     sessionIdRef.current = sessionId;
+    sessionStartTimeRef.current = new Date();
+    questionsAnsweredRef.current = 0;
+    correctCountRef.current = 0;
     
     loadNewQuestion(currentLang, category);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
+      trackScreenView(posthog, 'Study');
+      
       loadData();
       
       // Cleanup: end session when leaving screen
       return () => {
-        if (sessionIdRef.current) {
-          // Note: We don't track questionsCount/correctCount here since we log attempts separately
-          StudySessionDB.endStudySession(sessionIdRef.current, 0, 0);
+        if (sessionIdRef.current && sessionStartTimeRef.current) {
+          const durationSeconds = Math.round(
+            (Date.now() - sessionStartTimeRef.current.getTime()) / 1000
+          );
+          
+          trackEvent(posthog, 'study_session_ended', {
+            session_id: sessionIdRef.current,
+            mode: 'study',
+            duration_seconds: durationSeconds,
+            questions_answered: questionsAnsweredRef.current,
+            correct_count: correctCountRef.current,
+            category: selectedCategory,
+            language: lang,
+          });
+          
+          StudySessionDB.endStudySession(
+            sessionIdRef.current,
+            questionsAnsweredRef.current,
+            correctCountRef.current
+          );
         }
       };
-    }, [loadData])
+    }, [loadData, posthog])
   );
 
   const loadNewQuestion = async (currentLang: number, category: string = selectedCategory) => {
@@ -137,7 +165,16 @@ export default function StudyScreen() {
     const correct = answerIndex === question.correct;
     setIsCorrect(correct);
     
+    // Track session metrics
+    questionsAnsweredRef.current += 1;
+    if (correct) {
+      correctCountRef.current += 1;
+    }
+    
     const answerSubmittedAt = new Date();
+    const timeToAnswer = questionShownAtRef.current 
+      ? answerSubmittedAt.getTime() - questionShownAtRef.current.getTime()
+      : 0;
     
     // Update mistakes using new DB functions
     await applyAnswer(null, lang, question.qid, correct);
@@ -162,6 +199,19 @@ export default function StudyScreen() {
     
     // Check if question was in mistakes
     const wasInMistakes = await MistakesDB.isMistake(lang, question.qid);
+    
+    // Track answer event
+    trackEvent(posthog, 'study_question_answered', {
+      question_id: question.qid,
+      correct: correct,
+      selected_answer: answerIndex,
+      correct_answer: question.correct,
+      time_ms: timeToAnswer,
+      category: categoryText || 'unknown',
+      was_in_mistakes: wasInMistakes,
+      reason_type: reason?.type || 'unknown',
+      language: lang,
+    });
     
     // Log answer attempt with timing
     await AttemptsDB.logAnswerAttempt({
@@ -193,6 +243,12 @@ export default function StudyScreen() {
   };
 
   const handleCategoryChange = async (categoryTxt: string | 'all') => {
+    trackEvent(posthog, 'study_category_changed', {
+      from_category: selectedCategory,
+      to_category: categoryTxt,
+      language: lang,
+    });
+    
     await setSelectedCategory(lang, categoryTxt);
     setSelectedCategoryState(categoryTxt);
     

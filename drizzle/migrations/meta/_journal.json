@@ -15,6 +15,13 @@
       "when": 1769614000000,
       "tag": "0001_add_srs_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1770051977407,
+      "tag": "0002_happy_king_cobra",
+      "breakpoints": true
     }
   ]
 }

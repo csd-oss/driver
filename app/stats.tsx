@@ -6,13 +6,16 @@ import { t } from '@/src/i18n/i18n';
 import { getLanguage, getReadinessMode } from '@/src/lib/settings';
 import { calculateAccuracy, getLast7Days, getReadinessBreakdown, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
 import * as MistakesDB from '@/src/db/queries/mistakes';
+import { trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState, useEffect } from 'react';
 import { ScrollView, View } from 'react-native';
+import { usePostHog } from 'posthog-react-native';
 
 export default function StatsScreen() {
   const router = useRouter();
+  const posthog = usePostHog();
   const [lang, setLang] = useState(1);
   const [mistakeCount, setMistakeCount] = useState(0);
   const [stats, setStats] = useState(null);
@@ -40,8 +43,9 @@ export default function StatsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      trackScreenView(posthog, 'Statistics');
       loadData();
-    }, [loadData])
+    }, [loadData, posthog])
   );
 
   // Calculate readiness breakdown

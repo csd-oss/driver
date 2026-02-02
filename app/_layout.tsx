@@ -12,7 +12,8 @@ import { PostHogProvider, usePostHog } from 'posthog-react-native';
 import { FontScaleProvider } from '@/contexts/FontScaleContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { runMigrations } from '@/src/db/migrate';
-import { identifyUser } from '@/src/lib/analytics';
+import { identifyUser, trackError } from '@/src/lib/analytics';
+import { getSettings } from '@/src/lib/settings';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync();
@@ -23,8 +24,23 @@ function PostHogIdentify() {
 
   useEffect(() => {
     if (posthog) {
+      // Check opt-out status and apply it
+      // Note: PostHog is opted-in by default and persists opt-out state internally
+      // We only need to call optOut() if user explicitly opted out in our settings
+      getSettings().then((settings) => {
+        if (settings.analyticsOptOut) {
+          posthog.optOut();
+        }
+        // Don't call optIn() - PostHog handles this by default
+        // Calling optIn() can interfere with PostHog's internal persistence
+      }).catch((error) => {
+        // Settings may fail on first launch before migrations complete
+        // This is okay - PostHog defaults to opted-in
+        console.error('Failed to check analytics opt-out status:', error);
+      });
+
       identifyUser(posthog).catch((error) => {
-        console.error('Failed to identify user with PostHog:', error);
+        trackError(posthog, 'user_identification_failed', error);
       });
     }
   }, [posthog]);
@@ -45,6 +61,7 @@ export default function RootLayout() {
       try {
         await runMigrations();
       } catch (error) {
+        // Log error - PostHog not available yet at this point
         console.error('Database initialization error:', error);
       }
       
@@ -79,7 +96,13 @@ export default function RootLayout() {
   // Wrap with PostHogProvider if config is available
   if (posthogKey && posthogHost) {
     return (
-      <PostHogProvider apiKey={posthogKey} options={{ host: posthogHost }}>
+      <PostHogProvider 
+        apiKey={posthogKey} 
+        options={{ 
+          host: posthogHost,
+          captureNativeAppLifecycleEvents: true,  // Auto-track app open/close/background
+        }}
+      >
         <PostHogIdentify />
         {appContent}
       </PostHogProvider>
