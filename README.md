@@ -10,7 +10,16 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Configure PostHog (optional but recommended)
+
+   Copy `.env.example` to `.env` and fill in your PostHog Project API Key and Host:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Get your Project API Key from [PostHog dashboard](https://app.posthog.com) → Project Settings.
+
+3. Start the app
 
    ```bash
    npx expo start

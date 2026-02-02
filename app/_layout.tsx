@@ -6,16 +6,38 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
+import Constants from 'expo-constants';
+import { PostHogProvider, usePostHog } from 'posthog-react-native';
 
 import { FontScaleProvider } from '@/contexts/FontScaleContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { runMigrations } from '@/src/db/migrate';
+import { identifyUser } from '@/src/lib/analytics';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync();
 
+// Component to identify user with PostHog after provider is mounted
+function PostHogIdentify() {
+  const posthog = usePostHog();
+
+  useEffect(() => {
+    if (posthog) {
+      identifyUser(posthog).catch((error) => {
+        console.error('Failed to identify user with PostHog:', error);
+      });
+    }
+  }, [posthog]);
+
+  return null;
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  // Get PostHog config from environment
+  const posthogKey = Constants.expoConfig?.extra?.posthogKey;
+  const posthogHost = Constants.expoConfig?.extra?.posthogHost;
 
   useEffect(() => {
     // Initialize database and run migrations
@@ -33,7 +55,7 @@ export default function RootLayout() {
     initApp();
   }, []);
 
-  return (
+  const appContent = (
     <SafeAreaProvider>
       <FontScaleProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -53,4 +75,17 @@ export default function RootLayout() {
       </FontScaleProvider>
     </SafeAreaProvider>
   );
+
+  // Wrap with PostHogProvider if config is available
+  if (posthogKey && posthogHost) {
+    return (
+      <PostHogProvider apiKey={posthogKey} options={{ host: posthogHost }}>
+        <PostHogIdentify />
+        {appContent}
+      </PostHogProvider>
+    );
+  }
+
+  // Graceful no-op when env is missing
+  return appContent;
 }
