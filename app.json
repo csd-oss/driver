@@ -37,13 +37,6 @@
           }
         }
       ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/icon.png",
-          "color": "#4f46e5"
-        }
-      ],
       "expo-localization"
     ],
     "experiments": {
