@@ -7,6 +7,9 @@ export const settings = sqliteTable('settings', {
   hasChosenLanguage: integer('has_chosen_language', { mode: 'boolean' }).notNull().default(false),
   useConservativeReadiness: integer('use_conservative_readiness', { mode: 'boolean' }).notNull().default(false),
   analyticsOptOut: integer('analytics_opt_out', { mode: 'boolean' }).notNull().default(false),
+  notificationMorningEnabled: integer('notification_morning_enabled', { mode: 'boolean' }).notNull().default(true),
+  notificationLunchEnabled: integer('notification_lunch_enabled', { mode: 'boolean' }).notNull().default(true),
+  notificationEveningEnabled: integer('notification_evening_enabled', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });

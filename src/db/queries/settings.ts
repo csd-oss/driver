@@ -11,6 +11,9 @@ export interface SettingsData {
   hasChosenLanguage: boolean;
   useConservativeReadiness: boolean;
   analyticsOptOut: boolean;
+  notificationMorningEnabled: boolean;
+  notificationLunchEnabled: boolean;
+  notificationEveningEnabled: boolean;
 }
 
 /**
@@ -45,6 +48,9 @@ export async function getSettings(): Promise<SettingsData> {
       hasChosenLanguage: false,
       useConservativeReadiness: false,
       analyticsOptOut: false,
+      notificationMorningEnabled: true,
+      notificationLunchEnabled: true,
+      notificationEveningEnabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -55,6 +61,9 @@ export async function getSettings(): Promise<SettingsData> {
       hasChosenLanguage: false,
       useConservativeReadiness: false,
       analyticsOptOut: false,
+      notificationMorningEnabled: true,
+      notificationLunchEnabled: true,
+      notificationEveningEnabled: true,
     };
   }
   
@@ -65,6 +74,9 @@ export async function getSettings(): Promise<SettingsData> {
     hasChosenLanguage: s.hasChosenLanguage,
     useConservativeReadiness: s.useConservativeReadiness,
     analyticsOptOut: s.analyticsOptOut ?? false,
+    notificationMorningEnabled: s.notificationMorningEnabled ?? true,
+    notificationLunchEnabled: s.notificationLunchEnabled ?? true,
+    notificationEveningEnabled: s.notificationEveningEnabled ?? true,
   };
 }
 
@@ -123,4 +135,18 @@ export async function getAnalyticsOptOut(): Promise<boolean> {
  */
 export async function setAnalyticsOptOut(optOut: boolean): Promise<void> {
   await updateSettings({ analyticsOptOut: optOut });
+}
+
+export async function setNotificationSlot(slot: 'morning' | 'lunch' | 'evening', enabled: boolean): Promise<void> {
+  if (slot === 'morning') {
+    await updateSettings({ notificationMorningEnabled: enabled });
+    return;
+  }
+
+  if (slot === 'lunch') {
+    await updateSettings({ notificationLunchEnabled: enabled });
+    return;
+  }
+
+  await updateSettings({ notificationEveningEnabled: enabled });
 }

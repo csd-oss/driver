@@ -57,6 +57,9 @@ export const getSettings = async () => {
     },
     useConservativeReadiness: dbSettings.useConservativeReadiness,
     analyticsOptOut: dbSettings.analyticsOptOut ?? false,
+    notificationMorningEnabled: dbSettings.notificationMorningEnabled ?? true,
+    notificationLunchEnabled: dbSettings.notificationLunchEnabled ?? true,
+    notificationEveningEnabled: dbSettings.notificationEveningEnabled ?? true,
   };
   
   cachedSettings = settings;
@@ -85,6 +88,15 @@ export const updateSettings = async (updates) => {
   }
   if (updates.analyticsOptOut !== undefined) {
     await SettingsDB.setAnalyticsOptOut(updates.analyticsOptOut);
+  }
+  if (updates.notificationMorningEnabled !== undefined) {
+    await SettingsDB.setNotificationSlot('morning', updates.notificationMorningEnabled);
+  }
+  if (updates.notificationLunchEnabled !== undefined) {
+    await SettingsDB.setNotificationSlot('lunch', updates.notificationLunchEnabled);
+  }
+  if (updates.notificationEveningEnabled !== undefined) {
+    await SettingsDB.setNotificationSlot('evening', updates.notificationEveningEnabled);
   }
   if (updates.selectedCategoryByLang) {
     for (const [langStr, categoryText] of Object.entries(updates.selectedCategoryByLang)) {

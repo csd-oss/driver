@@ -6,6 +6,7 @@ import * as EngagementDB from '@/src/db/queries/engagement';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import * as StatsDB from '@/src/db/queries/stats';
 import { t } from '@/src/i18n/i18n';
+import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { getLanguage, getReadinessMode } from '@/src/lib/settings';
 import { getReadinessBreakdown, loadStats } from '@/src/lib/stats';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
@@ -26,6 +27,7 @@ export default function HomeScreen() {
   const [readinessStatus, setReadinessStatus] = useState('needsWork');
 
   const loadData = useCallback(async () => {
+    await syncNotificationsWithCurrentSettings();
     const currentLang = await getLanguage();
     setLang(currentLang);
     

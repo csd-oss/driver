@@ -4,6 +4,7 @@ import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
+import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { clearCache, getLanguage, updateSettings } from '@/src/lib/settings';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
@@ -46,6 +47,7 @@ export default function LanguageSelectScreen() {
       // Only set hasOnboarded if not coming from onboarding (i.e., selecting after onboarding completion)
       ...(fromOnboarding ? {} : { hasOnboarded: true }),
     });
+    await syncNotificationsWithCurrentSettings();
     // If coming from onboarding (via change language link), go back to onboarding
     // Otherwise, go to home (normal flow after onboarding completion)
     router.replace(fromOnboarding ? '/onboarding' : '/home');

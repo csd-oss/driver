@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
+import { ensureNotificationPermission, syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { clearCache, getLanguage, getSettings, updateSettings } from '@/src/lib/settings';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useRouter } from 'expo-router';
@@ -104,6 +105,12 @@ export default function OnboardingScreen() {
       icon: '🏆',
       color: 'sky',
     },
+    {
+      title: t('onboarding.notifications.title', lang),
+      description: t('onboarding.notifications.description', lang),
+      icon: '🔔',
+      color: 'indigo',
+    },
   ];
 
   const handleNext = () => {
@@ -171,6 +178,21 @@ export default function OnboardingScreen() {
       // Mark onboarding as complete
       await updateSettings({ hasOnboarded: true });
       clearCache(); // Clear cache to ensure fresh settings are loaded
+
+      let notificationsGranted: boolean | null = null;
+      if (!wasSkipped) {
+        trackEvent(posthog, 'onboarding_notifications_permission_requested', {
+          language: lang,
+        });
+        notificationsGranted = await ensureNotificationPermission();
+        trackEvent(posthog, 'onboarding_notifications_permission_result', {
+          language: lang,
+          granted: notificationsGranted,
+        });
+        if (notificationsGranted) {
+          await syncNotificationsWithCurrentSettings();
+        }
+      }
       
       // Track completion
       trackEvent(posthog, 'onboarding_completed', {
@@ -178,6 +200,7 @@ export default function OnboardingScreen() {
         total_slides: slides.length,
         was_skipped: wasSkipped,
         language: lang,
+        notifications_permission_granted: notificationsGranted,
       });
       
       const settings = await getSettings();

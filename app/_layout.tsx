@@ -13,6 +13,7 @@ import { FontScaleProvider } from '@/contexts/FontScaleContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { runMigrations } from '@/src/db/migrate';
 import { identifyUser, trackError } from '@/src/lib/analytics';
+import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { getSettings } from '@/src/lib/settings';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
@@ -60,6 +61,7 @@ export default function RootLayout() {
     const initApp = async () => {
       try {
         await runMigrations();
+        await syncNotificationsWithCurrentSettings();
       } catch (error) {
         // Log error - PostHog not available yet at this point
         console.error('Database initialization error:', error);

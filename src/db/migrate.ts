@@ -29,10 +29,34 @@ function createTables(): void {
       has_onboarded INTEGER NOT NULL DEFAULT 0,
       has_chosen_language INTEGER NOT NULL DEFAULT 0,
       use_conservative_readiness INTEGER NOT NULL DEFAULT 0,
+      analytics_opt_out INTEGER NOT NULL DEFAULT 0,
+      notification_morning_enabled INTEGER NOT NULL DEFAULT 1,
+      notification_lunch_enabled INTEGER NOT NULL DEFAULT 1,
+      notification_evening_enabled INTEGER NOT NULL DEFAULT 1,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )
   `);
+  try {
+    database.execSync(`ALTER TABLE settings ADD COLUMN analytics_opt_out INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    database.execSync(`ALTER TABLE settings ADD COLUMN notification_morning_enabled INTEGER NOT NULL DEFAULT 1`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    database.execSync(`ALTER TABLE settings ADD COLUMN notification_lunch_enabled INTEGER NOT NULL DEFAULT 1`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    database.execSync(`ALTER TABLE settings ADD COLUMN notification_evening_enabled INTEGER NOT NULL DEFAULT 1`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Category selections table
   database.execSync(`

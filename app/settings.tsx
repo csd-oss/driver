@@ -5,21 +5,23 @@ import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import { t } from '@/src/i18n/i18n';
+import { ensureNotificationPermission, syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { clearCache, getSettings, updateSettings } from '@/src/lib/settings';
 import { resetStats } from '@/src/lib/stats';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, Switch, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 
 export default function SettingsScreen() {
-  const router = useRouter();
   const posthog = usePostHog();
   const [lang, setLang] = useState(1);
   const [useConservativeReadiness, setUseConservativeReadiness] = useState(false);
   const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
+  const [notificationMorningEnabled, setNotificationMorningEnabled] = useState(true);
+  const [notificationLunchEnabled, setNotificationLunchEnabled] = useState(true);
+  const [notificationEveningEnabled, setNotificationEveningEnabled] = useState(true);
 
   const loadSettings = useCallback(async () => {
     const settings = await getSettings();
@@ -27,6 +29,9 @@ export default function SettingsScreen() {
       setLang(settings.lang);
       setUseConservativeReadiness(settings.useConservativeReadiness || false);
       setAnalyticsOptOut(settings.analyticsOptOut || false);
+      setNotificationMorningEnabled(settings.notificationMorningEnabled ?? true);
+      setNotificationLunchEnabled(settings.notificationLunchEnabled ?? true);
+      setNotificationEveningEnabled(settings.notificationEveningEnabled ?? true);
     }
   }, []);
 
@@ -45,6 +50,7 @@ export default function SettingsScreen() {
     
     clearCache();
     await updateSettings({ lang: newLang });
+    await syncNotificationsWithCurrentSettings();
     setLang(newLang);
     // Optionally navigate back or show success message
   };
@@ -72,6 +78,53 @@ export default function SettingsScreen() {
       // Explicit opt-in is needed here since user is re-enabling tracking
       posthog?.optIn();
     }
+  };
+
+  const handleNotificationToggle = async (
+    slot: 'morning' | 'lunch' | 'evening',
+    enabled: boolean
+  ) => {
+    const previous = slot === 'morning'
+      ? notificationMorningEnabled
+      : slot === 'lunch'
+        ? notificationLunchEnabled
+        : notificationEveningEnabled;
+
+    let permissionGranted = true;
+    if (enabled) {
+      permissionGranted = await ensureNotificationPermission();
+      if (!permissionGranted) {
+        trackEvent(posthog, 'settings_notification_toggle_failed', {
+          slot,
+          attempted_state: enabled,
+          reason: 'permission_denied',
+          language: lang,
+        });
+        return;
+      }
+    }
+
+    const patch =
+      slot === 'morning'
+        ? { notificationMorningEnabled: enabled }
+        : slot === 'lunch'
+          ? { notificationLunchEnabled: enabled }
+          : { notificationEveningEnabled: enabled };
+
+    await updateSettings(patch);
+    await syncNotificationsWithCurrentSettings();
+
+    if (slot === 'morning') setNotificationMorningEnabled(enabled);
+    if (slot === 'lunch') setNotificationLunchEnabled(enabled);
+    if (slot === 'evening') setNotificationEveningEnabled(enabled);
+
+    trackEvent(posthog, 'settings_notification_slot_changed', {
+      slot,
+      from_enabled: previous,
+      to_enabled: enabled,
+      language: lang,
+      permission_granted: permissionGranted,
+    });
   };
 
   const handleResetProgress = () => {
@@ -156,6 +209,60 @@ export default function SettingsScreen() {
               onValueChange={handleReadinessModeChange}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={useConservativeReadiness ? '#ffffff' : '#f4f3f4'}
+              ios_backgroundColor="#cbd5e1"
+            />
+          </View>
+        </Card>
+
+        <Card className="gap-3">
+          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+            {t('settings.notificationsTitle', lang)}
+          </UIText>
+          <UIText variant="body" className="text-slate-600 dark:text-slate-300">
+            {t('settings.notificationsDescription', lang)}
+          </UIText>
+
+          <View className="flex-row items-center justify-between py-2">
+            <View className="flex-1 mr-4">
+              <UIText variant="body" className="text-slate-900 dark:text-slate-50">
+                {t('settings.notificationsMorning', lang)}
+              </UIText>
+            </View>
+            <Switch
+              value={notificationMorningEnabled}
+              onValueChange={(value) => handleNotificationToggle('morning', value)}
+              trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
+              thumbColor={notificationMorningEnabled ? '#ffffff' : '#f4f3f4'}
+              ios_backgroundColor="#cbd5e1"
+            />
+          </View>
+
+          <View className="flex-row items-center justify-between py-2">
+            <View className="flex-1 mr-4">
+              <UIText variant="body" className="text-slate-900 dark:text-slate-50">
+                {t('settings.notificationsLunch', lang)}
+              </UIText>
+            </View>
+            <Switch
+              value={notificationLunchEnabled}
+              onValueChange={(value) => handleNotificationToggle('lunch', value)}
+              trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
+              thumbColor={notificationLunchEnabled ? '#ffffff' : '#f4f3f4'}
+              ios_backgroundColor="#cbd5e1"
+            />
+          </View>
+
+          <View className="flex-row items-center justify-between py-2">
+            <View className="flex-1 mr-4">
+              <UIText variant="body" className="text-slate-900 dark:text-slate-50">
+                {t('settings.notificationsEvening', lang)}
+              </UIText>
+            </View>
+            <Switch
+              value={notificationEveningEnabled}
+              onValueChange={(value) => handleNotificationToggle('evening', value)}
+              trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
+              thumbColor={notificationEveningEnabled ? '#ffffff' : '#f4f3f4'}
               ios_backgroundColor="#cbd5e1"
             />
           </View>

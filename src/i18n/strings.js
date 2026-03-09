@@ -222,6 +222,31 @@ export const STR = {
     2: 'Stops sending anonymous usage data',
     3: 'Leállítja az anonim használati adatok küldését',
   },
+  'settings.notificationsTitle': {
+    1: 'Upozornenia',
+    2: 'Notifications',
+    3: 'Értesítések',
+  },
+  'settings.notificationsDescription': {
+    1: 'Vyberte, kedy vám má aplikácia pripomenúť tréning.',
+    2: 'Choose when the app should remind you to practice.',
+    3: 'Válassza ki, mikor emlékeztessen az alkalmazás a gyakorlásra.',
+  },
+  'settings.notificationsMorning': {
+    1: 'Ráno',
+    2: 'Morning',
+    3: 'Reggel',
+  },
+  'settings.notificationsLunch': {
+    1: 'Obed',
+    2: 'Lunch',
+    3: 'Ebédidő',
+  },
+  'settings.notificationsEvening': {
+    1: 'Večer',
+    2: 'Evening',
+    3: 'Este',
+  },
   'nav.back': {
     1: 'Späť',
     2: 'Back',
@@ -641,6 +666,16 @@ export const STR = {
     1: 'Sledujte svoju pripravenosť na skúšku v reálnom čase. Viete presne, kedy ste pripravení na test.',
     2: 'Track your exam readiness in real time. Know exactly when you\'re ready for the real thing.',
     3: 'Kövesse nyomon valós időben a vizsgafelkészültségét. Tudja pontosan, mikor áll készen.',
+  },
+  'onboarding.notifications.title': {
+    1: 'Denné pripomienky',
+    2: 'Daily reminders',
+    3: 'Napi emlékeztetők',
+  },
+  'onboarding.notifications.description': {
+    1: 'Zapnite upozornenia ráno, cez obed a večer. Pomôžu vám držať streak a zlepšovať pripravenosť na skúšku.',
+    2: 'Enable morning, lunch, and evening reminders. They help you keep your streak and improve exam readiness.',
+    3: 'Kapcsolja be a reggeli, ebédidős és esti emlékeztetőket. Segítenek megtartani a sorozatot és javítani a vizsgafelkészültséget.',
   },
   'onboarding.changeLanguage': {
     1: 'Zmeniť jazyk',
