@@ -742,4 +742,44 @@ export const STR = {
     2: 'Reset',
     3: 'Törlés',
   },
+  'common.loading': {
+    1: 'Načítava sa...',
+    2: 'Loading...',
+    3: 'Betöltés...',
+  },
+  'common.questionNotFound': {
+    1: 'Otázka sa nenašla',
+    2: 'Question not found',
+    3: 'A kérdés nem található',
+  },
+  'common.reload': {
+    1: 'Načítať znova',
+    2: 'Reload',
+    3: 'Újratöltés',
+  },
+  'common.days': {
+    1: 'dní',
+    2: 'days',
+    3: 'nap',
+  },
+  'stats.componentBreakdown': {
+    1: 'Rozdelenie komponentov',
+    2: 'Component Breakdown',
+    3: 'Összetevők bontása',
+  },
+  'stats.attemptsCount': {
+    1: '{count} pokusov',
+    2: '{count} attempts',
+    3: '{count} kísérlet',
+  },
+  'stats.attemptCount': {
+    1: '{count} pokus',
+    2: '{count} attempt',
+    3: '{count} kísérlet',
+  },
+  'stats.attemptsLast7Days': {
+    1: '(posledných 7 dní)',
+    2: '(last 7 days)',
+    3: '(utolsó 7 nap)',
+  },
 };

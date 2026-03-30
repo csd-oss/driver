@@ -211,6 +211,8 @@ export default function SettingsScreen() {
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={useConservativeReadiness ? '#ffffff' : '#f4f3f4'}
               ios_backgroundColor="#cbd5e1"
+              accessibilityLabel={t('settings.conservativeMode', lang)}
+              accessibilityRole="switch"
             />
           </View>
         </Card>
@@ -235,6 +237,8 @@ export default function SettingsScreen() {
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={notificationMorningEnabled ? '#ffffff' : '#f4f3f4'}
               ios_backgroundColor="#cbd5e1"
+              accessibilityLabel={t('settings.notificationsMorning', lang)}
+              accessibilityRole="switch"
             />
           </View>
 
@@ -250,6 +254,8 @@ export default function SettingsScreen() {
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={notificationLunchEnabled ? '#ffffff' : '#f4f3f4'}
               ios_backgroundColor="#cbd5e1"
+              accessibilityLabel={t('settings.notificationsLunch', lang)}
+              accessibilityRole="switch"
             />
           </View>
 
@@ -265,6 +271,8 @@ export default function SettingsScreen() {
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={notificationEveningEnabled ? '#ffffff' : '#f4f3f4'}
               ios_backgroundColor="#cbd5e1"
+              accessibilityLabel={t('settings.notificationsEvening', lang)}
+              accessibilityRole="switch"
             />
           </View>
         </Card>
@@ -290,6 +298,8 @@ export default function SettingsScreen() {
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={analyticsOptOut ? '#ffffff' : '#f4f3f4'}
               ios_backgroundColor="#cbd5e1"
+              accessibilityLabel={t('settings.analyticsOptOut', lang)}
+              accessibilityRole="switch"
             />
           </View>
         </Card>

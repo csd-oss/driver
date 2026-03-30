@@ -199,52 +199,11 @@ export async function ensureNotificationPermission(): Promise<boolean> {
 }
 
 export async function syncNotificationsWithCurrentSettings(): Promise<void> {
+  // Notifications scheduling is temporarily disabled while push/notification
+  // capabilities are turned off at the native level. This keeps the app from
+  // calling into `expo-notifications` with an invalid trigger configuration
+  // and avoids runtime errors during development installs.
   if (Platform.OS === 'web') return;
-
-  const settings = await SettingsDB.getSettings();
-  const hasPermission = (await Notifications.getPermissionsAsync()).status === 'granted';
-
-  await Notifications.cancelAllScheduledNotificationsAsync();
-  if (!hasPermission) return;
-
-  const enabledSlots: Slot[] = [];
-  if (settings.notificationMorningEnabled) enabledSlots.push('morning');
-  if (settings.notificationLunchEnabled) enabledSlots.push('lunch');
-  if (settings.notificationEveningEnabled) enabledSlots.push('evening');
-  if (enabledSlots.length === 0) return;
-
-  const copy = getLanguageCopy(settings.lang);
-  const todayKey = toLocalDateKey(new Date());
-  const lastStudyDate = await EngagementDB.getLastStudyDate(settings.lang);
-  const hasStudyToday = lastStudyDate === todayKey;
-  const now = new Date();
-
-  for (let dayOffset = 0; dayOffset < SCHEDULE_DAYS; dayOffset += 1) {
-    const baseDate = new Date(now);
-    baseDate.setDate(now.getDate() + dayOffset);
-
-    for (const slot of enabledSlots) {
-      const triggerDate = makeSlotDate(baseDate, slot);
-      if (triggerDate <= now) continue;
-
-      const kind: MessageKind =
-        dayOffset === 0 && hasStudyToday ? 'readiness' : 'streak';
-      const body = pickVariant(copy[slot][kind], slot, triggerDate);
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: copy[slot].title,
-          body,
-          sound: 'default',
-          data: {
-            slot,
-            kind,
-            lang: settings.lang,
-          },
-        },
-        trigger: triggerDate,
-      });
-    }
-  }
+  return;
 }
 

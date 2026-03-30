@@ -10,7 +10,7 @@ import { trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState, useEffect } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 
 export default function StatsScreen() {
@@ -68,7 +68,7 @@ export default function StatsScreen() {
     return (
       <Screen header={<Header title={t('stats.title', lang)} />}>
         <View className="flex-1 items-center justify-center mt-1">
-          <UIText variant="body">Loading...</UIText>
+          <ActivityIndicator size="large" color="#6366f1" />
         </View>
       </Screen>
     );

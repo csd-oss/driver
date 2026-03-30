@@ -30,12 +30,14 @@ export const Header = ({ title, showBack = true, onBackPress, rightElement }) =>
         {showBack && (
           <Pressable
             onPress={handleBack}
-            className="mr-3 p-1.5 rounded-full bg-slate-100 dark:bg-slate-800"
+            className="mr-3 p-2 rounded-full bg-slate-100 dark:bg-slate-800"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
             <IconSymbol
               name="chevron.left"
-              size={18}
+              size={22}
               color={iconColor}
             />
           </Pressable>

@@ -18,7 +18,7 @@ import { getSmartQuestion, pushRecent } from '@/src/lib/smartPractice';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 
 /**
@@ -280,7 +280,7 @@ export default function StudyScreen() {
     return (
       <Screen header={<Header title={t('nav.study', lang)} />}>
         <View className="flex-1 items-center justify-center mt-1">
-          <UIText variant="body">Loading...</UIText>
+          <ActivityIndicator size="large" color="#6366f1" />
         </View>
       </Screen>
     );

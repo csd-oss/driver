@@ -347,7 +347,12 @@ export default function OnboardingScreen() {
     });
 
     return (
-      <Pressable onPress={() => goToSlide(index)}>
+      <Pressable
+        onPress={() => goToSlide(index)}
+        hitSlop={{ top: 16, bottom: 16, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel={`Slide ${index + 1}`}
+      >
         <Animated.View
           style={{
             width: dotWidth,
@@ -378,17 +383,21 @@ export default function OnboardingScreen() {
                 });
                 router.push({ pathname: '/language', params: { from: 'onboarding' } });
               }}
-              className="px-3 py-2 -ml-2 rounded-lg active:bg-slate-200/50 dark:active:bg-slate-800/50"
+              className="px-4 py-3 -ml-2 rounded-lg active:bg-slate-200/50 dark:active:bg-slate-800/50"
+              accessibilityRole="button"
+              accessibilityLabel={t('onboarding.changeLanguage', lang)}
             >
-              <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
+              <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
                 {languageFlag} {t('onboarding.changeLanguage', lang)}
               </UIText>
             </Pressable>
             <Pressable
               onPress={handleSkip}
-              className="px-3 py-2 -mr-2 rounded-lg active:bg-slate-200/50 dark:active:bg-slate-800/50"
+              className="px-4 py-3 -mr-2 rounded-lg active:bg-slate-200/50 dark:active:bg-slate-800/50"
+              accessibilityRole="button"
+              accessibilityLabel={t('onboarding.skip', lang)}
             >
-              <UIText variant="caption" className="text-slate-500 dark:text-slate-400 font-medium">
+              <UIText variant="caption" className="text-slate-500 dark:text-slate-300 font-medium">
                 {t('onboarding.skip', lang)}
               </UIText>
             </Pressable>

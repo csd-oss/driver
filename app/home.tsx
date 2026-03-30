@@ -105,10 +105,15 @@ export default function HomeScreen() {
   return (
     <Screen>
       <View className="flex-1 gap-6">
-        <Pressable onPress={() => {
-          trackEvent(posthog, 'home_stats_clicked', { language: lang });
-          router.push('/stats');
-        }}>
+        <Pressable
+          onPress={() => {
+            trackEvent(posthog, 'home_stats_clicked', { language: lang });
+            router.push('/stats');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('stats.yourProgress', lang)}: ${readinessScore}%`}
+          accessibilityHint="Opens detailed statistics"
+        >
           <Card className="mt-2 overflow-hidden bg-gradient-to-r from-indigo-500/15 via-sky-500/10 to-emerald-500/10 border-indigo-200/60 dark:border-indigo-700/40">
             <View className="gap-4">
               <View className="flex-row items-center justify-between">

@@ -14,7 +14,7 @@ const variantStyles = {
   title: 'font-extrabold text-slate-900 dark:text-slate-50 tracking-tight',
   subtitle: 'font-semibold text-slate-800 dark:text-slate-200',
   body: 'text-slate-700 dark:text-slate-300',
-  caption: 'text-slate-500 dark:text-slate-400',
+  caption: 'text-slate-500 dark:text-slate-300',
 };
 
 export const UIText = ({ 

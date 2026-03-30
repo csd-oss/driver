@@ -30,6 +30,9 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
       <Pressable
         onPress={() => setModalVisible(true)}
         className="w-full"
+        accessibilityRole="button"
+        accessibilityLabel={`${t('category.select', lang)}: ${displayLabel}`}
+        accessibilityHint="Opens category picker"
       >
         <Card className="p-3 bg-white dark:bg-slate-900">
           <View className="flex-row items-center justify-between">
@@ -74,11 +77,14 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
                   {/* All option */}
                   <Pressable
                     onPress={() => handleSelect('all')}
-                    className={`p-4 rounded-xl border ${
+                    className={`p-4 rounded-xl border min-h-[48px] justify-center ${
                       selectedCategory === 'all'
                         ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-300 dark:border-indigo-700'
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                     }`}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: selectedCategory === 'all' }}
+                    accessibilityLabel={t('category.all', lang)}
                   >
                     <UIText
                       variant="body"
@@ -93,11 +99,14 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
                     <Pressable
                       key={index}
                       onPress={() => handleSelect(category)}
-                      className={`p-4 rounded-xl border ${
+                      className={`p-4 rounded-xl border min-h-[48px] justify-center ${
                         selectedCategory === category
                           ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-300 dark:border-indigo-700'
                           : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                       }`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: selectedCategory === category }}
+                      accessibilityLabel={category}
                     >
                       <UIText
                         variant="body"
