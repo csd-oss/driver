@@ -93,7 +93,8 @@ export default function StatsScreen() {
       parseInt(dateKey.substring(4, 6)) - 1,
       parseInt(dateKey.substring(6, 8))
     );
-    const dayLabel = date.toLocaleDateString('en-US', { weekday: 'short' });
+    const dateLocale = lang === 1 ? 'sk' : lang === 3 ? 'hu' : 'en';
+    const dayLabel = date.toLocaleDateString(dateLocale, { weekday: 'short' });
     const dayAccuracy = calculateAccuracy(daily.attempts, daily.correct);
     
     dailyData.push({

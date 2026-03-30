@@ -486,7 +486,7 @@ export default function MistakesScreen() {
             <View className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700/70">
               <UIText
                 variant="subtitle"
-                className={isCorrect ? 'text-green-600' : 'text-red-600'}
+                className={isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}
               >
                 {isCorrect ? t('study.correct', lang) : t('study.wrong', lang)}
               </UIText>

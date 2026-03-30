@@ -702,4 +702,44 @@ export const STR = {
     2: 'Get Started',
     3: 'Kezdés',
   },
+  'home.viewStats': {
+    1: 'Zobraziť štatistiky →',
+    2: 'View stats →',
+    3: 'Statisztikák →',
+  },
+  'mock.results': {
+    1: 'Výsledky',
+    2: 'Results',
+    3: 'Eredmények',
+  },
+  'mock.close': {
+    1: 'Zatvoriť',
+    2: 'Close',
+    3: 'Bezárás',
+  },
+  'mock.addWrongSuccessTitle': {
+    1: 'Hotovo',
+    2: 'Done',
+    3: 'Kész',
+  },
+  'mock.addWrongSuccessMessage': {
+    1: 'Nesprávne odpovede boli pridané do chýb',
+    2: 'Wrong answers added to mistakes',
+    3: 'A hibás válaszok hozzáadva a hibákhoz',
+  },
+  'common.cancel': {
+    1: 'Zrušiť',
+    2: 'Cancel',
+    3: 'Mégse',
+  },
+  'settings.resetConfirmMessage': {
+    1: 'Naozaj chcete resetovať pokrok? Toto vymaže všetky chyby a série.',
+    2: 'Are you sure you want to reset your progress? This will clear all mistakes and streaks.',
+    3: 'Biztosan törli az előrehaladást? Ez törli az összes hibát és sorozatot.',
+  },
+  'settings.resetConfirmButton': {
+    1: 'Resetovať',
+    2: 'Reset',
+    3: 'Törlés',
+  },
 };

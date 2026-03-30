@@ -270,7 +270,7 @@ export default function MockScreen() {
       await MockDB.updateAddedToMistakesCount(mockExamId, wrongCount);
     }
     
-    Alert.alert('Success', 'Wrong answers added to mistakes');
+    Alert.alert(t('mock.addWrongSuccessTitle', lang), t('mock.addWrongSuccessMessage', lang));
   };
 
   const formatTime = (seconds) => {
@@ -399,7 +399,7 @@ export default function MockScreen() {
 
           <Card className="gap-3">
             <View className="flex-row items-center justify-between">
-              <UIText variant="subtitle">Results</UIText>
+              <UIText variant="subtitle">{t('mock.results', lang)}</UIText>
               <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
                 {Object.keys(results).length} / {test.pocet}
               </UIText>
@@ -419,7 +419,7 @@ export default function MockScreen() {
                         : 'bg-rose-50 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 active:opacity-80'
                     }`}
                   >
-                    <UIText variant="body" className="text-base font-semibold">Question {qNo}</UIText>
+                    <UIText variant="body" className="text-base font-semibold">{t('mock.question', lang)} {qNo}</UIText>
                     <View
                       className={`px-3 py-1 rounded-full ${
                         isCorrect ? 'bg-emerald-500/10' : 'bg-rose-500/10'
@@ -429,7 +429,7 @@ export default function MockScreen() {
                         variant="caption"
                         className={`font-semibold ${isCorrect ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}`}
                       >
-                        {isCorrect ? 'Correct' : 'Wrong'}
+                        {isCorrect ? t('study.correct', lang) : t('study.wrong', lang)}
                       </UIText>
                     </View>
                   </Component>
@@ -480,7 +480,7 @@ export default function MockScreen() {
                       >
                         <View className="mb-4">
                           <UIText variant="subtitle" className="mb-2">
-                            Question {selectedQuestionDetail.qNo}
+                            {t('mock.question', lang)} {selectedQuestionDetail.qNo}
                           </UIText>
                         </View>
 
@@ -526,11 +526,11 @@ export default function MockScreen() {
                             return (
                               <View key={index} className="gap-1">
                                 {(isCorrectAnswer || isUserAnswer) && (
-                                  <UIText 
-                                    variant="caption" 
+                                  <UIText
+                                    variant="caption"
                                     className={isCorrectAnswer ? 'text-emerald-700 dark:text-emerald-200 font-semibold' : 'text-rose-700 dark:text-rose-200 font-semibold'}
                                   >
-                                    {isCorrectAnswer ? '✓ Correct Answer' : '✗ Your Answer'}
+                                    {isCorrectAnswer ? `✓ ${t('history.correctAnswer', lang)}` : `✗ ${t('history.yourAnswer', lang)}`}
                                   </UIText>
                                 )}
                                 <View className={buttonClassName + ' px-5 py-3 rounded-xl items-center justify-center min-h-[48px]'}>
@@ -550,7 +550,7 @@ export default function MockScreen() {
                           variant="outline"
                           className="w-full"
                         >
-                          Close
+                          {t('mock.close', lang)}
                         </Button>
                       </View>
                     </View>
@@ -668,7 +668,7 @@ export default function MockScreen() {
       >
         <Card>
           <UIText variant="subtitle" className="mb-2">
-            Question {currentQuestion} ({question.points} {t('study.points', lang)})
+            {t('mock.question', lang)} {currentQuestion} ({question.points} {t('study.points', lang)})
           </UIText>
 
           <UIText variant="body" className="mb-4">
@@ -738,9 +738,9 @@ export default function MockScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-gray-900" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={['top', 'bottom']}>
       {renderHeader()}
-      <View className="flex-1 px-4 py-6">
+      <View className="flex-1 px-4 pt-4">
         {renderCurrentQuestion()}
       </View>
     </SafeAreaView>

@@ -113,11 +113,11 @@ export default function HomeScreen() {
             <View className="gap-4">
               <View className="flex-row items-center justify-between">
                 <UIText variant="caption" className="uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-300">
-                  Your progress
+                  {t('stats.yourProgress', lang)}
                 </UIText>
                 <View className="rounded-full border border-indigo-200/80 dark:border-indigo-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-1">
                   <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200">
-                    View stats →
+                    {t('home.viewStats', lang)}
                   </UIText>
                 </View>
               </View>
@@ -150,7 +150,7 @@ export default function HomeScreen() {
               <View className="flex-row items-end justify-between">
                 <View>
                   <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
-                    Accuracy (7d)
+                    {t('stats.accuracy7d', lang)}
                   </UIText>
                   <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
                     {recentAccuracy !== null ? `${recentAccuracy}%` : '—'}
@@ -158,7 +158,7 @@ export default function HomeScreen() {
                 </View>
                 <View className="items-end">
                   <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
-                    Current streak
+                    {t('stats.currentStreak', lang)}
                   </UIText>
                   <UIText variant="subtitle" className="text-emerald-600 dark:text-emerald-300">
                     {streak} days

@@ -10,12 +10,14 @@ import { clearCache, getSettings, updateSettings } from '@/src/lib/settings';
 import { resetStats } from '@/src/lib/stats';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, Switch, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 
 export default function SettingsScreen() {
   const posthog = usePostHog();
+  const router = useRouter();
   const [lang, setLang] = useState(1);
   const [useConservativeReadiness, setUseConservativeReadiness] = useState(false);
   const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
@@ -130,22 +132,21 @@ export default function SettingsScreen() {
   const handleResetProgress = () => {
     Alert.alert(
       t('home.reset', lang),
-      'Are you sure you want to reset your progress? This will clear all mistakes and streaks.',
+      t('settings.resetConfirmMessage', lang),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel', lang), style: 'cancel' },
         {
-          text: 'Reset',
+          text: t('settings.resetConfirmButton', lang),
           style: 'destructive',
           onPress: async () => {
-            // Reset mistakes from database
             await MistakesDB.resetMistakes();
-            await resetStats(); // Reset all statistics including streaks
-            // Reset onboarding and language selection so user sees them again on next launch
-            await updateSettings({ 
+            await resetStats();
+            await updateSettings({
               hasOnboarded: false,
-              hasChosenLanguage: false 
+              hasChosenLanguage: false,
             });
-            clearCache(); // Clear settings cache to ensure changes take effect
+            clearCache();
+            router.replace('/onboarding');
           },
         },
       ]
