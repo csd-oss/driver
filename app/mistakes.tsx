@@ -210,41 +210,11 @@ export default function MistakesScreen() {
     
     hasRecordedAnswer.current = true;
     
-    // Reload mistakes list (in case question was removed)
+    // Sync mistakes counts for header/category (same as Smart Study: stay on this question until "Next")
     const updatedMistakes = await MistakesDB.getMistakes(lang);
     setMistakes(updatedMistakes);
-    
-    // Filter mistakes by category
     const filtered = filterMistakesByCategory(updatedMistakes, lang, selectedCategory);
     setFilteredMistakes(filtered);
-    
-    // Re-shuffle the remaining filtered mistakes
-    if (filtered.length > 0) {
-      const shuffled = shuffleArray(filtered);
-      setShuffledMistakes(shuffled);
-      // Update current index if current question was removed
-      if (!filtered.includes(question.qid)) {
-        // Current question no longer in filtered list, load first one
-        if (shuffled.length > 0) {
-          await loadQuestion(shuffled[0], lang);
-          setCurrentIndex(0);
-        } else {
-          setQuestion(null);
-          setCurrentIndex(0);
-        }
-      } else {
-        const newIndex = shuffled.indexOf(question.qid);
-        if (newIndex !== -1) {
-          setCurrentIndex(newIndex);
-        } else {
-          setCurrentIndex(0);
-        }
-      }
-    } else {
-      setShuffledMistakes([]);
-      setQuestion(null);
-      setCurrentIndex(0);
-    }
   };
 
   const handleNext = async () => {
