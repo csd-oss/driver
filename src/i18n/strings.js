@@ -727,6 +727,21 @@ export const STR = {
     2: 'Wrong answers added to mistakes',
     3: 'A hibás válaszok hozzáadva a hibákhoz',
   },
+  'mock.finishEarlyTitle': {
+    1: 'Ukončiť skúšobný test?',
+    2: 'Finish mock exam?',
+    3: 'Befejezi a próba vizsgát?',
+  },
+  'mock.finishEarlyMessage': {
+    1: 'Nie ste na poslednej otázke. Naozaj chcete test ukončiť?',
+    2: "You're not on the last question yet. Finish the exam anyway?",
+    3: 'Még nem az utolsó kérdésnél. Biztosan befejezi a vizsgát?',
+  },
+  'mock.finishEarlyConfirm': {
+    1: 'Ukončiť',
+    2: 'Finish exam',
+    3: 'Befejezés',
+  },
   'common.cancel': {
     1: 'Zrušiť',
     2: 'Cancel',

@@ -211,6 +211,27 @@ export default function MockScreen() {
     }, examStartedAt);
   }, [test, testIndex, answers, lang, timeRemaining, mockExamId, examStartedAt, questionShownAt, timeSpentMs, currentQuestion, saveAnsweredAttempts]);
 
+  const requestFinish = useCallback(() => {
+    if (!test) return;
+    if (currentQuestion < test.pocet) {
+      Alert.alert(
+        t('mock.finishEarlyTitle', lang),
+        t('mock.finishEarlyMessage', lang),
+        [
+          { text: t('common.cancel', lang), style: 'cancel' },
+          {
+            text: t('mock.finishEarlyConfirm', lang),
+            onPress: () => {
+              void handleFinish();
+            },
+          },
+        ]
+      );
+    } else {
+      void handleFinish();
+    }
+  }, [test, currentQuestion, lang, handleFinish]);
+
   useEffect(() => {
     if (timeRemaining > 0 && !isFinished) {
       const timer = setInterval(() => {
@@ -730,7 +751,7 @@ export default function MockScreen() {
           </Button>
         </View>
 
-        <Button onPress={handleFinish} variant="default" className="w-full">
+        <Button onPress={requestFinish} variant="default" className="w-full">
           {t('mock.finish', lang)}
         </Button>
       </ScrollView>
