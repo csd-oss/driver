@@ -25,7 +25,7 @@ describe('stats helpers', () => {
     expect(capped[0].id).toBe(0);
   });
 
-  it('pruneDaily removes entries older than keepDays', () => {
+  it('pruneDaily is a no-op (daily stats are now computed from the database)', () => {
     const stats = {
       study: {
         daily: {
@@ -35,8 +35,10 @@ describe('stats helpers', () => {
       },
     };
 
-    pruneDaily(stats, 7);
+    expect(() => pruneDaily(stats, 7)).not.toThrow();
+    // pruneDaily used to trim in-memory; it now intentionally does nothing
+    // because stats.study.daily is derived from `v_daily_stats` in SQLite.
     expect(stats.study.daily['20260126']).toBeDefined();
-    expect(stats.study.daily['20260110']).toBeUndefined();
+    expect(stats.study.daily['20260110']).toBeDefined();
   });
 });

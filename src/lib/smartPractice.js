@@ -285,11 +285,7 @@ const pickUnseen = ({ lang, selectedCategory, recentIds, seenSet }) => {
  * @returns {Object|null} Question object or null
  */
 const pickFromWeakCategory = async ({ lang, selectedCategory, recentIds, stats }) => {
-  // Use time-weighted category stats if available, otherwise fall back to regular stats
-  const timeWeightedStats = await StatsDB.getTimeWeightedCategoryStats(lang);
-  const byCategory = timeWeightedStats && Object.keys(timeWeightedStats).length > 0 
-    ? timeWeightedStats 
-    : (stats?.study?.byCategory || {});
+  const byCategory = stats?.study?.byCategory || {};
   
   // Filter categories with attempts > 0
   const categoriesWithAttempts = Object.keys(byCategory).filter(category => {
