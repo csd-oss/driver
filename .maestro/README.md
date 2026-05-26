@@ -17,6 +17,11 @@ App id (both platforms): `com.smartie.driver`.
 `config.yaml` makes `maestro test .maestro` run only the numbered flows (subflows are
 pulled in via `runFlow`, not run standalone).
 
+## Recorded runs
+
+Screen recordings of the full suite passing on both platforms are in
+[`recordings/`](recordings/): `ios.mp4` and `android.mp4`.
+
 ## Selector convention
 
 Elements are matched by **`testID`**, and each `testID` is the **i18n key** of the element's
