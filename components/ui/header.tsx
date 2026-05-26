@@ -1,10 +1,18 @@
-import { View, Pressable, useColorScheme } from 'react-native';
+import { Pressable, View, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import type { ReactNode } from 'react';
 import { IconSymbol } from './icon-symbol';
 import { UIText } from './text';
 
-export const Header = ({ title, showBack = true, onBackPress, rightElement }) => {
+interface HeaderProps {
+  title?: string;
+  showBack?: boolean;
+  onBackPress?: () => void;
+  rightElement?: ReactNode;
+}
+
+export const Header = ({ title, showBack = true, onBackPress, rightElement }: HeaderProps) => {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();

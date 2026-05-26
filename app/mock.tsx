@@ -612,7 +612,7 @@ export default function MockScreen() {
 
     return (
       <View className="bg-slate-50 dark:bg-slate-950 pb-2 border-b border-slate-200/70 dark:border-slate-800/70">
-        <Header showBack={true} rightElement={rightElement} />
+        <Header showBack={true} rightElement={rightElement} onBackPress={requestFinish} />
         {/* Question navigation bar */}
       <ScrollView
         ref={questionScrollRef}

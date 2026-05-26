@@ -40,6 +40,15 @@ appId: com.smartie.driver
     visible:
       id: "screen.mock"
     timeout: 10000
+# Back during an active exam now triggers the Finish-early confirm Alert.
+# Confirm finish → results screen (also `screen.mock`), then back → home.
+- tapOn:
+    id: "nav.back"
+- tapOn: "Finish exam"
+- extendedWaitUntil:
+    visible:
+      id: "screen.mock"
+    timeout: 10000
 - tapOn:
     id: "nav.back"
 - extendedWaitUntil:
