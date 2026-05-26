@@ -1,0 +1,8 @@
+# Maestro workspace config for Driver SK (com.smartie.driver)
+# Runs the numbered top-level flows; subflows/ are reusable and not run directly.
+flows:
+  - "[0-9]*.yaml"
+
+# Shared across flows
+env:
+  APP_ID: com.smartie.driver

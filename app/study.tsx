@@ -289,8 +289,8 @@ export default function StudyScreen() {
   const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
 
   return (
-    <Screen header={<Header title={t('study.smartTitle', lang)} />}>
-      <ScrollView 
+    <Screen testID="screen.study" header={<Header title={t('study.smartTitle', lang)} />}>
+      <ScrollView
         ref={scrollViewRef}
         className="flex-1 mt-1" 
         contentContainerClassName={`gap-4 ${isAnswered ? 'pb-8' : 'pb-2'}`}
@@ -363,6 +363,7 @@ export default function StudyScreen() {
                   disabled={isAnswered}
                   className={buttonClassName}
                   textClassName={isAnswered && (isCorrectAnswer || (isSelected && !isCorrect)) ? 'text-white dark:text-white' : ''}
+                  testID={`study.answer.${answerNum}`}
                 >
                   {answer}
                 </Button>
@@ -387,7 +388,7 @@ export default function StudyScreen() {
 
         {isAnswered && (
           <View ref={nextButtonRef}>
-            <Button onPress={handleNext} variant="default" className="w-full">
+            <Button onPress={handleNext} variant="default" className="w-full" testID="study.next">
               {t('study.next', lang)}
             </Button>
           </View>

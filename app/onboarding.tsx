@@ -369,7 +369,7 @@ export default function OnboardingScreen() {
 
   return (
     <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-      <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950">
+      <SafeAreaView testID="screen.onboarding" className="flex-1 bg-slate-50 dark:bg-slate-950">
         <View className="flex-1">
           <View
             className="flex-row items-center justify-between px-5"
@@ -393,6 +393,7 @@ export default function OnboardingScreen() {
             </Pressable>
             <Pressable
               onPress={handleSkip}
+              testID="onboarding.skip"
               className="px-4 py-3 -mr-2 rounded-lg active:bg-slate-200/50 dark:active:bg-slate-800/50"
               accessibilityRole="button"
               accessibilityLabel={t('onboarding.skip', lang)}
@@ -483,7 +484,7 @@ export default function OnboardingScreen() {
             className="px-5 gap-3"
             style={{ paddingBottom: Math.max(16, insets.bottom + 8) }}
           >
-            <Button onPress={handleNext} variant="default" className="w-full">
+            <Button onPress={handleNext} variant="default" className="w-full" testID="onboarding.next">
               {currentSlide === slides.length - 1
                 ? t('onboarding.getStarted', lang)
                 : t('onboarding.next', lang)}

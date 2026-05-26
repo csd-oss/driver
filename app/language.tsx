@@ -64,6 +64,7 @@ export default function LanguageSelectScreen() {
 
   return (
     <Screen
+      testID="screen.language"
       header={<Header title={t('language.selectTitle', currentLang)} showBack onBackPress={handleBack} />}
     >
       <View className="flex-1 w-full items-center justify-center">
@@ -88,6 +89,7 @@ export default function LanguageSelectScreen() {
                 onPress={() => handleLanguageSelect(1)}
                 variant={currentLang === 1 ? 'default' : 'outline'}
                 className="w-full"
+                testID="language.lang1"
               >
                 🇸🇰 {t('language.lang1', 1)} / {t('language.lang1', 2)} / {t('language.lang1', 3)}
               </Button>
@@ -96,6 +98,7 @@ export default function LanguageSelectScreen() {
                 onPress={() => handleLanguageSelect(2)}
                 variant={currentLang === 2 ? 'default' : 'outline'}
                 className="w-full"
+                testID="language.lang2"
               >
                 🇬🇧 {t('language.lang2', 1)} / {t('language.lang2', 2)} / {t('language.lang2', 3)}
               </Button>
@@ -104,6 +107,7 @@ export default function LanguageSelectScreen() {
                 onPress={() => handleLanguageSelect(3)}
                 variant={currentLang === 3 ? 'default' : 'outline'}
                 className="w-full"
+                testID="language.lang3"
               >
                 🇭🇺 {t('language.lang3', 1)} / {t('language.lang3', 2)} / {t('language.lang3', 3)}
               </Button>

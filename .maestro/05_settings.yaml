@@ -1,0 +1,20 @@
+# Settings: toggle readiness mode and a reminder (turning OFF avoids permission prompts).
+appId: com.smartie.driver
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/complete_onboarding.yaml
+- tapOn:
+    id: "home.settings"
+- extendedWaitUntil:
+    visible:
+      id: "screen.settings"
+    timeout: 10000
+# Toggle conservative readiness mode (off -> on).
+- tapOn:
+    id: "settings.conservativeMode"
+# Reminders default ON; tapping turns the morning reminder OFF (no permission dialog).
+- tapOn:
+    id: "settings.notificationsMorning"
+- assertVisible:
+    id: "screen.settings"

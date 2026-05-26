@@ -154,7 +154,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen header={<Header title={t('nav.settings', lang)} />}>
+    <Screen testID="screen.settings" header={<Header title={t('nav.settings', lang)} />}>
       <ScrollView className="flex-1" contentContainerClassName="gap-6 mt-1">
         <Card className="gap-3">
           <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
@@ -206,6 +206,7 @@ export default function SettingsScreen() {
               </UIText>
             </View>
             <Switch
+              testID="settings.conservativeMode"
               value={useConservativeReadiness}
               onValueChange={handleReadinessModeChange}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
@@ -232,6 +233,7 @@ export default function SettingsScreen() {
               </UIText>
             </View>
             <Switch
+              testID="settings.notificationsMorning"
               value={notificationMorningEnabled}
               onValueChange={(value) => handleNotificationToggle('morning', value)}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
@@ -249,6 +251,7 @@ export default function SettingsScreen() {
               </UIText>
             </View>
             <Switch
+              testID="settings.notificationsLunch"
               value={notificationLunchEnabled}
               onValueChange={(value) => handleNotificationToggle('lunch', value)}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
@@ -266,6 +269,7 @@ export default function SettingsScreen() {
               </UIText>
             </View>
             <Switch
+              testID="settings.notificationsEvening"
               value={notificationEveningEnabled}
               onValueChange={(value) => handleNotificationToggle('evening', value)}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
@@ -292,6 +296,7 @@ export default function SettingsScreen() {
               </UIText>
             </View>
             <Switch
+              testID="settings.analyticsOptOut"
               value={analyticsOptOut}
               onValueChange={handleAnalyticsToggle}
               disabled={!posthog}

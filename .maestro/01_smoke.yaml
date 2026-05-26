@@ -1,0 +1,9 @@
+# Smoke test: the app launches from a clean state and reaches onboarding.
+appId: com.smartie.driver
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.onboarding"
+    timeout: 20000

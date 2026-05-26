@@ -4,11 +4,12 @@ import { View, Pressable } from 'react-native';
 const baseClasses =
   'rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/80 shadow-lg shadow-slate-900/5 p-4 gap-2';
 
-export const Card = ({ children, className = '', onPress, style, accessibilityLabel }) => {
+export const Card = ({ children, className = '', onPress, style, accessibilityLabel, testID }) => {
   if (onPress) {
     return (
       <Pressable
         onPress={onPress}
+        testID={testID}
         className={`${baseClasses} active:scale-[0.995] ${className}`}
         style={style}
         accessibilityRole="button"
@@ -20,7 +21,7 @@ export const Card = ({ children, className = '', onPress, style, accessibilityLa
   }
 
   return (
-    <View className={`${baseClasses} ${className}`} style={style}>
+    <View testID={testID} className={`${baseClasses} ${className}`} style={style}>
       {children}
     </View>
   );

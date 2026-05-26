@@ -66,7 +66,7 @@ export default function StatsScreen() {
 
   if (!stats) {
     return (
-      <Screen header={<Header title={t('stats.title', lang)} />}>
+      <Screen testID="screen.stats" header={<Header title={t('stats.title', lang)} />}>
         <View className="flex-1 items-center justify-center mt-1">
           <ActivityIndicator size="large" color="#6366f1" />
         </View>
@@ -192,7 +192,7 @@ export default function StatsScreen() {
   };
 
   return (
-    <Screen header={<Header title={t('stats.title', lang)} />}>
+    <Screen testID="screen.stats" header={<Header title={t('stats.title', lang)} />}>
       <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4 pb-2">
         {/* Overview Card */}
         <Card className="gap-4 overflow-hidden bg-gradient-to-r from-indigo-500/10 via-sky-500/10 to-emerald-500/10 border-indigo-200/60 dark:border-indigo-700/40">

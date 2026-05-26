@@ -103,13 +103,14 @@ export default function HomeScreen() {
   const readinessBarWidth = `${Math.max(readinessScore, 1)}%`;
 
   return (
-    <Screen>
+    <Screen testID="screen.home">
       <View className="flex-1 gap-6">
         <Pressable
           onPress={() => {
             trackEvent(posthog, 'home_stats_clicked', { language: lang });
             router.push('/stats');
           }}
+          testID="home.stats"
           accessibilityRole="button"
           accessibilityLabel={`${t('stats.yourProgress', lang)}: ${readinessScore}%`}
           accessibilityHint="Opens detailed statistics"
@@ -188,6 +189,7 @@ export default function HomeScreen() {
             }}
             variant="default"
             className="w-full"
+            testID="home.smartStudyCta"
           >
             {t('home.smartStudyCta', lang)}
           </Button>
@@ -201,6 +203,7 @@ export default function HomeScreen() {
             }}
             variant="outline"
             className="w-full"
+            testID="home.mistakes"
           >
             {t('home.mistakes', lang)}
           </Button>
@@ -212,6 +215,7 @@ export default function HomeScreen() {
             }}
             variant="outline"
             className="w-full"
+            testID="home.mock"
           >
             {t('home.mock', lang)}
           </Button>
@@ -223,6 +227,7 @@ export default function HomeScreen() {
             }}
             variant="secondary"
             className="w-full"
+            testID="home.settings"
           >
             {t('home.settings', lang)}
           </Button>

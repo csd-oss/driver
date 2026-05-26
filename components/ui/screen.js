@@ -2,9 +2,10 @@ import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Shared page chrome with softer background
-export const Screen = ({ children, className = '', style, header }) => {
+export const Screen = ({ children, className = '', style, header, testID }) => {
   return (
     <SafeAreaView
+      testID={testID}
       className={`flex-1 bg-slate-50 dark:bg-slate-950 ${className}`}
       style={style}
     >

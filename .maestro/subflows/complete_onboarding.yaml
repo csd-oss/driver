@@ -1,0 +1,23 @@
+# Reusable: from a freshly launched (cleared) app, get through onboarding to Home.
+# Uses the Skip path so it never triggers the OS notification-permission dialog.
+# The parent flow is responsible for `launchApp: { clearState: true }` first.
+appId: com.smartie.driver
+---
+# The app opens on a ~4.5s intro animation, then routes to onboarding on a fresh install.
+- extendedWaitUntil:
+    visible:
+      id: "screen.onboarding"
+    timeout: 20000
+- tapOn:
+    id: "onboarding.skip"
+# Fresh installs always hit language selection after onboarding.
+- extendedWaitUntil:
+    visible:
+      id: "screen.language"
+    timeout: 10000
+- tapOn:
+    id: "language.lang2" # English
+- extendedWaitUntil:
+    visible:
+      id: "screen.home"
+    timeout: 10000

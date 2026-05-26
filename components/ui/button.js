@@ -32,6 +32,7 @@ export const Button = ({
   maxFontSizeMultiplier = 1.5,
   accessibilityLabel,
   accessibilityHint,
+  testID,
 }) => {
   // Use updateKey from context to force re-render when font scale changes
   // React Native's allowFontScaling will handle the actual scaling automatically
@@ -48,6 +49,7 @@ export const Button = ({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      testID={testID}
       className={`${baseClasses} ${variantClass} ${disabledClass} ${className}`}
       style={style}
       accessibilityRole="button"

@@ -30,6 +30,7 @@ export const Header = ({ title, showBack = true, onBackPress, rightElement }) =>
         {showBack && (
           <Pressable
             onPress={handleBack}
+            testID="nav.back"
             className="mr-3 p-2 rounded-full bg-slate-100 dark:bg-slate-800"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"

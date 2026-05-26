@@ -316,7 +316,7 @@ export default function MistakesScreen() {
   // Show empty state if no mistakes at all
   if (mistakes.length === 0) {
     return (
-      <Screen header={<Header title={t('nav.mistakes', lang)} />}>
+      <Screen testID="screen.mistakes" header={<Header title={t('nav.mistakes', lang)} />}>
         <View className="flex-1 items-center justify-center mt-1">
           <UIText variant="title">{t('mistakes.empty', lang)}</UIText>
         </View>
@@ -327,7 +327,7 @@ export default function MistakesScreen() {
   // Show empty state if mistakes exist but none in selected category
   if (filteredMistakes.length === 0 && mistakes.length > 0) {
     return (
-      <Screen header={<Header title={t('nav.mistakes', lang)} />}>
+      <Screen testID="screen.mistakes" header={<Header title={t('nav.mistakes', lang)} />}>
         <ScrollView 
           ref={scrollViewRef}
           className="flex-1 mt-1" 
@@ -357,7 +357,7 @@ export default function MistakesScreen() {
 
   if (!question) {
     return (
-      <Screen header={<Header title={t('nav.mistakes', lang)} />}>
+      <Screen testID="screen.mistakes" header={<Header title={t('nav.mistakes', lang)} />}>
         <View className="flex-1 items-center justify-center mt-1">
           <UIText variant="body">Question not found</UIText>
           <Button onPress={loadData} variant="default" className="mt-4">
@@ -373,7 +373,7 @@ export default function MistakesScreen() {
   const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
 
   return (
-    <Screen header={<Header title={t('nav.mistakes', lang)} />}>
+    <Screen testID="screen.mistakes" header={<Header title={t('nav.mistakes', lang)} />}>
       <ScrollView 
         ref={scrollViewRef}
         className="flex-1 mt-1" 

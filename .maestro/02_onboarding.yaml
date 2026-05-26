@@ -1,0 +1,29 @@
+# Onboarding: exercise the carousel, skip, pick a language, land on Home.
+appId: com.smartie.driver
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.onboarding"
+    timeout: 20000
+# Advance a couple of slides to exercise the carousel.
+- tapOn:
+    id: "onboarding.next"
+- waitForAnimationToEnd
+- tapOn:
+    id: "onboarding.next"
+- waitForAnimationToEnd
+# Skip the remaining slides (avoids the OS notification-permission dialog).
+- tapOn:
+    id: "onboarding.skip"
+- extendedWaitUntil:
+    visible:
+      id: "screen.language"
+    timeout: 10000
+- tapOn:
+    id: "language.lang2" # English
+- extendedWaitUntil:
+    visible:
+      id: "screen.home"
+    timeout: 10000

@@ -362,7 +362,7 @@ export default function MockScreen() {
 
   if (!test) {
     return (
-      <Screen header={<Header title={t('nav.mock', lang)} />}>
+      <Screen testID="screen.mock" header={<Header title={t('nav.mock', lang)} />}>
         <View className="flex-1 items-center justify-center mt-1">
           <UIText variant="body">Loading...</UIText>
         </View>
@@ -372,7 +372,7 @@ export default function MockScreen() {
 
   if (isFinished) {
     return (
-      <Screen header={<Header title={t('nav.mock', lang)} />}>
+      <Screen testID="screen.mock" header={<Header title={t('nav.mock', lang)} />}>
         <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4 pb-2">
           <Card className="gap-4">
             <View className="items-center gap-2">
@@ -723,6 +723,7 @@ export default function MockScreen() {
                   onPress={() => handleAnswer(qNoStr, answerNum)}
                   variant={isSelected ? 'default' : 'outline'}
                   className="w-full"
+                  testID={`mock.answer.${answerNum}`}
                 >
                   {answer}
                 </Button>
@@ -751,7 +752,7 @@ export default function MockScreen() {
           </Button>
         </View>
 
-        <Button onPress={requestFinish} variant="default" className="w-full">
+        <Button onPress={requestFinish} variant="default" className="w-full" testID="mock.finish">
           {t('mock.finish', lang)}
         </Button>
       </ScrollView>
@@ -759,7 +760,7 @@ export default function MockScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={['top', 'bottom']}>
+    <SafeAreaView testID="screen.mock" className="flex-1 bg-slate-50 dark:bg-slate-950" edges={['top', 'bottom']}>
       {renderHeader()}
       <View className="flex-1 px-4 pt-4">
         {renderCurrentQuestion()}

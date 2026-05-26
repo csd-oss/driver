@@ -1,0 +1,31 @@
+# Study: answer a question and advance to the next one.
+appId: com.smartie.driver
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/complete_onboarding.yaml
+- tapOn:
+    id: "home.smartStudyCta"
+- extendedWaitUntil:
+    visible:
+      id: "screen.study"
+    timeout: 15000
+# Wait for the first question's answers to load, then answer.
+- extendedWaitUntil:
+    visible:
+      id: "study.answer.1"
+    timeout: 15000
+- tapOn:
+    id: "study.answer.1"
+# After answering, the Next button appears.
+- extendedWaitUntil:
+    visible:
+      id: "study.next"
+    timeout: 10000
+- tapOn:
+    id: "study.next"
+# A new question loads.
+- extendedWaitUntil:
+    visible:
+      id: "study.answer.1"
+    timeout: 10000

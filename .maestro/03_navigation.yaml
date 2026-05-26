@@ -1,0 +1,76 @@
+# Navigation: from Home, open each section and return.
+appId: com.smartie.driver
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/complete_onboarding.yaml
+
+# Smart Study
+- tapOn:
+    id: "home.smartStudyCta"
+- extendedWaitUntil:
+    visible:
+      id: "screen.study"
+    timeout: 15000
+- tapOn:
+    id: "nav.back"
+- extendedWaitUntil:
+    visible:
+      id: "screen.home"
+    timeout: 10000
+
+# Mistakes
+- tapOn:
+    id: "home.mistakes"
+- extendedWaitUntil:
+    visible:
+      id: "screen.mistakes"
+    timeout: 10000
+- tapOn:
+    id: "nav.back"
+- extendedWaitUntil:
+    visible:
+      id: "screen.home"
+    timeout: 10000
+
+# Mock exam
+- tapOn:
+    id: "home.mock"
+- extendedWaitUntil:
+    visible:
+      id: "screen.mock"
+    timeout: 10000
+- tapOn:
+    id: "nav.back"
+- extendedWaitUntil:
+    visible:
+      id: "screen.home"
+    timeout: 10000
+
+# Stats
+- tapOn:
+    id: "home.stats"
+- extendedWaitUntil:
+    visible:
+      id: "screen.stats"
+    timeout: 10000
+- tapOn:
+    id: "nav.back"
+- extendedWaitUntil:
+    visible:
+      id: "screen.home"
+    timeout: 10000
+
+# Settings
+- tapOn:
+    id: "home.settings"
+- extendedWaitUntil:
+    visible:
+      id: "screen.settings"
+    timeout: 10000
+- tapOn:
+    id: "nav.back"
+- extendedWaitUntil:
+    visible:
+      id: "screen.home"
+    timeout: 10000
