@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
@@ -21,27 +21,15 @@ import type { ReactNode } from 'react';
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync();
 
-// Component to identify user with PostHog after provider is mounted
+// Identify the user with PostHog after the provider mounts. The opt-out check
+// the previous version did here is now handled one level up — `RootLayout`
+// won't mount `PostHogProvider` at all if `analyticsOptOut === true`, so by
+// the time this runs we're guaranteed to be opted-in.
 function PostHogIdentify() {
   const posthog = usePostHog();
 
   useEffect(() => {
     if (posthog) {
-      // Check opt-out status and apply it
-      // Note: PostHog is opted-in by default and persists opt-out state internally
-      // We only need to call optOut() if user explicitly opted out in our settings
-      getSettings().then((settings) => {
-        if (settings.analyticsOptOut) {
-          posthog.optOut();
-        }
-        // Don't call optIn() - PostHog handles this by default
-        // Calling optIn() can interfere with PostHog's internal persistence
-      }).catch((error) => {
-        // Settings may fail on first launch before migrations complete
-        // This is okay - PostHog defaults to opted-in
-        console.error('Failed to check analytics opt-out status:', error);
-      });
-
       identifyUser(posthog).catch((error) => {
         trackError(posthog, 'user_identification_failed', error);
       });
@@ -72,23 +60,38 @@ export default function RootLayout() {
   const posthogKey = Constants.expoConfig?.extra?.posthogKey;
   const posthogHost = Constants.expoConfig?.extra?.posthogHost;
 
+  // Gate the whole React tree (and therefore PostHogProvider) on migrations
+  // + settings finishing, so analytics never fires before we know the user's
+  // opt-out preference. Native splash stays visible during this brief window.
+  const [analyticsReady, setAnalyticsReady] = useState(false);
+  const [optedOut, setOptedOut] = useState(false);
+
   useEffect(() => {
-    // Initialize database and run migrations
     const initApp = async () => {
+      let isOptedOut = false;
       try {
         await runMigrations();
         await syncNotificationsWithCurrentSettings();
+        const settings = await getSettings();
+        isOptedOut = settings?.analyticsOptOut === true;
       } catch (error) {
-        // Log error - PostHog not available yet at this point
+        // If migrations fail we can't read the opt-out preference; default to
+        // opt-out so a recoverable error never leaks tracking events.
         console.error('Database initialization error:', error);
+        isOptedOut = true;
       }
-      
-      // Hide splash screen once the app is ready
+      setOptedOut(isOptedOut);
+      setAnalyticsReady(true);
       await SplashScreen.hideAsync();
     };
-    
+
     initApp();
   }, []);
+
+  // Hold the tree mount until we know the opt-out state. The native splash
+  // covers this; the React tree (including the intro animation in app/index)
+  // mounts exactly once after the analytics decision is made.
+  if (!analyticsReady) return null;
 
   const appContent = (
     <SafeAreaProvider>
@@ -111,14 +114,18 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 
-  // Wrap with PostHogProvider if config is available
-  if (posthogKey && posthogHost) {
+  // Mount the PostHog tree only when (a) analytics env is configured AND
+  // (b) the user hasn't opted out. If either is false we render the plain
+  // ErrorBoundary tree — no `$app_open`, no identify, no register fires.
+  const analyticsEnabled = !optedOut && Boolean(posthogKey && posthogHost);
+
+  if (analyticsEnabled) {
     return (
-      <PostHogProvider 
-        apiKey={posthogKey} 
-        options={{ 
+      <PostHogProvider
+        apiKey={posthogKey}
+        options={{
           host: posthogHost,
-          captureAppLifecycleEvents: true,  // Auto-track app open/close/background
+          captureAppLifecycleEvents: true, // Auto-track app open/close/background
         }}
       >
         <PostHogIdentify />
@@ -127,6 +134,6 @@ export default function RootLayout() {
     );
   }
 
-  // No analytics configured — still wrap in a boundary so a JS error doesn't white-screen.
+  // Opted-out, or env missing — still wrap in a boundary so a JS error doesn't white-screen.
   return <ErrorBoundary>{appContent}</ErrorBoundary>;
 }
