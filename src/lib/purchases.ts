@@ -3,11 +3,11 @@ import Constants from 'expo-constants';
 import Purchases, { LOG_LEVEL, type CustomerInfo } from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
-// Identifier of the entitlement that gates the app. Configured in the
-// RevenueCat dashboard as "Driver SK Pro" (display name) → 'pro' (identifier),
-// attached to the yearly / weekly / lifetime products you set up under
-// Project Settings → Entitlements.
-export const PRO_ENTITLEMENT = 'pro';
+// Lookup key of the entitlement that gates the app. Matches the
+// "Driver SK Pro" entitlement configured in the RevenueCat dashboard
+// (Project Settings → Entitlements), which is attached to all three
+// product tiers (yearly / weekly / lifetime).
+export const PRO_ENTITLEMENT = 'Driver SK Pro';
 
 let cachedActive = false;
 let configurePromise: Promise<void> | null = null;
