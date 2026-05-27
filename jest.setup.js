@@ -20,6 +20,22 @@ jest.mock('drizzle-orm/expo-sqlite', () => ({
   drizzle: jest.fn(() => ({})),
 }));
 
+// react-native-iap also pulls native modules at import. Stub the bits used by
+// src/lib/iap.ts and the paywall screen so test files that transitively import
+// them don't crash on load.
+jest.mock('react-native-iap', () => ({
+  __esModule: true,
+  initConnection: jest.fn().mockResolvedValue(undefined),
+  endConnection: jest.fn().mockResolvedValue(undefined),
+  fetchProducts: jest.fn().mockResolvedValue([]),
+  requestPurchase: jest.fn().mockResolvedValue(undefined),
+  restorePurchases: jest.fn().mockResolvedValue(undefined),
+  getAvailablePurchases: jest.fn().mockResolvedValue([]),
+  finishTransaction: jest.fn().mockResolvedValue(undefined),
+  purchaseUpdatedListener: jest.fn(() => ({ remove: jest.fn() })),
+  purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
+
 // Superwall RN SDK reaches into native modules at import time. Stub the entire
 // surface used by src/lib/superwall.ts so DB-adjacent tests can transitively
 // load app screens without crashing.

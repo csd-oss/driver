@@ -807,6 +807,96 @@ export const STR = {
     2: 'Loading…',
     3: 'Betöltés…',
   },
+  'paywall.headline': {
+    1: 'Odomkni Driver SK Pro',
+    2: 'Unlock Driver SK Pro',
+    3: 'Driver SK Pro feloldása',
+  },
+  'paywall.subhead': {
+    1: 'Plná dôvera v deň skúšky.',
+    2: 'Complete confidence on test day.',
+    3: 'Teljes magabiztosság a vizsga napján.',
+  },
+  'paywall.benefit1': {
+    1: 'Všetky otázky, každá kategória',
+    2: 'All questions, every category',
+    3: 'Minden kérdés, minden kategória',
+  },
+  'paywall.benefit2': {
+    1: 'Skúšobné testy a skóre pripravenosti',
+    2: 'Mock exams and readiness score',
+    3: 'Próba vizsgák és felkészültségi mutató',
+  },
+  'paywall.benefit3': {
+    1: 'Adaptívne učenie, ktoré sa zameria na chyby',
+    2: 'Smart practice that adapts to your mistakes',
+    3: 'Adaptív gyakorlás, ami a hibákra koncentrál',
+  },
+  'paywall.benefit4': {
+    1: 'Slovenčina, angličtina, maďarčina',
+    2: 'Slovak, English, Hungarian',
+    3: 'Szlovák, angol, magyar',
+  },
+  'paywall.trialBadge': {
+    1: '3 dni zadarmo',
+    2: '3 days free',
+    3: '3 nap ingyen',
+  },
+  'paywall.pricePerYear': {
+    1: 'potom {price}/rok',
+    2: 'then {price}/year',
+    3: 'utána {price}/év',
+  },
+  'paywall.ctaTrial': {
+    1: 'Začať 3-dňovú skúšku',
+    2: 'Start 3-day free trial',
+    3: '3 napos próba indítása',
+  },
+  'paywall.ctaSubscribe': {
+    1: 'Predplatiť',
+    2: 'Subscribe',
+    3: 'Előfizetés',
+  },
+  'paywall.restore': {
+    1: 'Obnoviť nákup',
+    2: 'Restore purchase',
+    3: 'Vásárlás visszaállítása',
+  },
+  'paywall.purchasing': {
+    1: 'Spracovávam…',
+    2: 'Processing…',
+    3: 'Feldolgozás…',
+  },
+  'paywall.restoring': {
+    1: 'Obnovujem…',
+    2: 'Restoring…',
+    3: 'Visszaállítás…',
+  },
+  'paywall.finePrint': {
+    1: 'Predplatné sa automaticky obnovuje. Zruš ho v Nastaveniach → Apple ID kedykoľvek pred koncom obdobia.',
+    2: 'Subscription auto-renews. Cancel anytime in Settings → Apple ID before the period ends.',
+    3: 'Az előfizetés automatikusan megújul. Bármikor lemondhatod a Beállítások → Apple ID alatt.',
+  },
+  'paywall.errorTitle': {
+    1: 'Niečo sa pokazilo',
+    2: 'Something went wrong',
+    3: 'Valami hiba történt',
+  },
+  'paywall.errorBody': {
+    1: 'Skús to znova, alebo obnov predchádzajúci nákup.',
+    2: 'Please try again, or restore a previous purchase.',
+    3: 'Próbáld újra, vagy állítsd vissza a korábbi vásárlást.',
+  },
+  'paywall.noProduct': {
+    1: 'Predplatné momentálne nie je k dispozícii. Skús to neskôr.',
+    2: 'Subscription unavailable right now. Please try again later.',
+    3: 'Az előfizetés jelenleg nem érhető el. Próbáld újra később.',
+  },
+  'paywall.restoredNone': {
+    1: 'Nenašli sme aktívne predplatné na tomto účte.',
+    2: "We didn't find an active subscription on this account.",
+    3: 'Nem találtunk aktív előfizetést ezen a fiókon.',
+  },
   'settings.subscription.title': {
     1: 'Predplatné',
     2: 'Subscription',

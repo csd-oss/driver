@@ -14,11 +14,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Linking, ScrollView, Switch, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
-import {
-  isSubscribed,
-  isSuperwallSupported,
-  triggerRestoreOrPurchase,
-} from '@/src/lib/superwall';
+import { isIapSupported, restoreSubscriptions } from '@/src/lib/iap';
 
 export default function SettingsScreen() {
   const posthog = usePostHog();
@@ -139,13 +135,23 @@ export default function SettingsScreen() {
     Linking.openURL('https://apps.apple.com/account/subscriptions').catch(() => {});
   };
 
-  const handleRestorePurchases = () => {
+  const handleRestorePurchases = async () => {
     trackEvent(posthog, 'settings_restore_purchases_clicked', { language: lang });
-    triggerRestoreOrPurchase(() => {
-      if (isSubscribed()) {
-        Alert.alert(t('settings.subscription.title', lang), t('settings.subscription.restored', lang));
-      }
-    });
+    try {
+      const restored = await restoreSubscriptions();
+      Alert.alert(
+        t('settings.subscription.title', lang),
+        restored
+          ? t('settings.subscription.restored', lang)
+          : t('paywall.restoredNone', lang)
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      Alert.alert(
+        t('paywall.errorTitle', lang),
+        message || t('paywall.errorBody', lang)
+      );
+    }
   };
 
   const handleResetProgress = () => {
@@ -328,7 +334,7 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
-        {isSuperwallSupported() && (
+        {isIapSupported() && (
           <Card className="gap-3">
             <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
               {t('settings.subscription.title', lang)}
