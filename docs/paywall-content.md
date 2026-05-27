@@ -115,7 +115,7 @@ Highlighted row styling: 2 px `accent.primary` border, `accent.primary` at
 │                                 │  ← spacer 12
 │  Driver SK Pro                  │  ← title
 │                                 │  ← spacer 4
-│  Pripravený na skúšku za 3 dni  │  ← subhead
+│  Všetky otázky. Tvoje tempo.    │  ← subhead
 │                                 │  ← spacer 24
 │  ✓ Všetky otázky, všetky        │  ← benefits
 │    kategórie                    │
@@ -167,7 +167,7 @@ Highlighted row styling: 2 px `accent.primary` border, `accent.primary` at
 |---|---|---|---|
 | Badge | 🇸🇰 Slovensko | 🇸🇰 Slovakia | 🇸🇰 Szlovákia |
 | Title | Driver SK Pro | Driver SK Pro | Driver SK Pro |
-| Subhead | Pripravený na skúšku za 3 dni | Ready for your test in 3 days | Vizsgára kész 3 nap alatt |
+| Subhead | Všetky otázky. Tvoje tempo. | Every question. At your pace. | Minden kérdés. A te tempódban. |
 | Benefit 1 | Všetky otázky, všetky kategórie | Every question, every category | Minden kérdés, minden kategória |
 | Benefit 2 | Adaptívne učenie zamerané na chyby | Adaptive practice that targets mistakes | Adaptív gyakorlás a hibákra fókuszálva |
 | Benefit 3 | Plné skúšobné testy s vyhodnotením | Full mock exams with grading | Teljes próbavizsgák értékeléssel |

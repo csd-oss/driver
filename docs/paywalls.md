@@ -95,9 +95,10 @@ still fresh. Don't punish people who want to look around first.
 try"), not features. The onboarding slides already taught the user what
 the app does — the paywall is about getting them to commit.
 
-**Hero copy options**:
-- *Driver SK Pro — every question, every category. Pass once, never repeat.*
-- *3-day free trial — pass before billing day.*
+**Hero copy options** (avoid implying a guaranteed pass / specific timeline
+— Apple flags subscription marketing that promises an outcome):
+- *Driver SK Pro — every question, every category, in three languages.*
+- *Practice that adapts to your mistakes.*
 - *Less than the cost of a parking ticket.*
 
 **Recommended package order in the editor**:
