@@ -12,15 +12,14 @@ import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import {
   PAYWALL_RESULT,
   isPurchasesSupported,
-  presentOnboardingPaywall,
-  refreshEntitlement,
+  presentPaywall,
 } from '@/src/lib/purchases';
 
 export default function PaywallScreen() {
   const router = useRouter();
   const posthog = usePostHog();
   const [lang, setLang] = useState(1);
-  const presentingRef = useRef(false);
+  const presentedRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -33,6 +32,9 @@ export default function PaywallScreen() {
   }, []);
 
   useEffect(() => {
+    if (presentedRef.current) return;
+    presentedRef.current = true;
+
     if (!isPurchasesSupported()) {
       router.replace('/home');
       return;
@@ -40,51 +42,25 @@ export default function PaywallScreen() {
 
     let cancelled = false;
 
-    const grant = (source: 'purchased' | 'restored' | 'not_presented') => {
-      trackEvent(posthog, 'paywall_unlocked', { source });
-      router.replace('/home');
-    };
-
-    const present = async () => {
-      if (presentingRef.current) return;
-      presentingRef.current = true;
+    (async () => {
       try {
-        const result = await presentOnboardingPaywall();
+        const result = await presentPaywall();
         if (cancelled) return;
-        switch (result) {
-          case PAYWALL_RESULT.PURCHASED:
-            grant('purchased');
-            return;
-          case PAYWALL_RESULT.RESTORED:
-            grant('restored');
-            return;
-          case PAYWALL_RESULT.NOT_PRESENTED:
-            // User already holds the entitlement.
-            grant('not_presented');
-            return;
-          case PAYWALL_RESULT.CANCELLED:
-          case PAYWALL_RESULT.ERROR:
-          default: {
-            // Hard gate: re-check entitlement (in case the SDK already knows),
-            // then re-present. With displayCloseButton=false this should
-            // rarely trigger but the loop keeps the screen impossible to skip.
-            const active = await refreshEntitlement();
-            if (cancelled) return;
-            if (active) {
-              grant('not_presented');
-              return;
-            }
-            presentingRef.current = false;
-            setTimeout(present, 250);
-          }
-        }
+        const outcome =
+          result === PAYWALL_RESULT.PURCHASED
+            ? 'purchased'
+            : result === PAYWALL_RESULT.RESTORED
+              ? 'restored'
+              : result === PAYWALL_RESULT.NOT_PRESENTED
+                ? 'not_presented'
+                : 'skipped';
+        trackEvent(posthog, 'onboarding_paywall_closed', { outcome });
       } catch {
-        presentingRef.current = false;
-        if (!cancelled) setTimeout(present, 500);
+        // Swallow — we route to /home either way so the user is never trapped.
+      } finally {
+        if (!cancelled) router.replace('/home');
       }
-    };
-
-    present();
+    })();
 
     return () => {
       cancelled = true;

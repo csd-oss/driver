@@ -65,15 +65,39 @@ export const refreshEntitlement = async (): Promise<boolean> => {
 
 /**
  * Present RevenueCat's hosted paywall, but only if the user doesn't already
- * hold the `pro` entitlement. With `displayCloseButton: false` and our gate
- * screen looping on non-success, this enforces a hard paywall after onboarding.
+ * hold the `pro` entitlement. Skippable: the user can dismiss without paying.
+ * The caller decides what to do with the result — onboarding lets them
+ * through regardless; gated features only let them through on success.
+ *
+ * Note: `displayCloseButton` is only honoured by the legacy V1 paywall
+ * template. For V2 paywalls the close button must be designed into the
+ * paywall in the RC dashboard. We still pass `true` for V1 compatibility.
  */
-export const presentOnboardingPaywall = async (): Promise<PAYWALL_RESULT> => {
+export const presentPaywall = async (): Promise<PAYWALL_RESULT> => {
   if (!isPurchasesSupported()) return PAYWALL_RESULT.NOT_PRESENTED;
   return RevenueCatUI.presentPaywallIfNeeded({
     requiredEntitlementIdentifier: PRO_ENTITLEMENT,
-    displayCloseButton: false,
+    displayCloseButton: true,
   });
+};
+
+/**
+ * Convenience for feature-gated buttons: returns true if the user can access
+ * the feature (already entitled OR just purchased/restored on the presented
+ * paywall). Returns false on cancel/error so the caller can stay put.
+ */
+export const ensureProAccess = async (): Promise<boolean> => {
+  if (isSubscribed()) return true;
+  if (!isPurchasesSupported()) return true; // non-iOS: no gating
+  const result = await presentPaywall();
+  if (
+    result === PAYWALL_RESULT.PURCHASED ||
+    result === PAYWALL_RESULT.RESTORED ||
+    result === PAYWALL_RESULT.NOT_PRESENTED
+  ) {
+    return true;
+  }
+  return false;
 };
 
 /**

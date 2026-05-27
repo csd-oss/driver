@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
+import { ensureProAccess } from '@/src/lib/purchases';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -102,6 +103,14 @@ export default function HomeScreen() {
   const readinessInfo = getReadinessStatusInfo();
   const readinessBarWidth = `${Math.max(readinessScore, 1)}%`;
 
+  // Gated entries: tap → if subscribed, navigate; otherwise present paywall.
+  // Navigate only if the user has (or just acquired) the Pro entitlement.
+  const openGated = async (route: '/study' | '/mistakes', event: string) => {
+    trackEvent(posthog, event, { language: lang });
+    const granted = await ensureProAccess();
+    if (granted) router.push(route);
+  };
+
   return (
     <Screen testID="screen.home">
       <View className="flex-1 gap-6">
@@ -183,10 +192,7 @@ export default function HomeScreen() {
             {t('home.smartStudyBlurb', lang)}
           </UIText>
           <Button
-            onPress={() => {
-              trackEvent(posthog, 'home_study_clicked', { language: lang });
-              router.push('/study');
-            }}
+            onPress={() => openGated('/study', 'home_study_clicked')}
             variant="default"
             className="w-full"
             testID="home.smartStudyCta"
@@ -197,10 +203,7 @@ export default function HomeScreen() {
 
         <View className="gap-3">
           <Button
-            onPress={() => {
-              trackEvent(posthog, 'home_mistakes_clicked', { language: lang });
-              router.push('/mistakes');
-            }}
+            onPress={() => openGated('/mistakes', 'home_mistakes_clicked')}
             variant="outline"
             className="w-full"
             testID="home.mistakes"
