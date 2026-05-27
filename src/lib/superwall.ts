@@ -51,9 +51,20 @@ export const presentOnboardingPaywall = (opts: { onUnlock: () => void }): void =
     opts.onUnlock();
     return;
   }
+  // Client-side hard gate: even if the dashboard paywall is non_gated and the
+  // feature callback fires on dismiss, we only unlock when the subscription
+  // status is actually ACTIVE. Otherwise we re-present the paywall, making
+  // it impossible to skip past /paywall without purchasing or restoring.
+  const safeUnlock = () => {
+    if (cachedStatus === 'ACTIVE') {
+      opts.onUnlock();
+    } else {
+      setTimeout(() => presentOnboardingPaywall(opts), 250);
+    }
+  };
   Superwall.shared.register({
     placement: PLACEMENT_ONBOARDING,
-    feature: opts.onUnlock,
+    feature: safeUnlock,
   });
 };
 
