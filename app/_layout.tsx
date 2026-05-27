@@ -9,12 +9,14 @@ import '../global.css';
 import Constants from 'expo-constants';
 import { PostHogProvider, usePostHog } from 'posthog-react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FontScaleProvider } from '@/contexts/FontScaleContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { runMigrations } from '@/src/db/migrate';
 import { identifyUser, trackError } from '@/src/lib/analytics';
 import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { getSettings } from '@/src/lib/settings';
+import type { ReactNode } from 'react';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync();
@@ -47,6 +49,20 @@ function PostHogIdentify() {
   }, [posthog]);
 
   return null;
+}
+
+// Inside PostHogProvider so it can pipe component-tree errors to analytics.
+function ErrorBoundaryWithAnalytics({ children }: { children: ReactNode }) {
+  const posthog = usePostHog();
+  return (
+    <ErrorBoundary
+      onError={(error, info) =>
+        trackError(posthog, 'app_crash', error, { componentStack: info.componentStack })
+      }
+    >
+      {children}
+    </ErrorBoundary>
+  );
 }
 
 export default function RootLayout() {
@@ -106,11 +122,11 @@ export default function RootLayout() {
         }}
       >
         <PostHogIdentify />
-        {appContent}
+        <ErrorBoundaryWithAnalytics>{appContent}</ErrorBoundaryWithAnalytics>
       </PostHogProvider>
     );
   }
 
-  // Graceful no-op when env is missing
-  return appContent;
+  // No analytics configured — still wrap in a boundary so a JS error doesn't white-screen.
+  return <ErrorBoundary>{appContent}</ErrorBoundary>;
 }

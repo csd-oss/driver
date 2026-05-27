@@ -21,6 +21,8 @@ npx jest -t "<name pattern>"                        # single test by name
 npm run lint                                        # expo lint (eslint)
 npx tsc --noEmit                                    # type-check (not enforced in build; see Conventions)
 
+npm run bump:ios                                    # bump iOS build number before each TestFlight upload
+
 cd .maestro && maestro test .                       # E2E suite (see .maestro/README.md for env setup)
 ```
 

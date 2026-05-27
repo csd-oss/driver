@@ -47,6 +47,11 @@ export const STR = {
     2: 'Mistake count',
     3: 'Hibák száma',
   },
+  'home.streakDays': {
+    1: 'dní',
+    2: 'days',
+    3: 'nap',
+  },
   'study.next': {
     1: 'Ďalšia',
     2: 'Next',

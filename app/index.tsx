@@ -11,7 +11,7 @@ import { useCallback } from 'react';
 export default function IntroAnimationScreen() {
   const router = useRouter();
   const posthog = usePostHog();
-  const text = 'Cool Auto School';
+  const text = 'Driver SK';
   const words = text.split(' ');
   const letters = text.split('');
   

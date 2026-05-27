@@ -167,7 +167,7 @@ export default function HomeScreen() {
                     {t('stats.currentStreak', lang)}
                   </UIText>
                   <UIText variant="subtitle" className="text-emerald-600 dark:text-emerald-300">
-                    {streak} days
+                    {streak} {t('home.streakDays', lang)}
                   </UIText>
                 </View>
               </View>
