@@ -16,7 +16,7 @@ import { runMigrations } from '@/src/db/migrate';
 import { identifyUser, trackError } from '@/src/lib/analytics';
 import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { getSettings } from '@/src/lib/settings';
-import { configureSuperwall } from '@/src/lib/superwall';
+import { configurePurchases } from '@/src/lib/purchases';
 import type { ReactNode } from 'react';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
@@ -72,7 +72,7 @@ export default function RootLayout() {
       let isOptedOut = false;
       try {
         await runMigrations();
-        await configureSuperwall();
+        await configurePurchases();
         await syncNotificationsWithCurrentSettings();
         const settings = await getSettings();
         isOptedOut = settings?.analyticsOptOut === true;

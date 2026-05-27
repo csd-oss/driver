@@ -4,7 +4,7 @@ import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { ensureNotificationPermission, syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { clearCache, getLanguage, getSettings, updateSettings } from '@/src/lib/settings';
-import { isSubscribed, isSuperwallSupported } from '@/src/lib/superwall';
+import { isPurchasesSupported, isSubscribed } from '@/src/lib/purchases';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -207,7 +207,7 @@ export default function OnboardingScreen() {
       const settings = await getSettings();
       // If user already selected language during onboarding, skip language screen
       if (settings && settings.hasChosenLanguage) {
-        const needsPaywall = isSuperwallSupported() && !isSubscribed();
+        const needsPaywall = isPurchasesSupported() && !isSubscribed();
         router.replace(needsPaywall ? '/paywall' : '/home');
       } else {
         router.replace('/language');

@@ -20,37 +20,35 @@ jest.mock('drizzle-orm/expo-sqlite', () => ({
   drizzle: jest.fn(() => ({})),
 }));
 
-// react-native-iap also pulls native modules at import. Stub the bits used by
-// src/lib/iap.ts and the paywall screen so test files that transitively import
-// them don't crash on load.
-jest.mock('react-native-iap', () => ({
+// react-native-purchases pulls native modules at import. Stub the surface used
+// by src/lib/purchases.ts so any test that transitively imports an app screen
+// doesn't crash on load.
+jest.mock('react-native-purchases', () => ({
   __esModule: true,
-  initConnection: jest.fn().mockResolvedValue(undefined),
-  endConnection: jest.fn().mockResolvedValue(undefined),
-  fetchProducts: jest.fn().mockResolvedValue([]),
-  requestPurchase: jest.fn().mockResolvedValue(undefined),
-  restorePurchases: jest.fn().mockResolvedValue(undefined),
-  getAvailablePurchases: jest.fn().mockResolvedValue([]),
-  finishTransaction: jest.fn().mockResolvedValue(undefined),
-  purchaseUpdatedListener: jest.fn(() => ({ remove: jest.fn() })),
-  purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
+  default: {
+    configure: jest.fn(),
+    setLogLevel: jest.fn(),
+    getCustomerInfo: jest.fn().mockResolvedValue({ entitlements: { active: {} } }),
+    addCustomerInfoUpdateListener: jest.fn(),
+    getOfferings: jest.fn().mockResolvedValue({ current: null, all: {} }),
+    purchasePackage: jest.fn().mockResolvedValue({ customerInfo: { entitlements: { active: {} } } }),
+    restorePurchases: jest.fn().mockResolvedValue({ entitlements: { active: {} } }),
+  },
+  LOG_LEVEL: { VERBOSE: 'VERBOSE', DEBUG: 'DEBUG', INFO: 'INFO', WARN: 'WARN', ERROR: 'ERROR' },
 }));
 
-// Superwall RN SDK reaches into native modules at import time. Stub the entire
-// surface used by src/lib/superwall.ts so DB-adjacent tests can transitively
-// load app screens without crashing.
-jest.mock('@superwall/react-native-superwall', () => {
-  const subscriptionStatusEmitter = { on: jest.fn(), off: jest.fn(), emit: jest.fn() };
-  const sharedInstance = {
-    subscriptionStatusEmitter,
-    register: jest.fn().mockResolvedValue(undefined),
-    getSubscriptionStatus: jest.fn().mockResolvedValue({ status: 'UNKNOWN' }),
-  };
-  return {
-    __esModule: true,
-    default: {
-      configure: jest.fn().mockResolvedValue(sharedInstance),
-      shared: sharedInstance,
-    },
-  };
-});
+jest.mock('react-native-purchases-ui', () => ({
+  __esModule: true,
+  default: {
+    presentPaywall: jest.fn().mockResolvedValue('NOT_PRESENTED'),
+    presentPaywallIfNeeded: jest.fn().mockResolvedValue('NOT_PRESENTED'),
+    presentCustomerCenter: jest.fn().mockResolvedValue(undefined),
+  },
+  PAYWALL_RESULT: {
+    NOT_PRESENTED: 'NOT_PRESENTED',
+    CANCELLED: 'CANCELLED',
+    ERROR: 'ERROR',
+    PURCHASED: 'PURCHASED',
+    RESTORED: 'RESTORED',
+  },
+}));

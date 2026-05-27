@@ -3,7 +3,7 @@ import { View, Text, Animated, Platform, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/ui/screen';
 import { getSettings } from '@/src/lib/settings';
-import { isSubscribed, isSuperwallSupported } from '@/src/lib/superwall';
+import { isPurchasesSupported, isSubscribed } from '@/src/lib/purchases';
 import { trackScreenView } from '@/src/lib/analytics';
 import { usePostHog } from 'posthog-react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -98,7 +98,7 @@ export default function IntroAnimationScreen() {
       const settings = await getSettings();
       if (!settings?.hasOnboarded) {
         router.replace('/onboarding');
-      } else if (isSuperwallSupported() && !isSubscribed()) {
+      } else if (isPurchasesSupported() && !isSubscribed()) {
         router.replace('/paywall');
       } else {
         router.replace('/home');

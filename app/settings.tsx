@@ -12,9 +12,9 @@ import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Linking, ScrollView, Switch, View } from 'react-native';
+import { Alert, ScrollView, Switch, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
-import { isIapSupported, restoreSubscriptions } from '@/src/lib/iap';
+import { isPurchasesSupported, presentCustomerCenter } from '@/src/lib/purchases';
 
 export default function SettingsScreen() {
   const posthog = usePostHog();
@@ -130,21 +130,10 @@ export default function SettingsScreen() {
     });
   };
 
-  const handleManageSubscription = () => {
+  const handleManageSubscription = async () => {
     trackEvent(posthog, 'settings_manage_subscription_clicked', { language: lang });
-    Linking.openURL('https://apps.apple.com/account/subscriptions').catch(() => {});
-  };
-
-  const handleRestorePurchases = async () => {
-    trackEvent(posthog, 'settings_restore_purchases_clicked', { language: lang });
     try {
-      const restored = await restoreSubscriptions();
-      Alert.alert(
-        t('settings.subscription.title', lang),
-        restored
-          ? t('settings.subscription.restored', lang)
-          : t('paywall.restoredNone', lang)
-      );
+      await presentCustomerCenter();
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
       Alert.alert(
@@ -334,7 +323,7 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
-        {isIapSupported() && (
+        {isPurchasesSupported() && (
           <Card className="gap-3">
             <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
               {t('settings.subscription.title', lang)}
@@ -342,24 +331,14 @@ export default function SettingsScreen() {
             <UIText variant="body" className="text-slate-600 dark:text-slate-300">
               {t('settings.subscription.description', lang)}
             </UIText>
-            <View className="gap-3">
-              <Button
-                onPress={handleManageSubscription}
-                variant="default"
-                className="w-full"
-                testID="settings.subscription.manage"
-              >
-                {t('settings.subscription.manage', lang)}
-              </Button>
-              <Button
-                onPress={handleRestorePurchases}
-                variant="outline"
-                className="w-full"
-                testID="settings.subscription.restore"
-              >
-                {t('settings.subscription.restore', lang)}
-              </Button>
-            </View>
+            <Button
+              onPress={handleManageSubscription}
+              variant="default"
+              className="w-full"
+              testID="settings.subscription.manage"
+            >
+              {t('settings.subscription.manage', lang)}
+            </Button>
           </Card>
         )}
 

@@ -6,7 +6,7 @@ import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { clearCache, getLanguage, updateSettings } from '@/src/lib/settings';
-import { isSubscribed, isSuperwallSupported } from '@/src/lib/superwall';
+import { isPurchasesSupported, isSubscribed } from '@/src/lib/purchases';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -55,7 +55,7 @@ export default function LanguageSelectScreen() {
     if (fromOnboarding) {
       router.replace('/onboarding');
     } else {
-      const needsPaywall = isSuperwallSupported() && !isSubscribed();
+      const needsPaywall = isPurchasesSupported() && !isSubscribed();
       router.replace(needsPaywall ? '/paywall' : '/home');
     }
   };
