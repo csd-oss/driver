@@ -19,3 +19,22 @@ jest.mock('expo-sqlite', () => ({
 jest.mock('drizzle-orm/expo-sqlite', () => ({
   drizzle: jest.fn(() => ({})),
 }));
+
+// Superwall RN SDK reaches into native modules at import time. Stub the entire
+// surface used by src/lib/superwall.ts so DB-adjacent tests can transitively
+// load app screens without crashing.
+jest.mock('@superwall/react-native-superwall', () => {
+  const subscriptionStatusEmitter = { on: jest.fn(), off: jest.fn(), emit: jest.fn() };
+  const sharedInstance = {
+    subscriptionStatusEmitter,
+    register: jest.fn().mockResolvedValue(undefined),
+    getSubscriptionStatus: jest.fn().mockResolvedValue({ status: 'UNKNOWN' }),
+  };
+  return {
+    __esModule: true,
+    default: {
+      configure: jest.fn().mockResolvedValue(sharedInstance),
+      shared: sharedInstance,
+    },
+  };
+});

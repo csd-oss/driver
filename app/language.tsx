@@ -6,6 +6,7 @@ import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { clearCache, getLanguage, updateSettings } from '@/src/lib/settings';
+import { isSubscribed, isSuperwallSupported } from '@/src/lib/superwall';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -48,9 +49,15 @@ export default function LanguageSelectScreen() {
       ...(fromOnboarding ? {} : { hasOnboarded: true }),
     });
     await syncNotificationsWithCurrentSettings();
-    // If coming from onboarding (via change language link), go back to onboarding
-    // Otherwise, go to home (normal flow after onboarding completion)
-    router.replace(fromOnboarding ? '/onboarding' : '/home');
+    // If coming from onboarding (via change language link), go back to onboarding.
+    // Otherwise, this is the normal flow after onboarding completion — go to home,
+    // or to the paywall first on iOS when not yet subscribed.
+    if (fromOnboarding) {
+      router.replace('/onboarding');
+    } else {
+      const needsPaywall = isSuperwallSupported() && !isSubscribed();
+      router.replace(needsPaywall ? '/paywall' : '/home');
+    }
   };
 
   const handleBack = () => {

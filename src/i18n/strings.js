@@ -802,4 +802,34 @@ export const STR = {
     2: '(last 7 days)',
     3: '(utolsó 7 nap)',
   },
+  'paywall.loading': {
+    1: 'Načítavam…',
+    2: 'Loading…',
+    3: 'Betöltés…',
+  },
+  'settings.subscription.title': {
+    1: 'Predplatné',
+    2: 'Subscription',
+    3: 'Előfizetés',
+  },
+  'settings.subscription.description': {
+    1: 'Spravujte svoje predplatné Driver SK alebo obnovte predchádzajúci nákup.',
+    2: 'Manage your Driver SK subscription or restore a previous purchase.',
+    3: 'Kezelje a Driver SK előfizetését vagy állítsa vissza egy korábbi vásárlást.',
+  },
+  'settings.subscription.manage': {
+    1: 'Spravovať predplatné',
+    2: 'Manage subscription',
+    3: 'Előfizetés kezelése',
+  },
+  'settings.subscription.restore': {
+    1: 'Obnoviť nákupy',
+    2: 'Restore purchases',
+    3: 'Vásárlások visszaállítása',
+  },
+  'settings.subscription.restored': {
+    1: 'Predplatné je aktívne.',
+    2: 'Your subscription is active.',
+    3: 'Az előfizetés aktív.',
+  },
 };

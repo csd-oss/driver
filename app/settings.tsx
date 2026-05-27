@@ -12,8 +12,13 @@ import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, Switch, View } from 'react-native';
+import { Alert, Linking, ScrollView, Switch, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
+import {
+  isSubscribed,
+  isSuperwallSupported,
+  triggerRestoreOrPurchase,
+} from '@/src/lib/superwall';
 
 export default function SettingsScreen() {
   const posthog = usePostHog();
@@ -126,6 +131,20 @@ export default function SettingsScreen() {
       to_enabled: enabled,
       language: lang,
       permission_granted: permissionGranted,
+    });
+  };
+
+  const handleManageSubscription = () => {
+    trackEvent(posthog, 'settings_manage_subscription_clicked', { language: lang });
+    Linking.openURL('https://apps.apple.com/account/subscriptions').catch(() => {});
+  };
+
+  const handleRestorePurchases = () => {
+    trackEvent(posthog, 'settings_restore_purchases_clicked', { language: lang });
+    triggerRestoreOrPurchase(() => {
+      if (isSubscribed()) {
+        Alert.alert(t('settings.subscription.title', lang), t('settings.subscription.restored', lang));
+      }
     });
   };
 
@@ -308,6 +327,35 @@ export default function SettingsScreen() {
             />
           </View>
         </Card>
+
+        {isSuperwallSupported() && (
+          <Card className="gap-3">
+            <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+              {t('settings.subscription.title', lang)}
+            </UIText>
+            <UIText variant="body" className="text-slate-600 dark:text-slate-300">
+              {t('settings.subscription.description', lang)}
+            </UIText>
+            <View className="gap-3">
+              <Button
+                onPress={handleManageSubscription}
+                variant="default"
+                className="w-full"
+                testID="settings.subscription.manage"
+              >
+                {t('settings.subscription.manage', lang)}
+              </Button>
+              <Button
+                onPress={handleRestorePurchases}
+                variant="outline"
+                className="w-full"
+                testID="settings.subscription.restore"
+              >
+                {t('settings.subscription.restore', lang)}
+              </Button>
+            </View>
+          </Card>
+        )}
 
         <Card className="bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-indigo-500/10 border-transparent">
           <View className="gap-3">

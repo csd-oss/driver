@@ -3,6 +3,7 @@ import { View, Text, Animated, Platform, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/ui/screen';
 import { getSettings } from '@/src/lib/settings';
+import { isSubscribed, isSuperwallSupported } from '@/src/lib/superwall';
 import { trackScreenView } from '@/src/lib/analytics';
 import { usePostHog } from 'posthog-react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -95,10 +96,12 @@ export default function IntroAnimationScreen() {
     // Navigate after delay - longer to accommodate longer animation
     const timer = setTimeout(async () => {
       const settings = await getSettings();
-      if (settings && settings.hasOnboarded) {
-        router.replace('/home');
-      } else {
+      if (!settings?.hasOnboarded) {
         router.replace('/onboarding');
+      } else if (isSuperwallSupported() && !isSubscribed()) {
+        router.replace('/paywall');
+      } else {
+        router.replace('/home');
       }
     }, letters.length * 180 + 1500);
 
