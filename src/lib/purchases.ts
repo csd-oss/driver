@@ -22,8 +22,16 @@ const updateFromCustomerInfo = (info: CustomerInfo) => {
   cachedActive = Boolean(info.entitlements.active[PRO_ENTITLEMENT]);
 };
 
+/**
+ * True when the build was created with EXPO_PUBLIC_BYPASS_PAYWALL=true.
+ * Used by the E2E suite (Maestro) so it can navigate through gated
+ * features without a sandbox purchase. Never set in production.
+ */
+export const isPaywallBypassed = (): boolean =>
+  Boolean((Constants.expoConfig?.extra as { bypassPaywall?: boolean } | undefined)?.bypassPaywall);
+
 export const isPurchasesSupported = (): boolean =>
-  Platform.OS === 'ios' && Boolean(getApiKey());
+  Platform.OS === 'ios' && Boolean(getApiKey()) && !isPaywallBypassed();
 
 export const configurePurchases = async (): Promise<void> => {
   if (!isPurchasesSupported()) return;
@@ -45,7 +53,7 @@ export const configurePurchases = async (): Promise<void> => {
   return configurePromise;
 };
 
-export const isSubscribed = (): boolean => cachedActive;
+export const isSubscribed = (): boolean => isPaywallBypassed() || cachedActive;
 
 /**
  * Re-fetch entitlement state from RevenueCat (and Apple via StoreKit).
@@ -87,6 +95,7 @@ export const presentPaywall = async (): Promise<PAYWALL_RESULT> => {
  * paywall). Returns false on cancel/error so the caller can stay put.
  */
 export const ensureProAccess = async (): Promise<boolean> => {
+  if (isPaywallBypassed()) return true;
   if (isSubscribed()) return true;
   if (!isPurchasesSupported()) return true; // non-iOS: no gating
   const result = await presentPaywall();

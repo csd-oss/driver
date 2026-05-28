@@ -240,7 +240,7 @@ export default function HomeScreen() {
           <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
         </Card>
 
-        <Card className="gap-3 mt-auto">
+        <Card className="gap-3">
           <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
             {t('study.smartTitle', lang)}
           </UIText>
