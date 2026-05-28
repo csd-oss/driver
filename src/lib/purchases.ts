@@ -12,10 +12,22 @@ export const PRO_ENTITLEMENT = 'Driver SK Pro';
 let cachedActive = false;
 let configurePromise: Promise<void> | null = null;
 
+// App Store SDK key — shipped in production binaries, used against the real
+// App Store. The "test_" Test Store key auto-crashes via RC's
+// checkForSimulatedStoreAPIKeyInRelease assertion if it ever runs in a Release
+// build, so it's only used in Debug.
+const APPL_KEY = 'appl_svNneUZQGGxDtuPbXLcOAriHqEh';
+const TEST_KEY = 'test_sTWtiZkHRlSHrBAZEPpqgnuufJh';
+
 const getApiKey = (): string | undefined => {
   const fromExtra = (Constants.expoConfig?.extra as { revenueCatIosKey?: string } | undefined)
     ?.revenueCatIosKey;
-  return fromExtra || process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
+  if (fromExtra) return fromExtra;
+  if (process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY) return process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
+  // Default per build type: __DEV__ is set by Metro at bundle time and is true
+  // for Debug builds, false for Release. Reliable across both expo run:ios and
+  // xcodebuild archive.
+  return __DEV__ ? TEST_KEY : APPL_KEY;
 };
 
 const updateFromCustomerInfo = (info: CustomerInfo) => {
