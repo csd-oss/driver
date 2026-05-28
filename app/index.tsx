@@ -3,7 +3,6 @@ import { View, Text, Animated, Platform, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/ui/screen';
 import { getSettings } from '@/src/lib/settings';
-import { isPurchasesSupported, isSubscribed } from '@/src/lib/purchases';
 import { trackScreenView } from '@/src/lib/analytics';
 import { usePostHog } from 'posthog-react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -98,9 +97,13 @@ export default function IntroAnimationScreen() {
       const settings = await getSettings();
       if (!settings?.hasOnboarded) {
         router.replace('/onboarding');
-      } else if (isPurchasesSupported() && !isSubscribed()) {
-        router.replace('/paywall');
       } else {
+        // Cold launch always goes to /home. The post-onboarding paywall is
+        // a one-shot, shown only from the onboarding/language completion
+        // flow (app/onboarding.tsx, app/language.tsx). Gated features
+        // (Smart Study, Mistakes) present the paywall on tap via
+        // ensureProAccess(). Re-showing the paywall on every launch felt
+        // like a hard gate and was bad UX.
         router.replace('/home');
       }
     }, letters.length * 180 + 1500);
