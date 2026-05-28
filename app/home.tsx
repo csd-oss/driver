@@ -247,9 +247,8 @@ export default function HomeScreen() {
           testID="home.mock"
           accessibilityRole="button"
           accessibilityLabel={t('home.mock', lang)}
-          className="mt-auto"
         >
-          <Card className="flex-row items-center justify-between active:scale-[0.995]">
+          <Card className="flex-row items-center justify-between bg-slate-50/80 dark:bg-slate-900/40 active:scale-[0.995]">
             <View className="flex-1 gap-1">
               <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
                 {t('home.mock', lang)}
