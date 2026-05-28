@@ -2,6 +2,7 @@ import { AnimatedBar } from '@/components/ui/animated-bar';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
+import { StatsOverviewSkeleton } from '@/components/StatsOverviewSkeleton';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { getCachedLanguage, getLanguage, getReadinessMode } from '@/src/lib/settings';
@@ -11,7 +12,7 @@ import { trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState, useEffect } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 
 export default function StatsScreen() {
@@ -68,9 +69,9 @@ export default function StatsScreen() {
   if (!stats) {
     return (
       <Screen testID="screen.stats" header={<Header title={t('stats.title', lang)} />}>
-        <View className="flex-1 items-center justify-center mt-1">
-          <ActivityIndicator size="large" color="#6366f1" />
-        </View>
+        <ScrollView className="flex-1 mt-1" contentContainerClassName="gap-4 pb-2">
+          <StatsOverviewSkeleton />
+        </ScrollView>
       </Screen>
     );
   }
