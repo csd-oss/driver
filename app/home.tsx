@@ -1,3 +1,4 @@
+import { AnimatedBar } from '@/components/ui/animated-bar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -102,7 +103,6 @@ export default function HomeScreen() {
   };
   
   const readinessInfo = getReadinessStatusInfo();
-  const readinessBarWidth = `${Math.max(readinessScore, 1)}%`;
 
   // Gated entries: tap → if subscribed, navigate; otherwise present paywall.
   // Navigate only if the user has (or just acquired) the Pro entitlement.
@@ -172,9 +172,9 @@ export default function HomeScreen() {
                   </UIText>
                 </View>
                 <View className="h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
-                  <View
-                    className={`h-full rounded-full ${readinessInfo.barColor}`}
-                    style={{ width: readinessBarWidth }}
+                  <AnimatedBar
+                    value={Math.max(readinessScore, 1)}
+                    className={`rounded-full ${readinessInfo.barColor}`}
                   />
                 </View>
               </View>

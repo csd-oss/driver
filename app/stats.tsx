@@ -1,3 +1,4 @@
+import { AnimatedBar } from '@/components/ui/animated-bar';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
@@ -146,7 +147,7 @@ export default function StatsScreen() {
   };
   
   const readinessInfo = readinessBreakdown ? getReadinessStatusInfo(readinessBreakdown.overall) : getReadinessStatusInfo(0);
-  const readinessBarWidth = readinessBreakdown ? `${Math.max(readinessBreakdown.overall, 1)}%` : '0%';
+  const readinessBarValue = readinessBreakdown ? Math.max(readinessBreakdown.overall, 1) : 0;
   
   // Format last study date
   const formatLastStudyDate = () => {
@@ -230,9 +231,9 @@ export default function StatsScreen() {
             <View className="mt-1">
               <View className="h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
                 {questionsSeenCount > 0 && (
-                  <View
-                    className="h-full rounded-full bg-indigo-500"
-                    style={{ width: `${progressBarPercentage}%` }}
+                  <AnimatedBar
+                    value={progressBarPercentage}
+                    className="rounded-full bg-indigo-500"
                   />
                 )}
               </View>
@@ -309,9 +310,9 @@ export default function StatsScreen() {
               </UIText>
             </View>
             <View className="h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
-              <View
-                className={`h-full rounded-full ${readinessInfo.barColor}`}
-                style={{ width: readinessBarWidth }}
+              <AnimatedBar
+                value={readinessBarValue}
+                className={`rounded-full ${readinessInfo.barColor}`}
               />
             </View>
           </View>
