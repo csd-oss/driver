@@ -19,6 +19,7 @@ import * as MistakesDB from '@/src/db/queries/mistakes';
 import * as StudySessionDB from '@/src/db/queries/studySessions';
 import * as AttemptsDB from '@/src/db/queries/attempts';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
+import * as Haptics from 'expo-haptics';
 import { usePostHog } from 'posthog-react-native';
 
 // Fisher-Yates shuffle algorithm
@@ -166,7 +167,13 @@ export default function MistakesScreen() {
     
     const correct = answerIndex === question.correct;
     setIsCorrect(correct);
-    
+
+    Haptics.notificationAsync(
+      correct
+        ? Haptics.NotificationFeedbackType.Success
+        : Haptics.NotificationFeedbackType.Error
+    );
+
     // Track session metrics
     questionsAnsweredRef.current += 1;
     if (correct) {
