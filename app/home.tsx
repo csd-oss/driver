@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import * as EngagementDB from '@/src/db/queries/engagement';
@@ -113,7 +114,26 @@ export default function HomeScreen() {
 
   return (
     <Screen testID="screen.home">
-      <View className="flex-1 gap-6">
+      <View className="flex-1 gap-5">
+        <View className="flex-row items-center justify-between -mt-1 -mb-1">
+          <UIText variant="caption" className="uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 font-semibold">
+            Driver SK
+          </UIText>
+          <Pressable
+            onPress={() => {
+              trackEvent(posthog, 'home_settings_clicked', { language: lang });
+              router.push('/settings');
+            }}
+            testID="home.settings"
+            accessibilityRole="button"
+            accessibilityLabel={t('home.settings', lang)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            className="p-2 -mr-2 rounded-full active:bg-slate-200/60 dark:active:bg-slate-800/60"
+          >
+            <IconSymbol name="gearshape.fill" size={22} color="#6366f1" />
+          </Pressable>
+        </View>
+
         <Pressable
           onPress={() => {
             trackEvent(posthog, 'home_stats_clicked', { language: lang });
@@ -201,39 +221,35 @@ export default function HomeScreen() {
           </Button>
         </Card>
 
-        <View className="gap-3">
-          <Button
+        <View className="flex-row gap-3 mt-auto">
+          <Pressable
             onPress={() => openGated('/mistakes', 'home_mistakes_clicked')}
-            variant="outline"
-            className="w-full"
             testID="home.mistakes"
+            accessibilityRole="button"
+            accessibilityLabel={t('home.mistakes', lang)}
+            className="flex-1 items-center justify-center gap-3 rounded-2xl border-2 border-rose-200/60 dark:border-rose-700/40 bg-rose-500/10 dark:bg-rose-500/20 px-4 py-6 active:scale-[0.98] active:bg-rose-500/15 dark:active:bg-rose-500/30 min-h-[120px]"
           >
-            {t('home.mistakes', lang)}
-          </Button>
+            <UIText variant="title" style={{ fontSize: 36 }}>💪</UIText>
+            <UIText variant="subtitle" className="text-rose-700 dark:text-rose-200 text-center">
+              {t('home.mistakes', lang)}
+            </UIText>
+          </Pressable>
 
-          <Button
+          <Pressable
             onPress={() => {
               trackEvent(posthog, 'home_mock_clicked', { language: lang });
               router.push('/mock');
             }}
-            variant="outline"
-            className="w-full"
             testID="home.mock"
+            accessibilityRole="button"
+            accessibilityLabel={t('home.mock', lang)}
+            className="flex-1 items-center justify-center gap-3 rounded-2xl border-2 border-amber-200/60 dark:border-amber-700/40 bg-amber-500/10 dark:bg-amber-500/20 px-4 py-6 active:scale-[0.98] active:bg-amber-500/15 dark:active:bg-amber-500/30 min-h-[120px]"
           >
-            {t('home.mock', lang)}
-          </Button>
-
-          <Button
-            onPress={() => {
-              trackEvent(posthog, 'home_settings_clicked', { language: lang });
-              router.push('/settings');
-            }}
-            variant="secondary"
-            className="w-full"
-            testID="home.settings"
-          >
-            {t('home.settings', lang)}
-          </Button>
+            <UIText variant="title" style={{ fontSize: 36 }}>⏱️</UIText>
+            <UIText variant="subtitle" className="text-amber-700 dark:text-amber-200 text-center">
+              {t('home.mock', lang)}
+            </UIText>
+          </Pressable>
         </View>
       </View>
     </Screen>
