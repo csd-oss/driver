@@ -201,21 +201,24 @@ export default function HomeScreen() {
           </Card>
         </Pressable>
 
-        <Card className="gap-3">
-          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
-            {t('study.smartTitle', lang)}
-          </UIText>
-          <UIText variant="body">
-            {t('home.smartStudyBlurb', lang)}
-          </UIText>
-          <Button
-            onPress={() => openGated('/study', 'home_study_clicked')}
-            variant="default"
-            className="w-full"
-            testID="home.smartStudyCta"
-          >
-            {t('home.smartStudyCta', lang)}
-          </Button>
+        <Card
+          className="flex-row items-center justify-between bg-slate-50/80 dark:bg-slate-900/40"
+          onPress={() => {
+            trackEvent(posthog, 'home_mock_clicked', { language: lang });
+            router.push('/mock');
+          }}
+          testID="home.mock"
+          accessibilityLabel={t('home.mock', lang)}
+        >
+          <View className="flex-1 gap-1">
+            <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+              {t('home.mock', lang)}
+            </UIText>
+            <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+              {t('home.mockSubtitle', lang)}
+            </UIText>
+          </View>
+          <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
         </Card>
 
         <Card
@@ -237,24 +240,21 @@ export default function HomeScreen() {
           <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
         </Card>
 
-        <Card
-          className="flex-row items-center justify-between bg-slate-50/80 dark:bg-slate-900/40"
-          onPress={() => {
-            trackEvent(posthog, 'home_mock_clicked', { language: lang });
-            router.push('/mock');
-          }}
-          testID="home.mock"
-          accessibilityLabel={t('home.mock', lang)}
-        >
-          <View className="flex-1 gap-1">
-            <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
-              {t('home.mock', lang)}
-            </UIText>
-            <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-              {t('home.mockSubtitle', lang)}
-            </UIText>
-          </View>
-          <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
+        <Card className="gap-3 mt-auto">
+          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+            {t('study.smartTitle', lang)}
+          </UIText>
+          <UIText variant="body">
+            {t('home.smartStudyBlurb', lang)}
+          </UIText>
+          <Button
+            onPress={() => openGated('/study', 'home_study_clicked')}
+            variant="default"
+            className="w-full"
+            testID="home.smartStudyCta"
+          >
+            {t('home.smartStudyCta', lang)}
+          </Button>
         </Card>
       </View>
     </Screen>
