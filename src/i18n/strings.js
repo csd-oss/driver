@@ -58,9 +58,9 @@ export const STR = {
     3: '{count} ismétlésre',
   },
   'home.mockSubtitle': {
-    1: '40 otázok · 30 min',
-    2: '40 questions · 30 min',
-    3: '40 kérdés · 30 perc',
+    1: '40 otázok · až 30 min',
+    2: '40 questions · up to 30 min',
+    3: '40 kérdés · max. 30 perc',
   },
   'home.streakDays': {
     1: 'dní',
