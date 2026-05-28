@@ -108,17 +108,17 @@ export const presentPaywall = async (): Promise<PAYWALL_RESULT> => {
  */
 export const ensureProAccess = async (): Promise<boolean> => {
   if (isPaywallBypassed()) return true;
-  if (isSubscribed()) return true;
   if (!isPurchasesSupported()) return true; // non-iOS: no gating
-  const result = await presentPaywall();
-  if (
-    result === PAYWALL_RESULT.PURCHASED ||
-    result === PAYWALL_RESULT.RESTORED ||
-    result === PAYWALL_RESULT.NOT_PRESENTED
-  ) {
-    return true;
-  }
-  return false;
+  if (isSubscribed()) return true;
+
+  // Present the paywall. We intentionally ignore the returned PAYWALL_RESULT —
+  // sandbox / Apple's bottom sheet has too many edge cases where the result
+  // code lies (e.g. dismissing the Apple sheet after a half-completed purchase
+  // can return PURCHASED or NOT_PRESENTED). The only source of truth is the
+  // entitlement state after RC re-queries the server, which we do via
+  // refreshEntitlement below.
+  await presentPaywall();
+  return await refreshEntitlement();
 };
 
 /**
