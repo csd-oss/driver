@@ -47,6 +47,21 @@ export const STR = {
     2: 'Mistake count',
     3: 'Hibák száma',
   },
+  'home.mistakesSubtitle.zero': {
+    1: 'Žiadne chyby — zatiaľ',
+    2: 'No mistakes — yet',
+    3: 'Nincs hiba — egyelőre',
+  },
+  'home.mistakesSubtitle.count': {
+    1: '{count} na zopakovanie',
+    2: '{count} to review',
+    3: '{count} ismétlésre',
+  },
+  'home.mockSubtitle': {
+    1: 'Plný test, 28 otázok',
+    2: 'Full test · 28 questions',
+    3: 'Teljes vizsga · 28 kérdés',
+  },
   'home.streakDays': {
     1: 'dní',
     2: 'days',
