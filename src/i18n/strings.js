@@ -58,9 +58,9 @@ export const STR = {
     3: '{count} ismétlésre',
   },
   'home.mockSubtitle': {
-    1: 'Plný test, 28 otázok',
-    2: 'Full test · 28 questions',
-    3: 'Teljes vizsga · 28 kérdés',
+    1: '40 otázok · 30 min',
+    2: '40 questions · 30 min',
+    3: '40 kérdés · 30 perc',
   },
   'home.streakDays': {
     1: 'dní',
