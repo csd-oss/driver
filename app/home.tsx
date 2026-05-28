@@ -218,48 +218,44 @@ export default function HomeScreen() {
           </Button>
         </Card>
 
-        <Pressable
+        <Card
+          className="flex-row items-center justify-between"
           onPress={() => openGated('/mistakes', 'home_mistakes_clicked')}
           testID="home.mistakes"
-          accessibilityRole="button"
           accessibilityLabel={t('home.mistakes', lang)}
         >
-          <Card className="flex-row items-center justify-between active:scale-[0.995]">
-            <View className="flex-1 gap-1">
-              <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
-                {t('home.mistakes', lang)}
-              </UIText>
-              <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                {mistakeCount === 0
-                  ? t('home.mistakesSubtitle.zero', lang)
-                  : t('home.mistakesSubtitle.count', lang).replace('{count}', String(mistakeCount))}
-              </UIText>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
-          </Card>
-        </Pressable>
+          <View className="flex-1 gap-1">
+            <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+              {t('home.mistakes', lang)}
+            </UIText>
+            <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+              {mistakeCount === 0
+                ? t('home.mistakesSubtitle.zero', lang)
+                : t('home.mistakesSubtitle.count', lang).replace('{count}', String(mistakeCount))}
+            </UIText>
+          </View>
+          <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
+        </Card>
 
-        <Pressable
+        <Card
+          className="flex-row items-center justify-between bg-slate-50/80 dark:bg-slate-900/40"
           onPress={() => {
             trackEvent(posthog, 'home_mock_clicked', { language: lang });
             router.push('/mock');
           }}
           testID="home.mock"
-          accessibilityRole="button"
           accessibilityLabel={t('home.mock', lang)}
         >
-          <Card className="flex-row items-center justify-between bg-slate-50/80 dark:bg-slate-900/40 active:scale-[0.995]">
-            <View className="flex-1 gap-1">
-              <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
-                {t('home.mock', lang)}
-              </UIText>
-              <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                {t('home.mockSubtitle', lang)}
-              </UIText>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
-          </Card>
-        </Pressable>
+          <View className="flex-1 gap-1">
+            <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+              {t('home.mock', lang)}
+            </UIText>
+            <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+              {t('home.mockSubtitle', lang)}
+            </UIText>
+          </View>
+          <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
+        </Card>
       </View>
     </Screen>
   );
