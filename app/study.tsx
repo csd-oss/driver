@@ -17,6 +17,7 @@ import { getCachedLanguage, getLanguage, getSelectedCategory, setSelectedCategor
 import { getSmartQuestion, pushRecent } from '@/src/lib/smartPractice';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
@@ -164,7 +165,13 @@ export default function StudyScreen() {
     
     const correct = answerIndex === question.correct;
     setIsCorrect(correct);
-    
+
+    Haptics.notificationAsync(
+      correct
+        ? Haptics.NotificationFeedbackType.Success
+        : Haptics.NotificationFeedbackType.Error
+    );
+
     // Track session metrics
     questionsAnsweredRef.current += 1;
     if (correct) {
