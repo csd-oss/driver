@@ -6,7 +6,7 @@ import { UIText } from '@/components/ui/text';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import { t } from '@/src/i18n/i18n';
 import { ensureNotificationPermission, syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
-import { clearCache, getSettings, updateSettings } from '@/src/lib/settings';
+import { clearCache, getCachedLanguage, getSettings, updateSettings } from '@/src/lib/settings';
 import { resetStats } from '@/src/lib/stats';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
@@ -19,7 +19,7 @@ import { isPurchasesSupported, presentCustomerCenter } from '@/src/lib/purchases
 export default function SettingsScreen() {
   const posthog = usePostHog();
   const router = useRouter();
-  const [lang, setLang] = useState(1);
+  const [lang, setLang] = useState(getCachedLanguage);
   const [useConservativeReadiness, setUseConservativeReadiness] = useState(false);
   const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
   const [notificationMorningEnabled, setNotificationMorningEnabled] = useState(true);

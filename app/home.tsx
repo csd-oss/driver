@@ -8,7 +8,7 @@ import * as MistakesDB from '@/src/db/queries/mistakes';
 import * as StatsDB from '@/src/db/queries/stats';
 import { t } from '@/src/i18n/i18n';
 import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
-import { getLanguage, getReadinessMode } from '@/src/lib/settings';
+import { getCachedLanguage, getLanguage, getReadinessMode } from '@/src/lib/settings';
 import { getReadinessBreakdown, loadStats } from '@/src/lib/stats';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
@@ -21,7 +21,7 @@ import { ensureProAccess } from '@/src/lib/purchases';
 export default function HomeScreen() {
   const router = useRouter();
   const posthog = usePostHog();
-  const [lang, setLang] = useState(1);
+  const [lang, setLang] = useState(getCachedLanguage);
   const [mistakeCount, setMistakeCount] = useState(0);
   const [recentAccuracy, setRecentAccuracy] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);

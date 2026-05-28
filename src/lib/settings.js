@@ -117,6 +117,16 @@ export const getLanguage = async () => {
 };
 
 /**
+ * Synchronous language lookup for initial-render fast path. Returns the
+ * cached language if `getSettings()` has already been called (which the
+ * root layout guarantees before any screen mounts), otherwise falls back
+ * to the device locale. Use this as the initial value for `useState(lang)`
+ * to avoid the Slovak→English flicker on first paint.
+ */
+export const getCachedLanguage = () =>
+  cachedSettings?.lang ?? detectLanguageFromDevice();
+
+/**
  * Clear cache
  */
 export const clearCache = () => {

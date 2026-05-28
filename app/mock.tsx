@@ -11,7 +11,7 @@ import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Divider } from '@/components/ui/divider';
 import { Header } from '@/components/ui/header';
-import { getLanguage } from '@/src/lib/settings';
+import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
 import { getRandomTestWithIndex, getQuestionFromTest } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
@@ -28,7 +28,7 @@ export default function MockScreen() {
   const posthog = usePostHog();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const [lang, setLang] = useState(1);
+  const [lang, setLang] = useState(getCachedLanguage);
   const [test, setTest] = useState(null);
   const [testIndex, setTestIndex] = useState(null);
   const [mockExamId, setMockExamId] = useState(null);

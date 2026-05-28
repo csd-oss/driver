@@ -7,7 +7,7 @@ import { usePostHog } from 'posthog-react-native';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
-import { getLanguage } from '@/src/lib/settings';
+import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import {
   PAYWALL_RESULT,
@@ -18,7 +18,7 @@ import {
 export default function PaywallScreen() {
   const router = useRouter();
   const posthog = usePostHog();
-  const [lang, setLang] = useState(1);
+  const [lang, setLang] = useState(getCachedLanguage);
   const presentedRef = useRef(false);
 
   useFocusEffect(

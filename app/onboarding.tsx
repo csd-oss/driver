@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { ensureNotificationPermission, syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
-import { clearCache, getLanguage, getSettings, updateSettings } from '@/src/lib/settings';
+import { clearCache, getCachedLanguage, getLanguage, getSettings, updateSettings } from '@/src/lib/settings';
 import { isPurchasesSupported, isSubscribed } from '@/src/lib/purchases';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useRouter } from 'expo-router';
@@ -33,7 +33,7 @@ export default function OnboardingScreen() {
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [lang, setLang] = useState(1);
+  const [lang, setLang] = useState(getCachedLanguage);
   const scrollViewRef = useRef<ScrollView>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const scrollX = useRef(new Animated.Value(0)).current;

@@ -3,7 +3,7 @@ import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
-import { getLanguage, getReadinessMode } from '@/src/lib/settings';
+import { getCachedLanguage, getLanguage, getReadinessMode } from '@/src/lib/settings';
 import { calculateAccuracy, getLast7Days, getReadinessBreakdown, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import { trackScreenView } from '@/src/lib/analytics';
@@ -16,7 +16,7 @@ import { usePostHog } from 'posthog-react-native';
 export default function StatsScreen() {
   const router = useRouter();
   const posthog = usePostHog();
-  const [lang, setLang] = useState(1);
+  const [lang, setLang] = useState(getCachedLanguage);
   const [mistakeCount, setMistakeCount] = useState(0);
   const [stats, setStats] = useState(null);
   const [totalUniqueQuestions, setTotalUniqueQuestions] = useState(0);

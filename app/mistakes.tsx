@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
-import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
+import { getCachedLanguage, getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
 import { findQuestionById, getTestForQuestion } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
@@ -43,7 +43,7 @@ export default function MistakesScreen() {
   const questionShownAtRef = useRef(null);
   const questionsAnsweredRef = useRef(0);
   const correctCountRef = useRef(0);
-  const [lang, setLang] = useState(1);
+  const [lang, setLang] = useState(getCachedLanguage);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [mistakes, setMistakes] = useState([]);
   const [filteredMistakes, setFilteredMistakes] = useState([]);

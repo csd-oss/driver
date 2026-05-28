@@ -5,7 +5,7 @@ import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
-import { clearCache, getLanguage, updateSettings } from '@/src/lib/settings';
+import { clearCache, getCachedLanguage, getLanguage, updateSettings } from '@/src/lib/settings';
 import { isPurchasesSupported, isSubscribed } from '@/src/lib/purchases';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
@@ -19,7 +19,7 @@ export default function LanguageSelectScreen() {
   const posthog = usePostHog();
   const params = useLocalSearchParams();
   const fromOnboarding = params?.from === 'onboarding';
-  const [currentLang, setCurrentLang] = useState(1);
+  const [currentLang, setCurrentLang] = useState(getCachedLanguage);
 
   const loadLanguage = useCallback(async () => {
     const lang = await getLanguage();

@@ -13,7 +13,7 @@ import { t } from '@/src/i18n/i18n';
 import { getTests } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
-import { getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
+import { getCachedLanguage, getLanguage, getSelectedCategory, setSelectedCategory } from '@/src/lib/settings';
 import { getSmartQuestion, pushRecent } from '@/src/lib/smartPractice';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
@@ -57,7 +57,7 @@ export default function StudyScreen() {
   const questionShownAtRef = useRef<Date | null>(null);
   const questionsAnsweredRef = useRef<number>(0);
   const correctCountRef = useRef<number>(0);
-  const [lang, setLang] = useState(1);
+  const [lang, setLang] = useState(getCachedLanguage);
   const [selectedCategory, setSelectedCategoryState] = useState('all');
   const [question, setQuestion] = useState<any>(null);
   const [reason, setReason] = useState<any>(null);
