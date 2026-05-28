@@ -49,6 +49,7 @@ const SUBSCRIPTIONS = [
     name: 'Driver SK Pro — Weekly',
     period: 'ONE_WEEK',
     basePrice: '2.99',
+    trial: { duration: 'THREE_DAYS' },
     locales: [
       { locale: 'en-US', name: 'Driver SK Pro', description: 'Unlimited Driver SK access — weekly subscription.' },
       { locale: 'sk', name: 'Driver SK Pro', description: 'Neobmedzený prístup k Driver SK — týždenne.' },
