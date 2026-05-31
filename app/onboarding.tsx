@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { UIText } from '@/components/ui/text';
 import { t } from '@/src/i18n/i18n';
 import { ensureNotificationPermission, syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
@@ -377,7 +378,7 @@ export default function OnboardingScreen() {
             className="flex-row items-center justify-between px-5"
             style={{ paddingTop: Math.max(8, insets.top * 0.6) }}
           >
-            <Pressable
+            <PressableScale
               onPress={() => {
                 trackEvent(posthog, 'onboarding_language_change_clicked', {
                   current_slide: currentSlide,
@@ -392,8 +393,8 @@ export default function OnboardingScreen() {
               <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
                 {languageFlag} {t('onboarding.changeLanguage', lang)}
               </UIText>
-            </Pressable>
-            <Pressable
+            </PressableScale>
+            <PressableScale
               onPress={handleSkip}
               testID="onboarding.skip"
               className="px-4 py-3 -mr-2 rounded-lg active:bg-slate-200/50 dark:active:bg-slate-800/50"
@@ -403,7 +404,7 @@ export default function OnboardingScreen() {
               <UIText variant="caption" className="text-slate-500 dark:text-slate-300 font-medium">
                 {t('onboarding.skip', lang)}
               </UIText>
-            </Pressable>
+            </PressableScale>
           </View>
 
           <Animated.ScrollView
@@ -491,15 +492,23 @@ export default function OnboardingScreen() {
                 ? t('onboarding.getStarted', lang)
                 : t('onboarding.next', lang)}
             </Button>
-            {currentSlide > 0 && (
+            {/* Always reserve the Previous row so the Continue button never shifts
+                between slides. Hidden + non-interactive on the first slide. */}
+            <View
+              className={currentSlide > 0 ? '' : 'opacity-0'}
+              pointerEvents={currentSlide > 0 ? 'auto' : 'none'}
+              accessibilityElementsHidden={currentSlide === 0}
+              importantForAccessibility={currentSlide === 0 ? 'no-hide-descendants' : 'auto'}
+            >
               <Button
                 onPress={handlePrevious}
                 variant="outline"
                 className="w-full"
+                disabled={currentSlide === 0}
               >
                 {t('onboarding.previous', lang)}
               </Button>
-            )}
+            </View>
           </View>
         </View>
       </SafeAreaView>

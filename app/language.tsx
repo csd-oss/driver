@@ -33,14 +33,24 @@ export default function LanguageSelectScreen() {
     }, [loadLanguage, posthog])
   );
 
-  const handleLanguageSelect = async (lang) => {
-    // Track language selection
-    trackEvent(posthog, 'language_selected', {
-      selected_language: lang,
-      previous_language: currentLang,
+  // Tapping a flag selects it (highlight + localize the UI instantly) but does
+  // not commit — the user confirms with the Continue button, matching the
+  // Next/Continue pattern used on every onboarding slide.
+  const handleLanguagePick = (lang: number) => {
+    setCurrentLang(lang);
+    trackEvent(posthog, 'language_picked', {
+      picked_language: lang,
       from_onboarding: fromOnboarding,
     });
-    
+  };
+
+  const handleContinue = async () => {
+    const lang = currentLang;
+    trackEvent(posthog, 'language_selected', {
+      selected_language: lang,
+      from_onboarding: fromOnboarding,
+    });
+
     clearCache();
     await updateSettings({
       lang,
@@ -93,7 +103,7 @@ export default function LanguageSelectScreen() {
             {/* Language buttons */}
             <View className="gap-3">
               <Button
-                onPress={() => handleLanguageSelect(1)}
+                onPress={() => handleLanguagePick(1)}
                 variant={currentLang === 1 ? 'default' : 'outline'}
                 className="w-full"
                 testID="language.lang1"
@@ -102,7 +112,7 @@ export default function LanguageSelectScreen() {
               </Button>
 
               <Button
-                onPress={() => handleLanguageSelect(2)}
+                onPress={() => handleLanguagePick(2)}
                 variant={currentLang === 2 ? 'default' : 'outline'}
                 className="w-full"
                 testID="language.lang2"
@@ -111,7 +121,7 @@ export default function LanguageSelectScreen() {
               </Button>
 
               <Button
-                onPress={() => handleLanguageSelect(3)}
+                onPress={() => handleLanguagePick(3)}
                 variant={currentLang === 3 ? 'default' : 'outline'}
                 className="w-full"
                 testID="language.lang3"
@@ -120,6 +130,16 @@ export default function LanguageSelectScreen() {
               </Button>
             </View>
           </Card>
+
+          {/* Continue — confirms the selection, matching the onboarding pattern */}
+          <Button
+            onPress={handleContinue}
+            variant="default"
+            className="w-full"
+            testID="language.continue"
+          >
+            {t('onboarding.next', currentLang)}
+          </Button>
         </View>
       </View>
     </Screen>
