@@ -205,7 +205,7 @@ export default function StatsScreen() {
               </UIText>
               <View className="rounded-full border border-indigo-200/70 dark:border-indigo-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-1">
                 <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200">
-                  {coverage}% coverage
+                  {t('stats.coverageBadge', lang).replace('{percent}', String(coverage))}
                 </UIText>
               </View>
             </View>
@@ -268,7 +268,7 @@ export default function StatsScreen() {
                     {t('stats.currentStreak', lang)}
                   </UIText>
                   <UIText variant="subtitle" className="text-emerald-600 dark:text-emerald-300">
-                    {stats.engagement.currentStreak} days
+                    {stats.engagement.currentStreak} {t('home.streakDays', lang)}
                   </UIText>
                 </View>
                 <View className="flex-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2">
@@ -321,7 +321,7 @@ export default function StatsScreen() {
           {/* Component Breakdown */}
           <View className="gap-3 mt-2">
             <UIText variant="caption" className="text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Component Breakdown
+              {t('stats.componentBreakdown', lang)}
             </UIText>
             
             {/* Mistakes Component */}
@@ -365,7 +365,7 @@ export default function StatsScreen() {
                 </View>
               </View>
               <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
-                {readinessBreakdown.components.performance.attempts} {readinessBreakdown.components.performance.attempts === 1 ? 'attempt' : 'attempts'} (last 7 days)
+                {(readinessBreakdown.components.performance.attempts === 1 ? t('stats.attemptCount', lang) : t('stats.attemptsCount', lang)).replace('{count}', String(readinessBreakdown.components.performance.attempts))} {t('stats.attemptsLast7Days', lang)}
               </UIText>
               {readinessBreakdown.components.performance.warning && (
                 <UIText variant="caption" className="text-amber-600 dark:text-amber-400 mt-1">
@@ -454,7 +454,7 @@ export default function StatsScreen() {
                       </View>
                     </View>
                     <UIText variant="caption" className="text-slate-600 dark:text-slate-400">
-                      {day.attempts} {day.attempts === 1 ? 'attempt' : 'attempts'}
+                      {(day.attempts === 1 ? t('stats.attemptCount', lang) : t('stats.attemptsCount', lang)).replace('{count}', String(day.attempts))}
                     </UIText>
                   </View>
                 );
@@ -510,7 +510,7 @@ export default function StatsScreen() {
           <View className="gap-2">
             <View className="flex-row justify-between">
               <UIText variant="body">{t('stats.currentStreak', lang)}</UIText>
-              <UIText variant="body" className="font-semibold">{stats.engagement.currentStreak} days</UIText>
+              <UIText variant="body" className="font-semibold">{stats.engagement.currentStreak} {t('home.streakDays', lang)}</UIText>
             </View>
             <View className="flex-row justify-between">
               <UIText variant="body">{t('stats.lastStudy', lang)}</UIText>

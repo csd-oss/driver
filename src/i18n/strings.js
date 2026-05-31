@@ -817,6 +817,11 @@ export const STR = {
     2: '(last 7 days)',
     3: '(utolsó 7 nap)',
   },
+  'stats.coverageBadge': {
+    1: '{percent}% pokrytie',
+    2: '{percent}% coverage',
+    3: '{percent}% lefedettség',
+  },
   'paywall.loading': {
     1: 'Načítavam…',
     2: 'Loading…',
