@@ -2,6 +2,7 @@ import { AnimatedBar } from '@/components/ui/animated-bar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import * as EngagementDB from '@/src/db/queries/engagement';
@@ -15,7 +16,7 @@ import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 import { ensureProAccess } from '@/src/lib/purchases';
 
@@ -116,11 +117,12 @@ export default function HomeScreen() {
     <Screen testID="screen.home">
       <View className="flex-1 gap-4">
         <View className="flex-row justify-end -mb-2">
-          <Pressable
+          <PressableScale
             onPress={() => {
               trackEvent(posthog, 'home_settings_clicked', { language: lang });
               router.push('/settings');
             }}
+            scaleTo={0.92}
             testID="home.settings"
             accessibilityRole="button"
             accessibilityLabel={t('home.settings', lang)}
@@ -128,10 +130,10 @@ export default function HomeScreen() {
             className="p-2 -mr-2 rounded-full active:bg-slate-200/60 dark:active:bg-slate-800/60"
           >
             <IconSymbol name="gearshape.fill" size={22} color="#6366f1" />
-          </Pressable>
+          </PressableScale>
         </View>
 
-        <Pressable
+        <PressableScale
           onPress={() => {
             trackEvent(posthog, 'home_stats_clicked', { language: lang });
             router.push('/stats');
@@ -199,7 +201,7 @@ export default function HomeScreen() {
               </View>
             </View>
           </Card>
-        </Pressable>
+        </PressableScale>
 
         <Card
           className="flex-row items-center justify-between bg-slate-50/80 dark:bg-slate-900/40"

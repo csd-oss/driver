@@ -11,6 +11,7 @@ import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Divider } from '@/components/ui/divider';
 import { Header } from '@/components/ui/header';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
 import { getRandomTestWithIndex, getQuestionFromTest } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
@@ -429,7 +430,7 @@ export default function MockScreen() {
               {Object.keys(results).map((qNoStr) => {
                 const qNo = parseInt(qNoStr, 10);
                 const isCorrect = results[qNoStr];
-                const Component = isCorrect ? View : Pressable;
+                const Component = isCorrect ? View : PressableScale;
                 return (
                   <Component
                     key={qNoStr}

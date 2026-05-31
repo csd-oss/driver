@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Modal, Pressable, ScrollView } from 'react-native';
 import { Button } from '@/components/ui/button';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { UIText } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { getCategories } from '@/src/lib/categories';
@@ -27,7 +28,7 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
 
   return (
     <>
-      <Pressable
+      <PressableScale
         onPress={() => setModalVisible(true)}
         className="w-full"
         accessibilityRole="button"
@@ -49,7 +50,7 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
             </UIText>
           </View>
         </Card>
-      </Pressable>
+      </PressableScale>
 
       <Modal
         visible={modalVisible}
@@ -75,8 +76,9 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
               <ScrollView className="max-h-96">
                 <View className="gap-2">
                   {/* All option */}
-                  <Pressable
+                  <PressableScale
                     onPress={() => handleSelect('all')}
+                    scaleTo={0.92}
                     className={`p-4 rounded-xl border min-h-[48px] justify-center ${
                       selectedCategory === 'all'
                         ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-300 dark:border-indigo-700'
@@ -92,13 +94,14 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
                     >
                       {t('category.all', lang)}
                     </UIText>
-                  </Pressable>
+                  </PressableScale>
 
                   {/* Category options */}
                   {categories.map((category, index) => (
-                    <Pressable
+                    <PressableScale
                       key={index}
                       onPress={() => handleSelect(category)}
+                      scaleTo={0.92}
                       className={`p-4 rounded-xl border min-h-[48px] justify-center ${
                         selectedCategory === category
                           ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-300 dark:border-indigo-700'
@@ -114,7 +117,7 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
                       >
                         {category}
                       </UIText>
-                    </Pressable>
+                    </PressableScale>
                   ))}
                 </View>
               </ScrollView>

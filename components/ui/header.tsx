@@ -1,8 +1,9 @@
-import { Pressable, View, useColorScheme } from 'react-native';
+import { View, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { IconSymbol } from './icon-symbol';
+import { PressableScale } from './pressable-scale';
 import { UIText } from './text';
 
 interface HeaderProps {
@@ -36,8 +37,9 @@ export const Header = ({ title, showBack = true, onBackPress, rightElement }: He
     >
       <View className="flex-row items-center px-4 py-3 rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-900/80 shadow-md shadow-slate-900/5">
         {showBack && (
-          <Pressable
+          <PressableScale
             onPress={handleBack}
+            scaleTo={0.92}
             testID="nav.back"
             className="mr-3 p-2 rounded-full bg-slate-100 dark:bg-slate-800"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -49,7 +51,7 @@ export const Header = ({ title, showBack = true, onBackPress, rightElement }: He
               size={22}
               color={iconColor}
             />
-          </Pressable>
+          </PressableScale>
         )}
         {title && !rightElement && (
           <UIText variant="subtitle" className="flex-1 text-base tracking-tight">
