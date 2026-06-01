@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 1320px;
+    height: 2868px;
+    overflow: hidden;
+    font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stage {
+    position: relative;
+    width: 1320px;
+    height: 2868px;
+    background:
+      radial-gradient(1500px 1100px at 50% 50%, rgba(99,102,241,0.40) 0%, rgba(0,0,0,0) 62%),
+      linear-gradient(168deg, #1e1b4b 0%, #312e81 55%, #4338ca 100%);
+    overflow: hidden;
+  }
+  .stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 80% at 50% 110%, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 55%);
+    pointer-events: none;
+  }
+  .caption {
+    position: absolute;
+    top: 180px;
+    left: 0; right: 0;
+    padding: 0 80px;
+    text-align: center;
+  }
+  .caption h1 {
+    color: #ffffff;
+    font-size: 112px;
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -3.2px;
+  }
+  .grid {
+    position: absolute;
+    top: 560px;
+    bottom: 130px;
+    left: 80px;
+    right: 80px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 32px;
+  }
+  .badge {
+    position: relative;
+    background: rgba(255,255,255,0.09);
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 40px;
+    padding: 56px 52px;
+    backdrop-filter: blur(24px);
+    box-shadow: 0 40px 90px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .badge .tag {
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    padding: 8px 18px;
+    border-radius: 999px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .badge .tag.free {
+    background: rgba(52,211,153,0.18);
+    color: #6ee7b7;
+    border: 1px solid rgba(52,211,153,0.3);
+  }
+  .badge .tag.pro {
+    background: rgba(251,191,36,0.18);
+    color: #fcd34d;
+    border: 1px solid rgba(251,191,36,0.3);
+  }
+  .badge .icon {
+    font-size: 104px;
+    line-height: 1;
+    margin-bottom: 28px;
+  }
+  .badge .title {
+    color: #ffffff;
+    font-size: 44px;
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.7px;
+    margin-bottom: 14px;
+  }
+  .badge .sub {
+    color: rgba(255,255,255,0.7);
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.2px;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="caption">
+      <h1>Everything you need to pass.</h1>
+    </div>
+    <div class="grid">
+      <div class="badge"><div class="tag free">Free</div><div class="icon">⏱️</div><div class="title">Timed mock exams</div><div class="sub">40 questions, just like the real day</div></div>
+      <div class="badge"><div class="tag free">Free</div><div class="icon">📚</div><div class="title">All 985 questions</div><div class="sub">The full official exam bank</div></div>
+      <div class="badge"><div class="tag pro">3-day trial</div><div class="icon">🎯</div><div class="title">Smart Practice</div><div class="sub">Adapts to your weak spots</div></div>
+      <div class="badge"><div class="tag pro">3-day trial</div><div class="icon">💪</div><div class="title">Master mistakes</div><div class="sub">Spaced repetition until it sticks</div></div>
+      <div class="badge"><div class="tag free">Free</div><div class="icon">🌍</div><div class="title">Slovak · English · Magyar</div><div class="sub">Study in your language</div></div>
+      <div class="badge"><div class="tag free">Free</div><div class="icon">✈️</div><div class="title">Works offline</div><div class="sub">No signal, no problem</div></div>
+    </div>
+  </div>
+</body>
+</html>

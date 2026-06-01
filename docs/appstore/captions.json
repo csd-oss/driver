@@ -1,0 +1,104 @@
+{
+  "_comment": "Marketing screenshot captions. order = App Store display order. accent picks the gradient/theme per screen (matches the app's color system). template = which layout to use (feature/hero/trust/cta). route is how we navigate the app to capture it. badges (trust only) and trialPill (hero/cta) are template-specific data.",
+  "trialPill": {
+    "en": "3-day free trial",
+    "sk": "3 dni zadarmo",
+    "hu": "3 nap ingyen"
+  },
+  "screens": [
+    {
+      "id": "home",
+      "route": "/home",
+      "template": "hero",
+      "accent": "indigo",
+      "en": { "caption": "Pass the Slovak driving exam.", "sub": "Smart practice. Real results." },
+      "sk": { "caption": "Sprav vodičák na prvý pokus.", "sub": "Inteligentná príprava. Skutočné výsledky." },
+      "hu": { "caption": "Tedd le a jogosítványt elsőre.", "sub": "Okos gyakorlás. Valódi eredmények." }
+    },
+    {
+      "id": "mock",
+      "route": "/mock",
+      "template": "feature",
+      "accent": "amber",
+      "en": { "caption": "Take the test before the test.", "sub": "40 questions. 30 minutes. Just like the real one." },
+      "sk": { "caption": "Otestuj sa pred ostrou skúškou.", "sub": "40 otázok. 30 minút. Presne ako naozaj." },
+      "hu": { "caption": "Próbavizsga az éles előtt.", "sub": "40 kérdés. 30 perc. Pont mint az igazi." }
+    },
+    {
+      "id": "study",
+      "route": "/study",
+      "template": "feature",
+      "accent": "sky",
+      "en": { "caption": "Practice your weak spots first.", "sub": "Smart Study learns what trips you up." },
+      "sk": { "caption": "Najprv tvoje slabiny.", "sub": "Inteligentné štúdium vie, kde máš medzery." },
+      "hu": { "caption": "Először a gyenge pontjaid.", "sub": "Az Okos tanulás tudja, hol akadsz el." }
+    },
+    {
+      "id": "mistakes",
+      "route": "/mistakes",
+      "template": "feature",
+      "accent": "rose",
+      "en": { "caption": "Master every mistake.", "sub": "Spaced repetition until it sticks." },
+      "sk": { "caption": "Každú chybu si zapamätaj.", "sub": "Opakovanie, kým to nemáš v malíčku." },
+      "hu": { "caption": "Egyetlen hibát se hagyj.", "sub": "Térj vissza hozzájuk, amíg megy." }
+    },
+    {
+      "id": "stats",
+      "route": "/stats",
+      "template": "feature",
+      "accent": "emerald",
+      "en": { "caption": "Watch yourself get ready.", "sub": "Readiness, accuracy, streaks — every day." },
+      "sk": { "caption": "Pozri, ako sa pripravuješ.", "sub": "Pripravenosť, presnosť, séria — každý deň." },
+      "hu": { "caption": "Lásd, hogyan készülsz fel.", "sub": "Felkészültség, pontosság, sorozat — naponta." }
+    },
+    {
+      "id": "trust",
+      "template": "trust",
+      "accent": "indigo",
+      "en": {
+        "caption": "Everything you need to pass.",
+        "sub": "",
+        "badges": [
+          { "icon": "⏱️", "title": "Timed mock exams", "sub": "40 questions, just like the real day", "tag": "free" },
+          { "icon": "📚", "title": "All 985 questions", "sub": "The full official exam bank", "tag": "free" },
+          { "icon": "🎯", "title": "Smart Practice", "sub": "Adapts to your weak spots", "tag": "pro" },
+          { "icon": "💪", "title": "Master mistakes", "sub": "Spaced repetition until it sticks", "tag": "pro" },
+          { "icon": "🌍", "title": "Slovak · English · Magyar", "sub": "Study in your language", "tag": "free" },
+          { "icon": "✈️", "title": "Works offline", "sub": "No signal, no problem", "tag": "free" }
+        ]
+      },
+      "sk": {
+        "caption": "Všetko, čo potrebuješ na úspech.",
+        "sub": "",
+        "badges": [
+          { "icon": "⏱️", "title": "Skúšky nanečisto", "sub": "40 otázok, presne ako naozaj", "tag": "free" },
+          { "icon": "📚", "title": "Všetkých 985 otázok", "sub": "Celá oficiálna databáza", "tag": "free" },
+          { "icon": "🎯", "title": "Inteligentné štúdium", "sub": "Prispôsobí sa tvojim slabinám", "tag": "pro" },
+          { "icon": "💪", "title": "Zvládni svoje chyby", "sub": "Opakuj, kým ti to nezostane", "tag": "pro" },
+          { "icon": "🌍", "title": "Slovensky · English · Magyar", "sub": "Uč sa vo svojom jazyku", "tag": "free" },
+          { "icon": "✈️", "title": "Funguje offline", "sub": "Bez signálu — bez problému", "tag": "free" }
+        ]
+      },
+      "hu": {
+        "caption": "Minden, amire szükséged van.",
+        "sub": "",
+        "badges": [
+          { "icon": "⏱️", "title": "Próbavizsga időre", "sub": "40 kérdés, pont mint az igazi", "tag": "free" },
+          { "icon": "📚", "title": "Mind a 985 kérdés", "sub": "A teljes hivatalos anyag", "tag": "free" },
+          { "icon": "🎯", "title": "Okos tanulás", "sub": "Alkalmazkodik a gyenge pontjaidhoz", "tag": "pro" },
+          { "icon": "💪", "title": "Hibák legyőzése", "sub": "Ismétlés, amíg menni nem fog", "tag": "pro" },
+          { "icon": "🌍", "title": "Slovensky · English · Magyar", "sub": "Tanulj a saját nyelveden", "tag": "free" },
+          { "icon": "✈️", "title": "Offline is működik", "sub": "Térerő nélkül is", "tag": "free" }
+        ]
+      }
+    },
+    {
+      "id": "cta",
+      "template": "cta",
+      "accent": "emerald",
+      "en": { "caption": "Free for 3 days.", "sub": "Cancel anytime." },
+      "sk": { "caption": "3 dni zadarmo.", "sub": "Zruš kedykoľvek." },
+      "hu": { "caption": "3 nap ingyen.", "sub": "Bármikor lemondhatod." }
+    }
+  ]
+}

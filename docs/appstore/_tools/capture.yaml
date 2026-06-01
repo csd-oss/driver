@@ -1,0 +1,58 @@
+# Capture raw 6.9" screenshots for one language.
+#   maestro test -e LANG_DIR=en docs/appstore/_tools/capture.yaml
+# App language is set via the DB (settings.lang) before running; this flow
+# just navigates and shoots. Run from the project root.
+appId: com.smartie.driver
+---
+- launchApp
+# Dismiss any stray scheme-confirmation dialog, then wait out the intro.
+- tapOn:
+    text: "Cancel"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.home"
+    timeout: 20000
+- takeScreenshot: "docs/appstore/raw/${LANG_DIR}/home"
+
+- openLink: "driver://study"
+- tapOn:
+    text: "Open"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.study"
+    timeout: 12000
+- takeScreenshot: "docs/appstore/raw/${LANG_DIR}/study"
+
+- openLink: "driver://mistakes"
+- tapOn:
+    text: "Open"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.mistakes"
+    timeout: 12000
+- takeScreenshot: "docs/appstore/raw/${LANG_DIR}/mistakes"
+
+- openLink: "driver://stats"
+- tapOn:
+    text: "Open"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.stats"
+    timeout: 12000
+- takeScreenshot: "docs/appstore/raw/${LANG_DIR}/stats"
+
+# Mock is captured LAST: opening /mock auto-starts (and can complete) a mock
+# exam, which would otherwise pollute the stats/home readiness numbers.
+- openLink: "driver://mock"
+- tapOn:
+    text: "Open"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.mock"
+    timeout: 12000
+- takeScreenshot: "docs/appstore/raw/${LANG_DIR}/mock"
