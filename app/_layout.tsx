@@ -71,9 +71,8 @@ export default function RootLayout() {
     const initApp = async () => {
       let isOptedOut = false;
       try {
+        // Only migrations + settings must finish before first paint.
         await runMigrations();
-        await configurePurchases();
-        await syncNotificationsWithCurrentSettings();
         const settings = await getSettings();
         isOptedOut = settings?.analyticsOptOut === true;
       } catch (error) {
@@ -85,6 +84,13 @@ export default function RootLayout() {
       setOptedOut(isOptedOut);
       setAnalyticsReady(true);
       await SplashScreen.hideAsync();
+
+      // Non-critical for the first frame — run after the splash hides so they
+      // don't delay launch. Both finish well before any gated tap.
+      configurePurchases().catch((e) => console.error('Purchases init error:', e));
+      syncNotificationsWithCurrentSettings().catch((e) =>
+        console.error('Notification sync error:', e)
+      );
     };
 
     initApp();

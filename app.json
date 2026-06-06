@@ -42,6 +42,7 @@
           }
         }
       ],
+      "./plugins/withDarkSplash",
       [
         "expo-notifications",
         {
