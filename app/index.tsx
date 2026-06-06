@@ -30,29 +30,29 @@ export default function IntroAnimationScreen() {
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 420,
+          duration: 300,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(translateY, {
           toValue: 0,
-          duration: 560,
+          duration: 380,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(scale, {
           toValue: 1,
-          duration: 560,
+          duration: 380,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]),
       // Hold
-      Animated.delay(360),
+      Animated.delay(200),
       // Out — dissolve into the destination screen
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 280,
+        duration: 220,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
