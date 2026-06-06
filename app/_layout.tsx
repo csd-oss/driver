@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
@@ -21,6 +22,10 @@ import type { ReactNode } from 'react';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync();
+
+// Dark root view background so any transition/paint gap matches the splash and
+// intro instead of flashing the default white. Opaque screens cover it.
+SystemUI.setBackgroundColorAsync('#0f172a').catch(() => {});
 
 // Identify the user with PostHog after the provider mounts. The opt-out check
 // the previous version did here is now handled one level up — `RootLayout`
@@ -105,8 +110,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <FontScaleProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
+          {/* contentStyle dark so transition gaps match the splash/intro
+              instead of flashing white (DefaultTheme's white card bg). The
+              opaque per-screen backgrounds cover it everywhere else. */}
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0f172a' } }}>
+            <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
             <Stack.Screen name="language" options={{ headerShown: false }} />
             <Stack.Screen name="home" options={{ headerShown: false }} />
