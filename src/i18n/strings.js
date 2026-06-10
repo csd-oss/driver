@@ -942,4 +942,74 @@ export const STR = {
     2: 'Your subscription is active.',
     3: 'Az előfizetés aktív.',
   },
+  'settings.subscription.upgrade': {
+    1: 'Odomknúť Pro',
+    2: 'Upgrade to Pro',
+    3: 'Pro feloldása',
+  },
+  'settings.subscription.upgradeDescription': {
+    1: 'Získaj plný prístup k inteligentnému štúdiu a opakovaniu chýb.',
+    2: 'Get full access to Smart Study and mistake review.',
+    3: 'Teljes hozzáférés az okos tanuláshoz és a hibák ismétléséhez.',
+  },
+  'settings.about.title': {
+    1: 'O aplikácii',
+    2: 'About',
+    3: 'Az alkalmazásról',
+  },
+  'settings.about.privacy': {
+    1: 'Zásady ochrany súkromia',
+    2: 'Privacy Policy',
+    3: 'Adatvédelmi irányelvek',
+  },
+  'settings.about.terms': {
+    1: 'Podmienky používania',
+    2: 'Terms of Use',
+    3: 'Felhasználási feltételek',
+  },
+  'settings.about.support': {
+    1: 'Kontaktovať podporu',
+    2: 'Contact support',
+    3: 'Kapcsolat az ügyfélszolgálattal',
+  },
+  'settings.about.version': {
+    1: 'Verzia',
+    2: 'Version',
+    3: 'Verzió',
+  },
+  'settings.resetDescription': {
+    1: 'Vymaže tvoj pokrok a začneš odznova. Túto akciu nie je možné vrátiť späť.',
+    2: 'Clear your progress and start fresh. This action cannot be undone.',
+    3: 'Törli az előrehaladásodat és újrakezdheted. Ez a művelet nem visszavonható.',
+  },
+  'settings.notifications.permissionTitle': {
+    1: 'Upozornenia sú vypnuté',
+    2: 'Notifications are off',
+    3: 'Az értesítések ki vannak kapcsolva',
+  },
+  'settings.notifications.permissionBody': {
+    1: 'Povoľ upozornenia v systémových nastaveniach, aby ti mohli chodiť pripomienky na štúdium.',
+    2: 'Allow notifications in system settings to receive study reminders.',
+    3: 'Engedélyezd az értesítéseket a rendszerbeállításokban, hogy emlékeztetőket kaphass.',
+  },
+  'settings.notifications.openSettings': {
+    1: 'Otvoriť nastavenia',
+    2: 'Open Settings',
+    3: 'Beállítások megnyitása',
+  },
+  'mistakes.notFound': {
+    1: 'Otázka sa nenašla',
+    2: 'Question not found',
+    3: 'A kérdés nem található',
+  },
+  'mistakes.reload': {
+    1: 'Načítať znova',
+    2: 'Reload',
+    3: 'Újratöltés',
+  },
+  'mistakes.emptyHint': {
+    1: 'Skvelá práca! Pokračuj v štúdiu alebo si over pripravenosť skúšobným testom.',
+    2: 'Great job! Keep studying or check your readiness with a mock exam.',
+    3: 'Szép munka! Tanulj tovább, vagy ellenőrizd a felkészültséged egy próbavizsgával.',
+  },
 };

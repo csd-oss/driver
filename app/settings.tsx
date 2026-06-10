@@ -12,9 +12,17 @@ import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, Switch, View } from 'react-native';
+import { Alert, Linking, ScrollView, Switch, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Application from 'expo-application';
 import { usePostHog } from 'posthog-react-native';
-import { isPurchasesSupported, presentCustomerCenter } from '@/src/lib/purchases';
+import {
+  ensureProAccess,
+  isPurchasesSupported,
+  isSubscribed,
+  presentCustomerCenter,
+} from '@/src/lib/purchases';
+import { PRIVACY_POLICY_URL, SUPPORT_EMAIL, TERMS_OF_USE_URL } from '@/src/lib/links';
 
 export default function SettingsScreen() {
   const posthog = usePostHog();
@@ -25,8 +33,10 @@ export default function SettingsScreen() {
   const [notificationMorningEnabled, setNotificationMorningEnabled] = useState(true);
   const [notificationLunchEnabled, setNotificationLunchEnabled] = useState(true);
   const [notificationEveningEnabled, setNotificationEveningEnabled] = useState(true);
+  const [hasPro, setHasPro] = useState(isSubscribed);
 
   const loadSettings = useCallback(async () => {
+    setHasPro(isSubscribed());
     const settings = await getSettings();
     if (settings) {
       setLang(settings.lang);
@@ -103,6 +113,19 @@ export default function SettingsScreen() {
           reason: 'permission_denied',
           language: lang,
         });
+        // Tell the user why the switch snapped back and route them to the
+        // system settings — silently doing nothing reads as a broken toggle.
+        Alert.alert(
+          t('settings.notifications.permissionTitle', lang),
+          t('settings.notifications.permissionBody', lang),
+          [
+            { text: t('common.cancel', lang), style: 'cancel' },
+            {
+              text: t('settings.notifications.openSettings', lang),
+              onPress: () => Linking.openSettings(),
+            },
+          ]
+        );
         return;
       }
     }
@@ -131,9 +154,25 @@ export default function SettingsScreen() {
   };
 
   const handleManageSubscription = async () => {
-    trackEvent(posthog, 'settings_manage_subscription_clicked', { language: lang });
+    trackEvent(posthog, 'settings_manage_subscription_clicked', {
+      language: lang,
+      subscribed: hasPro,
+    });
     try {
-      await presentCustomerCenter();
+      if (hasPro) {
+        // Subscribers manage/cancel/refund via RevenueCat's Customer Center
+        await presentCustomerCenter();
+      } else {
+        // Free users get the paywall — Customer Center is meaningless for them
+        trackEvent(posthog, 'paywall_shown', { placement: 'settings', language: lang });
+        const granted = await ensureProAccess();
+        trackEvent(posthog, 'paywall_result', {
+          placement: 'settings',
+          outcome: granted ? 'converted' : 'dismissed',
+          language: lang,
+        });
+        if (granted) setHasPro(true);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
       Alert.alert(
@@ -141,6 +180,10 @@ export default function SettingsScreen() {
         message || t('paywall.errorBody', lang)
       );
     }
+  };
+
+  const openLink = (url: string) => {
+    WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}));
   };
 
   const handleResetProgress = () => {
@@ -329,7 +372,9 @@ export default function SettingsScreen() {
               {t('settings.subscription.title', lang)}
             </UIText>
             <UIText variant="body" className="text-slate-600 dark:text-slate-300">
-              {t('settings.subscription.description', lang)}
+              {hasPro
+                ? t('settings.subscription.description', lang)
+                : t('settings.subscription.upgradeDescription', lang)}
             </UIText>
             <Button
               onPress={handleManageSubscription}
@@ -337,10 +382,49 @@ export default function SettingsScreen() {
               className="w-full"
               testID="settings.subscription.manage"
             >
-              {t('settings.subscription.manage', lang)}
+              {hasPro
+                ? t('settings.subscription.manage', lang)
+                : t('settings.subscription.upgrade', lang)}
             </Button>
           </Card>
         )}
+
+        <Card className="gap-3">
+          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+            {t('settings.about.title', lang)}
+          </UIText>
+          {PRIVACY_POLICY_URL ? (
+            <Button
+              onPress={() => openLink(PRIVACY_POLICY_URL)}
+              variant="outline"
+              className="w-full"
+              testID="settings.about.privacy"
+            >
+              {t('settings.about.privacy', lang)}
+            </Button>
+          ) : null}
+          <Button
+            onPress={() => openLink(TERMS_OF_USE_URL)}
+            variant="outline"
+            className="w-full"
+            testID="settings.about.terms"
+          >
+            {t('settings.about.terms', lang)}
+          </Button>
+          <Button
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {})}
+            variant="outline"
+            className="w-full"
+            testID="settings.about.support"
+          >
+            {t('settings.about.support', lang)}
+          </Button>
+          <UIText variant="caption" className="text-center text-slate-500 dark:text-slate-400">
+            {t('settings.about.version', lang)}{' '}
+            {Application.nativeApplicationVersion ?? '1.0.0'}
+            {Application.nativeBuildVersion ? ` (${Application.nativeBuildVersion})` : ''}
+          </UIText>
+        </Card>
 
         <Card className="bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-indigo-500/10 border-transparent">
           <View className="gap-3">
@@ -348,7 +432,7 @@ export default function SettingsScreen() {
               {t('home.reset', lang)}
             </UIText>
             <UIText variant="body" className="text-slate-600 dark:text-slate-300">
-              Clear your progress and start fresh. This action cannot be undone.
+              {t('settings.resetDescription', lang)}
             </UIText>
             <Button
               onPress={handleResetProgress}

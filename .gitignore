@@ -45,3 +45,14 @@ app-example
 
 # build output (archives, exported IPAs)
 /build
+
+# simulator screenshot exports (App Store framing inputs, not source)
+/iPhone 17/
+/iPhone 17 Pro/
+/iPhone 17 Pro Max/
+/iPhone Air/
+/Apple iPhone 13 Pro/
+/img_paywall.jpg
+
+# App Store Connect API keys
+*.p8

@@ -47,13 +47,17 @@ const getDefaultStats = () => ({
 });
 
 /**
- * Load stats from database (computed from answer_attempts and mock_exams)
+ * Load stats from database (computed from answer_attempts and mock_exams).
+ * Pass `onlyLang` to load a single language — each language costs ~10
+ * queries, so screens that only need the active language should pass it.
+ * Other languages stay at their zeroed defaults.
  */
-export const loadStats = async () => {
+export const loadStats = async (onlyLang = null) => {
   // Build stats object from database
   const stats = getDefaultStats();
-  
-  for (const lang of [1, 2, 3]) {
+  const langs = onlyLang ? [onlyLang] : [1, 2, 3];
+
+  for (const lang of langs) {
     const langStr = String(lang);
     const langStats = stats.statsByLang[langStr];
     
@@ -124,7 +128,7 @@ export const saveStats = async (stats) => {
  * Get stats for a specific language
  */
 export const getStatsForLang = async (lang) => {
-  const stats = await loadStats();
+  const stats = await loadStats(lang);
   const langStr = String(lang);
   return stats.statsByLang[langStr] || getDefaultLangStats();
 };
@@ -422,10 +426,16 @@ export const getReadinessBreakdown = async (lang, mistakesCount, stats, useConse
   
   // Coverage
   const coverageScore = await calculateCoverage(lang, []);
-  
-  // Overall
-  const overall = await calculateReadinessScore(lang, mistakesCount, stats, useConservative);
-  
+
+  // Overall — same weighted formula as calculateReadinessScore, computed from
+  // the component values above instead of re-running every query.
+  const overall = Math.max(0, Math.min(100, Math.round(
+    (mistakeScore * 0.30) +
+    (performanceScore * 0.25) +
+    (mockExamScore * 0.30) +
+    (coverageScore * 0.15)
+  )));
+
   return {
     overall,
     components: {

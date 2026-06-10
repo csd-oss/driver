@@ -1,13 +1,12 @@
 import * as MistakesDB from '../db/queries/mistakes';
 
 /**
- * Apply an answer and update mistakes/streaks tracking
- * This function now uses the database directly
- * @param {Object} state - Current state (kept for backward compatibility, but not used)
+ * Apply an answer and update mistakes/streaks tracking in the database.
+ * @param {Object} state - Unused, kept so existing call sites don't change
  * @param {number} lang - Language index (1, 2, or 3)
  * @param {string} qid - Question ID
  * @param {boolean} isCorrect - Whether the answer was correct
- * @returns {Promise<Object>} Updated state (for backward compatibility)
+ * @returns {Promise<void>}
  */
 export const applyAnswer = async (state, lang, qid, isCorrect) => {
   if (!isCorrect) {
@@ -17,28 +16,4 @@ export const applyAnswer = async (state, lang, qid, isCorrect) => {
     // Correct answer: record correct answer (implements spaced repetition)
     await MistakesDB.recordCorrectAnswer(lang, qid);
   }
-  
-  // Return updated state for backward compatibility
-  // Note: This is now computed from DB, but we maintain the old structure
-  const mistakes = await MistakesDB.getMistakes(lang);
-  const mistakesByLang = {
-    [String(lang)]: mistakes,
-  };
-  
-  // Build streaks object (only for questions in mistakes)
-  const streaksByLang = {};
-  for (const qid of mistakes) {
-    const streak = await MistakesDB.getStreak(lang, qid);
-    if (streak > 0) {
-      if (!streaksByLang[String(lang)]) {
-        streaksByLang[String(lang)] = {};
-      }
-      streaksByLang[String(lang)][qid] = streak;
-    }
-  }
-  
-  return {
-    mistakesByLang,
-    streaksByLang,
-  };
 };

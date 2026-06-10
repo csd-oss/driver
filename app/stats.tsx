@@ -33,7 +33,7 @@ export default function StatsScreen() {
     setMistakeCount(mistakesCount);
     
     // Load stats
-    const loadedStats = await loadStats();
+    const loadedStats = await loadStats(currentLang);
     const langStr = String(currentLang);
     const langStats = loadedStats.statsByLang?.[langStr];
     setStats(langStats);
@@ -150,34 +150,33 @@ export default function StatsScreen() {
   const readinessInfo = readinessBreakdown ? getReadinessStatusInfo(readinessBreakdown.overall) : getReadinessStatusInfo(0);
   const readinessBarValue = readinessBreakdown ? Math.max(readinessBreakdown.overall, 1) : 0;
   
-  // Format last study date
+  // Format last study date. The DB returns local-date keys as YYYY-MM-DD
+  // (SQLite DATE()), so compare and parse in that format.
   const formatLastStudyDate = () => {
-    if (!stats.engagement.lastStudyDate) {
+    const lastStudyDate = stats.engagement.lastStudyDate;
+    if (!lastStudyDate) {
       return t('stats.noData', lang);
     }
-    
+
+    const toKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
     const today = new Date();
-    const todayKey = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-    
-    if (stats.engagement.lastStudyDate === todayKey) {
+    if (lastStudyDate === toKey(today)) {
       return t('stats.today', lang);
     }
-    
+
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayKey = `${yesterday.getFullYear()}${String(yesterday.getMonth() + 1).padStart(2, '0')}${String(yesterday.getDate()).padStart(2, '0')}`;
-    
-    if (stats.engagement.lastStudyDate === yesterdayKey) {
+    if (lastStudyDate === toKey(yesterday)) {
       return t('stats.yesterday', lang);
     }
-    
-    // Format as date
-    const date = new Date(
-      parseInt(stats.engagement.lastStudyDate.substring(0, 4)),
-      parseInt(stats.engagement.lastStudyDate.substring(4, 6)) - 1,
-      parseInt(stats.engagement.lastStudyDate.substring(6, 8))
-    );
-    return date.toLocaleDateString();
+
+    const [year, month, day] = lastStudyDate.split('-').map(Number);
+    if (!year || !month || !day) {
+      return t('stats.noData', lang);
+    }
+    return new Date(year, month - 1, day).toLocaleDateString();
   };
 
   const getAccuracyBadgeClass = (value) => {

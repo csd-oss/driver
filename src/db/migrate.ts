@@ -197,13 +197,13 @@ async function createViews(): Promise<void> {
     `CREATE VIEW IF NOT EXISTS v_daily_stats AS
      SELECT 
        lang,
-       DATE(created_at, 'unixepoch') as study_date,
+       DATE(created_at, 'unixepoch', 'localtime') as study_date,
        COUNT(*) as attempts,
        SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct,
        SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong
      FROM answer_attempts
      WHERE mode IN ('study', 'mistakes')
-     GROUP BY lang, DATE(created_at, 'unixepoch')`,
+     GROUP BY lang, DATE(created_at, 'unixepoch', 'localtime')`,
 
     // Category stats view
     `CREATE VIEW IF NOT EXISTS v_category_stats AS

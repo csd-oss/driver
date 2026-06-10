@@ -8,7 +8,7 @@ export async function getCurrentStreak(lang: number): Promise<number> {
   // Get all study dates from answer attempts
   // Note: Drizzle stores timestamps as seconds (Unix epoch), so no need to divide by 1000
   const studyDates = await database.getAllAsync(
-    `SELECT DISTINCT DATE(created_at, 'unixepoch') as study_date
+    `SELECT DISTINCT DATE(created_at, 'unixepoch', 'localtime') as study_date
     FROM answer_attempts
     WHERE lang = ? AND mode IN ('study', 'mistakes')
     ORDER BY study_date DESC`,
@@ -17,7 +17,7 @@ export async function getCurrentStreak(lang: number): Promise<number> {
   
   // Get all dates with passed mock exams
   const mockDates = await database.getAllAsync(
-    `SELECT DISTINCT DATE(completed_at, 'unixepoch') as exam_date
+    `SELECT DISTINCT DATE(completed_at, 'unixepoch', 'localtime') as exam_date
     FROM mock_exams
     WHERE lang = ? AND passed = 1 AND completed_at IS NOT NULL
     ORDER BY exam_date DESC`,
@@ -34,34 +34,41 @@ export async function getCurrentStreak(lang: number): Promise<number> {
   }
   
   const sortedDates = Array.from(allDates).sort((a, b) => b.localeCompare(a));
-  
+
   if (sortedDates.length === 0) return 0;
-  
-  // Check if today or yesterday is in the list
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  
+
+  // Local-date keys (YYYY-MM-DD) — the SQL above buckets by localtime, so the
+  // JS side must compare against local dates too, not toISOString() (UTC).
+  const toLocalKey = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const now = new Date();
+  const today = toLocalKey(now);
+  const yesterdayDate = new Date(now);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = toLocalKey(yesterdayDate);
+
   if (sortedDates[0] !== today && sortedDates[0] !== yesterday) {
     // No activity today or yesterday, streak is 0
     return 0;
   }
-  
-  // Count consecutive days from today backwards
+
+  // Count consecutive days backwards from the most recent active day
   let streak = 0;
-  let expectedDate = today;
-  
+  const cursor = sortedDates[0] === today ? new Date(now) : yesterdayDate;
+
   for (const date of sortedDates) {
-    if (date === expectedDate || date === yesterday) {
+    if (date === toLocalKey(cursor)) {
       streak++;
-      // Calculate previous day
-      const dateObj = new Date(date);
-      dateObj.setDate(dateObj.getDate() - 1);
-      expectedDate = dateObj.toISOString().split('T')[0];
+      cursor.setDate(cursor.getDate() - 1);
     } else {
       break;
     }
   }
-  
+
   return streak;
 }
 
@@ -70,7 +77,7 @@ export async function getCurrentStreak(lang: number): Promise<number> {
  */
 export async function getLastStudyDate(lang: number): Promise<string | null> {
   const result = await database.getAllAsync(
-    `SELECT MAX(DATE(created_at, 'unixepoch')) as last_date
+    `SELECT MAX(DATE(created_at, 'unixepoch', 'localtime')) as last_date
     FROM answer_attempts
     WHERE lang = ? AND mode IN ('study', 'mistakes')`,
     [lang]
@@ -84,14 +91,14 @@ export async function getLastStudyDate(lang: number): Promise<string | null> {
  */
 export async function getLastOpenedDate(lang: number): Promise<string | null> {
   const studyResult = await database.getAllAsync(
-    `SELECT MAX(DATE(created_at, 'unixepoch')) as last_date
+    `SELECT MAX(DATE(created_at, 'unixepoch', 'localtime')) as last_date
     FROM answer_attempts
     WHERE lang = ?`,
     [lang]
   );
   
   const mockResult = await database.getAllAsync(
-    `SELECT MAX(DATE(created_at, 'unixepoch')) as last_date
+    `SELECT MAX(DATE(created_at, 'unixepoch', 'localtime')) as last_date
     FROM mock_exams
     WHERE lang = ?`,
     [lang]

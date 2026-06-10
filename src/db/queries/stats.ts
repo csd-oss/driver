@@ -31,15 +31,15 @@ export async function getDailyStats(lang: number, days: number = 14) {
   // Note: Drizzle stores timestamps as seconds (Unix epoch), so no need to divide by 1000
   const result = await database.getAllAsync(
     `SELECT 
-      DATE(created_at, 'unixepoch') as study_date,
+      DATE(created_at, 'unixepoch', 'localtime') as study_date,
       COUNT(*) as attempts,
       SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct,
       SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong
     FROM answer_attempts
     WHERE lang = ? 
       AND mode IN ('study', 'mistakes')
-      AND DATE(created_at, 'unixepoch') >= DATE('now', '-' || ? || ' days')
-    GROUP BY DATE(created_at, 'unixepoch')
+      AND DATE(created_at, 'unixepoch', 'localtime') >= DATE('now', 'localtime', '-' || ? || ' days')
+    GROUP BY DATE(created_at, 'unixepoch', 'localtime')
     ORDER BY study_date DESC`,
     [lang, days]
   );
@@ -137,7 +137,7 @@ export async function getLast7DaysAccuracy(lang: number): Promise<number | null>
     FROM answer_attempts
     WHERE lang = ? 
       AND mode IN ('study', 'mistakes')
-      AND DATE(created_at, 'unixepoch') >= DATE('now', '-7 days')`,
+      AND DATE(created_at, 'unixepoch', 'localtime') >= DATE('now', 'localtime', '-7 days')`,
     [lang]
   );
   

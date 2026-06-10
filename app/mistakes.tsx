@@ -320,12 +320,32 @@ export default function MistakesScreen() {
     }
   }, [lang, question?.qid]);
 
-  // Show empty state if no mistakes at all
+  // Show empty state if no mistakes at all — celebrate and route the user
+  // somewhere productive instead of dead-ending.
   if (mistakes.length === 0) {
     return (
       <Screen testID="screen.mistakes" header={<Header title={t('nav.mistakes', lang)} />}>
-        <View className="flex-1 items-center justify-center mt-1">
-          <UIText variant="title">{t('mistakes.empty', lang)}</UIText>
+        <View className="flex-1 items-center justify-center mt-1 px-2 gap-4">
+          <UIText variant="title" className="text-center">{t('mistakes.empty', lang)}</UIText>
+          <UIText variant="body" className="text-center text-slate-600 dark:text-slate-300">
+            {t('mistakes.emptyHint', lang)}
+          </UIText>
+          <View className="w-full gap-3 mt-2">
+            <Button
+              onPress={() => router.replace('/study')}
+              variant="default"
+              className="w-full"
+            >
+              {t('home.smartStudyCta', lang)}
+            </Button>
+            <Button
+              onPress={() => router.replace('/mock')}
+              variant="outline"
+              className="w-full"
+            >
+              {t('home.mock', lang)}
+            </Button>
+          </View>
         </View>
       </Screen>
     );
@@ -366,9 +386,9 @@ export default function MistakesScreen() {
     return (
       <Screen testID="screen.mistakes" header={<Header title={t('nav.mistakes', lang)} />}>
         <View className="flex-1 items-center justify-center mt-1">
-          <UIText variant="body">Question not found</UIText>
+          <UIText variant="body">{t('mistakes.notFound', lang)}</UIText>
           <Button onPress={loadData} variant="default" className="mt-4">
-            Reload
+            {t('mistakes.reload', lang)}
           </Button>
         </View>
       </Screen>

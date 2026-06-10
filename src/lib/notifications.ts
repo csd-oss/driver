@@ -199,6 +199,21 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return status === 'granted';
 }
 
+/**
+ * Ask for notification permission if the user has never been asked.
+ * Used on Home for users who skipped onboarding (and its permission slide):
+ * once they show real engagement we make one ask. iOS/Android keep the
+ * status as 'undetermined' until the first system prompt, so this can only
+ * ever fire once per install.
+ */
+export async function promptForNotificationsIfNeverAsked(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'undetermined') return;
+  const granted = await ensureNotificationPermission();
+  if (granted) await syncNotificationsWithCurrentSettings();
+}
+
 export async function syncNotificationsWithCurrentSettings(): Promise<void> {
   if (Platform.OS === 'web') return;
 

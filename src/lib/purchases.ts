@@ -50,10 +50,17 @@ export const configurePurchases = async (): Promise<void> => {
   if (configurePromise) return configurePromise;
 
   configurePromise = (async () => {
-    const apiKey = getApiKey()!;
-    Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.WARN : LOG_LEVEL.ERROR);
-    Purchases.configure({ apiKey });
-    Purchases.addCustomerInfoUpdateListener(updateFromCustomerInfo);
+    try {
+      const apiKey = getApiKey()!;
+      Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.WARN : LOG_LEVEL.ERROR);
+      Purchases.configure({ apiKey });
+      Purchases.addCustomerInfoUpdateListener(updateFromCustomerInfo);
+    } catch (error) {
+      // Configure failed — clear the cached promise so the next gated tap
+      // retries instead of replaying a permanently-rejected promise.
+      configurePromise = null;
+      throw error;
+    }
     try {
       const info = await Purchases.getCustomerInfo();
       updateFromCustomerInfo(info);
@@ -109,6 +116,15 @@ export const presentPaywall = async (): Promise<PAYWALL_RESULT> => {
 export const ensureProAccess = async (): Promise<boolean> => {
   if (isPaywallBypassed()) return true;
   if (!isPurchasesSupported()) return true; // non-iOS: no gating
+
+  // The launch-time configure is fire-and-forget; if the user reaches a gate
+  // before it resolves (or it never ran), presenting the paywall would reject
+  // on the unconfigured SDK and the tap would silently do nothing.
+  try {
+    await configurePurchases();
+  } catch {
+    /* fall through — presentPaywall below is also guarded */
+  }
   if (isSubscribed()) return true;
 
   // Present the paywall. We intentionally ignore the returned PAYWALL_RESULT —
@@ -117,7 +133,12 @@ export const ensureProAccess = async (): Promise<boolean> => {
   // can return PURCHASED or NOT_PRESENTED). The only source of truth is the
   // entitlement state after RC re-queries the server, which we do via
   // refreshEntitlement below.
-  await presentPaywall();
+  try {
+    await presentPaywall();
+  } catch {
+    // Paywall failed to present (network, RC outage, unconfigured SDK).
+    // Don't crash the gate — refreshEntitlement decides access below.
+  }
   return await refreshEntitlement();
 };
 

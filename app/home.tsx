@@ -9,7 +9,7 @@ import * as EngagementDB from '@/src/db/queries/engagement';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import * as StatsDB from '@/src/db/queries/stats';
 import { t } from '@/src/i18n/i18n';
-import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
+import { promptForNotificationsIfNeverAsked } from '@/src/lib/notifications';
 import { getCachedLanguage, getLanguage, getReadinessMode } from '@/src/lib/settings';
 import { getReadinessBreakdown, loadStats } from '@/src/lib/stats';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
@@ -18,7 +18,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
-import { ensureProAccess } from '@/src/lib/purchases';
+import { ensureProAccess, isPurchasesSupported, isSubscribed } from '@/src/lib/purchases';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -29,9 +29,12 @@ export default function HomeScreen() {
   const [streak, setStreak] = useState(0);
   const [readinessScore, setReadinessScore] = useState(0);
   const [readinessStatus, setReadinessStatus] = useState('needsWork');
+  const [showProBadge, setShowProBadge] = useState(false);
 
   const loadData = useCallback(async () => {
-    await syncNotificationsWithCurrentSettings();
+    // Notification scheduling is handled at launch (_layout) and after any
+    // settings/language change — no need to cancel + reschedule 40+
+    // notifications on every Home focus.
     const currentLang = await getLanguage();
     setLang(currentLang);
     
@@ -46,9 +49,18 @@ export default function HomeScreen() {
     // Get streak
     const currentStreak = await EngagementDB.getCurrentStreak(currentLang);
     setStreak(currentStreak);
-    
+
+    // Gated cards show a PRO pill until the entitlement is held
+    setShowProBadge(isPurchasesSupported() && !isSubscribed());
+
+    // Users who skipped onboarding were never asked for notification
+    // permission. Once they show engagement, make the one-time ask here.
+    if (accuracy7d !== null || mistakesCount > 0) {
+      promptForNotificationsIfNeverAsked().catch(() => {});
+    }
+
     // Calculate readiness score
-    const stats = await loadStats();
+    const stats = await loadStats(currentLang);
     const langStats = stats.statsByLang?.[String(currentLang)];
     if (langStats) {
       const useConservative = await getReadinessMode();
@@ -109,9 +121,31 @@ export default function HomeScreen() {
   // Navigate only if the user has (or just acquired) the Pro entitlement.
   const openGated = async (route: '/study' | '/mistakes', event: string) => {
     trackEvent(posthog, event, { language: lang });
+    const placement = route === '/study' ? 'smart_study' : 'mistakes';
+    const alreadyPro = !isPurchasesSupported() || isSubscribed();
+    if (!alreadyPro) {
+      trackEvent(posthog, 'paywall_shown', { placement, language: lang });
+    }
     const granted = await ensureProAccess();
+    if (!alreadyPro) {
+      // granted here means purchased/restored on this paywall presentation
+      trackEvent(posthog, 'paywall_result', {
+        placement,
+        outcome: granted ? 'converted' : 'dismissed',
+        language: lang,
+      });
+      if (granted) setShowProBadge(false);
+    }
     if (granted) router.push(route);
   };
+
+  const ProBadge = () => (
+    <View className="rounded-full bg-indigo-600 dark:bg-indigo-500 px-2 py-0.5">
+      <UIText variant="caption" className="text-white font-bold text-[10px] tracking-[0.08em]">
+        PRO
+      </UIText>
+    </View>
+  );
 
   return (
     <Screen testID="screen.home">
@@ -230,9 +264,12 @@ export default function HomeScreen() {
           accessibilityLabel={t('home.mistakes', lang)}
         >
           <View className="flex-1 gap-1">
-            <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
-              {t('home.mistakes', lang)}
-            </UIText>
+            <View className="flex-row items-center gap-2">
+              <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+                {t('home.mistakes', lang)}
+              </UIText>
+              {showProBadge && <ProBadge />}
+            </View>
             <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
               {mistakeCount === 0
                 ? t('home.mistakesSubtitle.zero', lang)
@@ -243,9 +280,12 @@ export default function HomeScreen() {
         </Card>
 
         <Card className="gap-3">
-          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
-            {t('study.smartTitle', lang)}
-          </UIText>
+          <View className="flex-row items-center gap-2">
+            <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+              {t('study.smartTitle', lang)}
+            </UIText>
+            {showProBadge && <ProBadge />}
+          </View>
           <UIText variant="body">
             {t('home.smartStudyBlurb', lang)}
           </UIText>

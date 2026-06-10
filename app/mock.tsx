@@ -39,11 +39,13 @@ export default function MockScreen() {
   const [timeSpentMs, setTimeSpentMs] = useState({}); // Accumulated milliseconds per question
   const currentQuestionStartedAtRef = useRef<Date | null>(null); // When current question view started
   const [isFinished, setIsFinished] = useState(false);
+  const [addedWrongToMistakes, setAddedWrongToMistakes] = useState(false);
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
   const [passed, setPassed] = useState(false);
   const [results, setResults] = useState({});
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const deadlineRef = useRef<number | null>(null); // Absolute end time, survives backgrounding
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [selectedQuestionDetail, setSelectedQuestionDetail] = useState(null);
   const questionScrollRef = useRef(null);
@@ -124,6 +126,7 @@ export default function MockScreen() {
     setTimeSpentMs({});
     currentQuestionStartedAtRef.current = null;
     setIsFinished(false);
+    setAddedWrongToMistakes(false);
     setScore(0);
     setMaxScore(newTest?.maxbody || 0);
     setPassed(false);
@@ -134,6 +137,9 @@ export default function MockScreen() {
     
     if (newTest && newTest.cas > 0) {
       setTimeRemaining(newTest.cas);
+      deadlineRef.current = Date.now() + newTest.cas * 1000;
+    } else {
+      deadlineRef.current = null;
     }
     
     // Create mock exam session
@@ -200,9 +206,11 @@ export default function MockScreen() {
     setResults(questionResults);
     setIsFinished(true);
     
-    // Complete mock exam
+    // Complete mock exam — measure from the real start time so a timed-out
+    // exam records the full duration instead of undefined.
     const initialTime = test.cas || 0;
-    const durationSec = initialTime > 0 && timeRemaining > 0 ? initialTime - timeRemaining : undefined;
+    const elapsedSec = Math.round((Date.now() - examStartedAt.getTime()) / 1000);
+    const durationSec = initialTime > 0 ? Math.min(elapsedSec, initialTime) : elapsedSec;
     
     await MockDB.completeMockExam(mockExamId, {
       score: totalScore,
@@ -235,16 +243,20 @@ export default function MockScreen() {
 
   useEffect(() => {
     if (timeRemaining > 0 && !isFinished) {
+      // Derive remaining time from the absolute deadline rather than
+      // decrementing — setInterval is suspended while the app is
+      // backgrounded, which would otherwise pause the exam clock.
       const timer = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            handleFinish();
-            return 0;
-          }
-          return prev - 1;
-        });
+        if (!deadlineRef.current) return;
+        const remaining = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+        if (remaining <= 0) {
+          setTimeRemaining(0);
+          handleFinish();
+        } else {
+          setTimeRemaining(remaining);
+        }
       }, 1000);
-      
+
       return () => clearInterval(timer);
     }
   }, [timeRemaining, isFinished, handleFinish]);
@@ -269,29 +281,32 @@ export default function MockScreen() {
   };
 
   const handleAddWrongToMistakes = async () => {
-    if (!test) return;
-    
+    if (!test || addedWrongToMistakes) return;
+    setAddedWrongToMistakes(true);
+
     let wrongCount = 0;
-    
+
     for (let qNo = 1; qNo <= test.pocet; qNo++) {
       const qNoStr = String(qNo);
       const questionData = test.otazky[qNoStr];
       if (!questionData || !questionData[0]) continue;
-      
+
       const q = questionData[0];
       const userAnswer = answers[qNoStr];
-      
-      if (userAnswer !== q.platna) {
+
+      // Only questions the user actually answered incorrectly — unanswered
+      // questions would otherwise flood the Smart Practice mistake queue.
+      if (userAnswer !== undefined && userAnswer !== q.platna) {
         await applyAnswer(null, lang, String(q.id), false);
         wrongCount += 1;
       }
     }
-    
+
     // Update added to mistakes count
     if (mockExamId && wrongCount > 0) {
       await MockDB.updateAddedToMistakesCount(mockExamId, wrongCount);
     }
-    
+
     Alert.alert(t('mock.addWrongSuccessTitle', lang), t('mock.addWrongSuccessMessage', lang));
   };
 
@@ -365,7 +380,7 @@ export default function MockScreen() {
     return (
       <Screen testID="screen.mock" header={<Header title={t('nav.mock', lang)} />}>
         <View className="flex-1 items-center justify-center mt-1">
-          <UIText variant="body">Loading...</UIText>
+          <UIText variant="body">{t('common.loading', lang)}</UIText>
         </View>
       </Screen>
     );
@@ -407,6 +422,7 @@ export default function MockScreen() {
             onPress={handleAddWrongToMistakes}
             variant="outline"
             className="w-full"
+            disabled={addedWrongToMistakes}
           >
             {t('mock.addWrong', lang)}
           </Button>
