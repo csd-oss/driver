@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import Purchases, { LOG_LEVEL, type CustomerInfo } from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import { getCachedLanguage } from './settings';
 
 // Lookup key of the entitlement that gates the app. Matches the
 // "Driver SK Pro" entitlement configured in the RevenueCat dashboard
@@ -44,6 +45,24 @@ export const isPaywallBypassed = (): boolean =>
 
 export const isPurchasesSupported = (): boolean =>
   Platform.OS === 'ios' && Boolean(getApiKey()) && !isPaywallBypassed();
+
+// App language (1 = Slovak, 2 = English, 3 = Hungarian) → BCP-47 locale used
+// by the RevenueCat paywall. Matches the Slovak/Hungarian/English (US) columns
+// configured on the hosted paywall.
+const localeForLang = (lang: number): string =>
+  lang === 1 ? 'sk' : lang === 3 ? 'hu' : 'en';
+
+// Make the hosted paywall render in the user's *in-app* language rather than
+// the device locale (the two can differ — a user can pick Slovak on an English
+// phone). Best-effort: a failure here must never block the paywall, it just
+// falls back to device locale.
+const syncPaywallLocale = async (): Promise<void> => {
+  try {
+    await Purchases.overridePreferredLocale(localeForLang(getCachedLanguage()));
+  } catch {
+    /* ignore — paywall falls back to device locale */
+  }
+};
 
 export const configurePurchases = async (): Promise<void> => {
   if (!isPurchasesSupported()) return;
@@ -102,6 +121,9 @@ export const refreshEntitlement = async (): Promise<boolean> => {
  */
 export const presentPaywall = async (): Promise<PAYWALL_RESULT> => {
   if (!isPurchasesSupported()) return PAYWALL_RESULT.NOT_PRESENTED;
+  // Align the paywall language with the in-app language right before showing it,
+  // so it's always correct regardless of when the user changed languages.
+  await syncPaywallLocale();
   return RevenueCatUI.presentPaywallIfNeeded({
     requiredEntitlementIdentifier: PRO_ENTITLEMENT,
     displayCloseButton: true,
