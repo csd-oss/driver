@@ -42,7 +42,10 @@ const bankIds = (bank) => {
 const skSet = bankIds(data[0]);
 const huSet = bankIds(data[2]);
 // Walk EN in order (deterministic selection) but keep only ids shared by all 3.
+// Track text-only ids separately: image presence is consistent across langs
+// for a shared id, so EN's obrazok flag is authoritative.
 const ids = [];
+const textOnlyIds = [];
 const seen = new Set();
 for (const test of data[1]) {
   const otazky = test.otazky || {};
@@ -50,12 +53,15 @@ for (const test of data[1]) {
     const q = otazky[k] && otazky[k][0];
     if (q && q.id != null && !seen.has(q.id) && skSet.has(q.id) && huSet.has(q.id)) {
       seen.add(q.id); ids.push(q.id);
+      if (!q.obrazok) textOnlyIds.push(q.id);
     }
   }
 }
 
 const POOL = ids.slice(0, 520);            // distinct ids -> coverage
-const MISTAKE_IDS = ids.slice(40, 47);     // 7 real ids for the mistakes screen
+// 7 text-only ids: the Mistakes screen shuffles among these, so all must be
+// image-free to avoid rendering a low-res official road-sign scan.
+const MISTAKE_IDS = textOnlyIds.slice(40, 47);
 const DEVICE = 'seed-device';
 const DAY = 86400;
 const now = Math.floor(Date.now() / 1000);

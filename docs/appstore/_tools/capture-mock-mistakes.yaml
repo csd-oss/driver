@@ -1,0 +1,35 @@
+# Re-capture ONLY the mistakes + mock raws for one language (other screens keep
+# their committed captures). Pins the mock test for a clean text-only question.
+#   maestro test -e LANG_DIR=en -e MOCK_TEST=62 docs/appstore/_tools/capture-mock-mistakes.yaml
+# App language is set via the DB (settings.lang) before running. Run from project root.
+appId: com.smartie.driver
+---
+- launchApp
+- tapOn:
+    text: "Cancel"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.home"
+    timeout: 20000
+
+- openLink: "driver://mistakes"
+- tapOn:
+    text: "Open"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.mistakes"
+    timeout: 12000
+- takeScreenshot: "docs/appstore/raw/${LANG_DIR}/mistakes"
+
+# Mock pinned to a specific (clean, text-only) test via ?t=
+- openLink: "driver://mock?t=${MOCK_TEST}"
+- tapOn:
+    text: "Open"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.mock"
+    timeout: 12000
+- takeScreenshot: "docs/appstore/raw/${LANG_DIR}/mock"
