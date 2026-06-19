@@ -8,4 +8,4 @@
  */
 export const PRIVACY_POLICY_URL = 'https://www.smartie.team/driver-sk/privacy';
 export const TERMS_OF_USE_URL = 'https://www.smartie.team/driver-sk/terms';
-export const SUPPORT_EMAIL = 'mk@buialo.com';
+export const SUPPORT_EMAIL = 'hello-driver@smartie.team';
