@@ -47,7 +47,9 @@ appId: com.smartie.driver
 
 # Mock is captured LAST: opening /mock auto-starts (and can complete) a mock
 # exam, which would otherwise pollute the stats/home readiness numbers.
-- openLink: "driver://mock"
+# MOCK_TEST pins a specific test index so the screenshot shows a clean,
+# text-only question instead of a random (often low-res image) one.
+- openLink: "driver://mock?t=${MOCK_TEST}"
 - tapOn:
     text: "Open"
     optional: true

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { View, ScrollView, Alert, Pressable, Modal } from 'react-native';
 import { AspectImage } from '@/components/ui/aspect-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Screen } from '@/components/ui/screen';
@@ -13,7 +13,7 @@ import { Divider } from '@/components/ui/divider';
 import { Header } from '@/components/ui/header';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
-import { getRandomTestWithIndex, getQuestionFromTest } from '@/src/lib/bank';
+import { getRandomTestWithIndex, getQuestionFromTest, getTests } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
@@ -26,7 +26,12 @@ import { usePostHog } from 'posthog-react-native';
 
 export default function MockScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const posthog = usePostHog();
+  // Capture-only: `driver://mock?t=<index>` pins the first test for a
+  // deterministic marketing screenshot. One-shot — "New test" reverts to
+  // random. Never set in normal use, so production behaviour is unchanged.
+  const pinnedTestRef = useRef<number | null>(null);
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const [lang, setLang] = useState(getCachedLanguage);
@@ -54,6 +59,8 @@ export default function MockScreen() {
   const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
     setLang(currentLang);
+    const t = parseInt(String(params.t ?? ''), 10);
+    pinnedTestRef.current = Number.isInteger(t) ? t : null;
     startNewTest(currentLang);
   }, []);
 
@@ -118,7 +125,16 @@ export default function MockScreen() {
   );
 
   const startNewTest = async (currentLang) => {
-    const { test: newTest, testIndex: idx } = getRandomTestWithIndex(currentLang);
+    const langTests = getTests(currentLang);
+    const pin = pinnedTestRef.current;
+    let newTest, idx;
+    if (pin != null && pin >= 0 && pin < langTests.length) {
+      newTest = langTests[pin];
+      idx = pin;
+      pinnedTestRef.current = null; // one-shot: "New test" reverts to random
+    } else {
+      ({ test: newTest, testIndex: idx } = getRandomTestWithIndex(currentLang));
+    }
     setTest(newTest);
     setTestIndex(idx);
     setAnswers({});
