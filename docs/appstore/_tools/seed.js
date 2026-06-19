@@ -24,14 +24,33 @@ const { data } = (() => {
   return m.exports;
 })();
 
-// data = [SK[], EN[], HU[]] with shared ids. Pull distinct ids from EN.
+// data = [SK[], EN[], HU[]]. IDs are MOSTLY shared, but each bank has ~80 ids
+// the others lack (SK 975 / EN 985 / HU 983). Seed only ids present in ALL
+// THREE banks, otherwise a lang-specific gap (e.g. EN id 1310 missing in HU)
+// renders the Mistakes "question not found" fallback in that language.
+const bankIds = (bank) => {
+  const s = new Set();
+  for (const test of bank) {
+    const otazky = test.otazky || {};
+    for (const k of Object.keys(otazky)) {
+      const q = otazky[k] && otazky[k][0];
+      if (q && q.id != null) s.add(q.id);
+    }
+  }
+  return s;
+};
+const skSet = bankIds(data[0]);
+const huSet = bankIds(data[2]);
+// Walk EN in order (deterministic selection) but keep only ids shared by all 3.
 const ids = [];
 const seen = new Set();
 for (const test of data[1]) {
   const otazky = test.otazky || {};
   for (const k of Object.keys(otazky)) {
     const q = otazky[k] && otazky[k][0];
-    if (q && q.id != null && !seen.has(q.id)) { seen.add(q.id); ids.push(q.id); }
+    if (q && q.id != null && !seen.has(q.id) && skSet.has(q.id) && huSet.has(q.id)) {
+      seen.add(q.id); ids.push(q.id);
+    }
   }
 }
 
