@@ -6,16 +6,14 @@ RevenueCat dashboard, or a hosting provider. Items are ordered by blocking-ness.
 
 ---
 
-## 1. Legal page URLs — DONE in code
+## 1. Legal + support URLs — DONE
 
-Pages are hosted and wired into the app (`src/lib/links.ts`), both verified live (HTTP 200):
+All three pages are hosted and verified live (HTTP 200, no redirects). Privacy + Terms
+are wired into the app (`src/lib/links.ts`); support email is `hello-driver@smartie.team`.
 
-- Privacy: `https://www.smartie.team/driver-sk/privacy`
+- Privacy: `https://www.smartie.team/driver-sk/privacy`  → ASC App Information **Privacy Policy URL**
 - Terms: `https://www.smartie.team/driver-sk/terms`
-
-Use the **Privacy URL** for App Store Connect's Privacy Policy field (§3). You still
-need a **Support URL** — either host `docs/legal/support.html` (e.g.
-`https://www.smartie.team/driver-sk/support`) or use any reachable support page.
+- Support: `https://www.smartie.team/driver-sk/support`  → ASC App Information **Support URL**
 
 > Source content also lives in `docs/legal/*.{md,html}` if you want to keep the
 > hosted pages in sync from the repo.
