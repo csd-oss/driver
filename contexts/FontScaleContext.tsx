@@ -1,47 +1,31 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { AppState, PixelRatio } from 'react-native';
+import { createContext, useContext, type ReactNode } from 'react';
+import { useWindowDimensions } from 'react-native';
 
 interface FontScaleContextType {
   updateKey: number;
 }
 
-const FontScaleContext = createContext<FontScaleContextType>({ updateKey: 0 });
+const FontScaleContext = createContext<FontScaleContextType>({ updateKey: 1 });
 
 /**
- * FontScaleProvider that forces re-renders when the system font scale
- * (iOS Dynamic Type / Android font size) changes. Changing the scale requires
- * leaving the app, so a foreground transition is the only moment a new value
- * can appear — no polling needed. React Native's `allowFontScaling` handles
- * the actual scaling; we only bump `updateKey` so keyed Text remounts pick up
- * the new metrics.
+ * Makes text react live to system font-size (Dynamic Type) changes.
+ *
+ * `useWindowDimensions` re-renders this provider whenever the system font
+ * scale changes: on iOS, RN observes `UIContentSizeCategoryDidChange` and
+ * updates `fontScale`, emitting a Dimensions "change". Passing `fontScale`
+ * through as `updateKey` makes every Text consumer (Button/UIText key their
+ * inner Text off it) re-render the moment the user changes the text size —
+ * no relaunch needed.
+ *
+ * This is event-driven, so it replaces the old 400 ms polling that re-rendered
+ * the whole tree continuously and drained battery. It only fires when the
+ * scale actually changes.
  */
 export function FontScaleProvider({ children }: { children: ReactNode }) {
-  const [updateKey, setUpdateKey] = useState(0);
-  const appState = useRef(AppState.currentState);
-  const lastScale = useRef<number>(PixelRatio.getFontScale());
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active'
-      ) {
-        // iOS reports a stale getFontScale() after Dynamic Type changes, so
-        // bump unconditionally on every foreground — it's a cheap re-render
-        // and only happens when returning to the app.
-        lastScale.current = PixelRatio.getFontScale();
-        setUpdateKey((prev) => prev + 1);
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription?.remove();
-    };
-  }, []);
+  const { fontScale } = useWindowDimensions();
 
   return (
-    <FontScaleContext.Provider value={{ updateKey }}>
+    <FontScaleContext.Provider value={{ updateKey: fontScale }}>
       {children}
     </FontScaleContext.Provider>
   );
