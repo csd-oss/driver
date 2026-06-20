@@ -1012,4 +1012,19 @@ export const STR = {
     2: 'Great job! Keep studying or check your readiness with a mock exam.',
     3: 'Szép munka! Tanulj tovább, vagy ellenőrizd a felkészültséged egy próbavizsgával.',
   },
+  'a11y.questionImage': {
+    1: 'Obrázok k otázke',
+    2: 'Question image',
+    3: 'Kérdéshez tartozó kép',
+  },
+  'a11y.goBack': {
+    1: 'Späť',
+    2: 'Go back',
+    3: 'Vissza',
+  },
+  'a11y.answered': {
+    1: 'zodpovedané',
+    2: 'answered',
+    3: 'megválaszolva',
+  },
 };

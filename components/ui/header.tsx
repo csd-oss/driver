@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { IconSymbol } from './icon-symbol';
 import { PressableScale } from './pressable-scale';
 import { UIText } from './text';
+import { t } from '@/src/i18n/i18n';
+import { getCachedLanguage } from '@/src/lib/settings';
 
 interface HeaderProps {
   title?: string;
@@ -44,7 +46,7 @@ export const Header = ({ title, showBack = true, onBackPress, rightElement }: He
             className="mr-3 p-2 rounded-full bg-slate-100 dark:bg-slate-800"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('a11y.goBack', getCachedLanguage())}
           >
             <IconSymbol
               name="chevron.left"

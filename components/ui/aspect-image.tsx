@@ -7,18 +7,21 @@ interface AspectImageProps {
   maxWidth?: number;
   className?: string;
   style?: object;
+  /** VoiceOver description; falls back to a generic "image" announcement. */
+  accessibilityLabel?: string;
 }
 
 /**
  * An image component that maintains aspect ratio and only takes
  * the vertical space needed to display the image (up to maxHeight).
  */
-export function AspectImage({ 
-  source, 
-  maxHeight = 300, 
+export function AspectImage({
+  source,
+  maxHeight = 300,
   maxWidth,
   className,
-  style 
+  style,
+  accessibilityLabel,
 }: AspectImageProps) {
   const [containerWidth, setContainerWidth] = useState(0);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
@@ -73,6 +76,9 @@ export function AspectImage({
             alignSelf: 'center',
           }}
           resizeMode="contain"
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={accessibilityLabel}
         />
       )}
     </View>

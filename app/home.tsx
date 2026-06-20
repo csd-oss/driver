@@ -252,7 +252,7 @@ export default function HomeScreen() {
             router.push('/mock');
           }}
           testID="home.mock"
-          accessibilityLabel={t('home.mock', lang)}
+          accessibilityLabel={`${t('home.mock', lang)}, ${t('home.mockSubtitle', lang)}`}
         >
           <View className="flex-1 gap-1">
             <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
@@ -269,7 +269,11 @@ export default function HomeScreen() {
           className="flex-row items-center justify-between"
           onPress={() => openGated('/mistakes', 'home_mistakes_clicked')}
           testID="home.mistakes"
-          accessibilityLabel={t('home.mistakes', lang)}
+          accessibilityLabel={`${t('home.mistakes', lang)}, ${
+            mistakeCount === 0
+              ? t('home.mistakesSubtitle.zero', lang)
+              : t('home.mistakesSubtitle.count', lang).replace('{count}', String(mistakeCount))
+          }${showProBadge ? ', PRO' : ''}`}
         >
           <View className="flex-1 gap-1">
             <View className="flex-row items-center gap-2">

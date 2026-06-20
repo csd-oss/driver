@@ -334,6 +334,7 @@ export default function StudyScreen() {
                 source={imageSource}
                 maxHeight={300}
                 maxWidth={400}
+                accessibilityLabel={t('a11y.questionImage', lang)}
               />
             </View>
           ) : question.image ? (

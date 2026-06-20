@@ -467,6 +467,9 @@ export default function MockScreen() {
                   <Component
                     key={qNoStr}
                     onPress={isCorrect ? undefined : () => handleQuestionDetailPress(qNoStr)}
+                    accessible
+                    accessibilityRole={isCorrect ? undefined : 'button'}
+                    accessibilityLabel={`${t('mock.question', lang)} ${qNo}, ${isCorrect ? t('study.correct', lang) : t('study.wrong', lang)}`}
                     className={`px-5 py-4 rounded-xl border flex-row items-center justify-between min-h-[56px] ${
                       isCorrect
                         ? 'bg-emerald-50 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800'
@@ -547,6 +550,7 @@ export default function MockScreen() {
                             <AspectImage
                               source={imageSource}
                               maxHeight={300}
+                              accessibilityLabel={t('a11y.questionImage', lang)}
                             />
                           </View>
                         ) : question.image ? (
@@ -690,6 +694,9 @@ export default function MockScreen() {
                   borderColor,
                   ...(isCurrent ? shadowStyle : {}),
                 }}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('mock.question', lang)} ${qNo}${hasAnswer ? `, ${t('a11y.answered', lang)}` : ''}`}
+                accessibilityState={{ selected: isCurrent }}
               >
                 <UIText
                   variant="body"
@@ -756,6 +763,7 @@ export default function MockScreen() {
                 source={imageSource}
                 maxHeight={300}
                 maxWidth={400}
+                accessibilityLabel={t('a11y.questionImage', lang)}
               />
             </View>
           ) : question.image ? (
