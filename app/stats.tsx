@@ -14,10 +14,12 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState, useEffect } from 'react';
 import { ScrollView, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
+import { useLargeText } from '@/hooks/use-large-text';
 
 export default function StatsScreen() {
   const router = useRouter();
   const posthog = usePostHog();
+  const largeText = useLargeText();
   const [lang, setLang] = useState(getCachedLanguage);
   const [mistakeCount, setMistakeCount] = useState(0);
   const [stats, setStats] = useState(null);
@@ -198,7 +200,7 @@ export default function StatsScreen() {
         {/* Overview Card */}
         <Card className="gap-4 overflow-hidden bg-gradient-to-r from-indigo-500/10 via-sky-500/10 to-emerald-500/10 border-indigo-200/60 dark:border-indigo-700/40">
           <View className="gap-3">
-            <View className="flex-row items-center justify-between">
+            <View className={largeText ? 'gap-2 items-start' : 'flex-row items-center justify-between'}>
               <UIText variant="subtitle" className="text-indigo-700 dark:text-indigo-200">
                 {t('stats.yourProgress', lang)}
               </UIText>
@@ -209,8 +211,8 @@ export default function StatsScreen() {
               </View>
             </View>
 
-            <View className="flex-row items-end justify-between">
-              <View>
+            <View className={largeText ? 'gap-3' : 'flex-row items-end justify-between'}>
+              <View className={largeText ? '' : ''}>
                 <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
                   {t('stats.accuracy7d', lang)}
                 </UIText>
@@ -218,7 +220,7 @@ export default function StatsScreen() {
                   {accuracy7d}{typeof accuracy7d === 'number' ? '%' : ''}
                 </UIText>
               </View>
-              <View className="items-end">
+              <View className={largeText ? '' : 'items-end'}>
                 <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
                   {t('stats.accuracyLifetime', lang)}
                 </UIText>
@@ -292,7 +294,7 @@ export default function StatsScreen() {
           
           {/* Overall Score */}
           <View className="gap-3">
-            <View className="flex-row items-center justify-between">
+            <View className={largeText ? 'gap-1 items-start' : 'flex-row items-center justify-between'}>
               <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
                 {t('readiness.overall', lang)}
               </UIText>
@@ -325,7 +327,7 @@ export default function StatsScreen() {
             
             {/* Mistakes Component */}
             <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2 gap-1">
-              <View className="flex-row items-center justify-between">
+              <View className={largeText ? 'gap-1 items-start' : 'flex-row items-center justify-between'}>
                 <UIText variant="body" className="text-slate-900 dark:text-slate-50">
                   {t('readiness.mistakes', lang)}
                 </UIText>
@@ -350,7 +352,7 @@ export default function StatsScreen() {
 
             {/* Performance Component */}
             <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2 gap-1">
-              <View className="flex-row items-center justify-between">
+              <View className={largeText ? 'gap-1 items-start' : 'flex-row items-center justify-between'}>
                 <UIText variant="body" className="text-slate-900 dark:text-slate-50">
                   {t('readiness.performance', lang)}
                 </UIText>
@@ -375,7 +377,7 @@ export default function StatsScreen() {
 
             {/* Mock Exam Component */}
             <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2 gap-1">
-              <View className="flex-row items-center justify-between">
+              <View className={largeText ? 'gap-1 items-start' : 'flex-row items-center justify-between'}>
                 <UIText variant="body" className="text-slate-900 dark:text-slate-50">
                   {t('readiness.mockExam', lang)}
                 </UIText>
@@ -409,7 +411,7 @@ export default function StatsScreen() {
 
             {/* Coverage Component */}
             <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2 gap-1">
-              <View className="flex-row items-center justify-between">
+              <View className={largeText ? 'gap-1 items-start' : 'flex-row items-center justify-between'}>
                 <UIText variant="body" className="text-slate-900 dark:text-slate-50">
                   {t('readiness.coverage', lang)}
                 </UIText>
@@ -444,7 +446,7 @@ export default function StatsScreen() {
               {dailyData.map((day) => {
                 return (
                   <View key={day.dateKey} className="gap-2">
-                    <View className="flex-row items-center justify-between">
+                    <View className={largeText ? 'gap-1 items-start' : 'flex-row items-center justify-between'}>
                       <UIText variant="body">{day.dayLabel}</UIText>
                       <View className={`rounded-full px-2 py-1 ${getAccuracyBadgeClass(day.accuracy)}`}>
                         <UIText variant="caption" className="font-semibold">
@@ -473,16 +475,16 @@ export default function StatsScreen() {
             </UIText>
           ) : (
             <View className="gap-2">
-              <View className="flex-row justify-between">
+              <View className={largeText ? 'gap-1' : 'flex-row justify-between'}>
                 <UIText variant="body">{t('stats.examsTaken', lang)}</UIText>
                 <UIText variant="body" className="font-semibold">{stats.mock.examsTaken}</UIText>
               </View>
-              <View className="flex-row justify-between">
+              <View className={largeText ? 'gap-1' : 'flex-row justify-between'}>
                 <UIText variant="body">{t('stats.passRate', lang)}</UIText>
                 <UIText variant="body" className="font-semibold">{passRate}%</UIText>
               </View>
               {stats.mock.bestScore > 0 && stats.mock.history.length > 0 && (
-                <View className="flex-row justify-between">
+                <View className={largeText ? 'gap-1' : 'flex-row justify-between'}>
                   <UIText variant="body">{t('stats.bestScore', lang)}</UIText>
                   <UIText variant="body" className="font-semibold">
                     {stats.mock.bestScore} / {stats.mock.history.find(h => h.score === stats.mock.bestScore)?.maxScore || stats.mock.history[0]?.maxScore || '—'}
@@ -490,7 +492,7 @@ export default function StatsScreen() {
                 </View>
               )}
               {stats.mock.lastScore > 0 && stats.mock.history.length > 0 && (
-                <View className="flex-row justify-between">
+                <View className={largeText ? 'gap-1' : 'flex-row justify-between'}>
                   <UIText variant="body">{t('stats.lastScore', lang)}</UIText>
                   <UIText variant="body" className="font-semibold">
                     {stats.mock.lastScore} / {stats.mock.history[0]?.maxScore || '—'}
@@ -507,11 +509,11 @@ export default function StatsScreen() {
             {t('stats.consistency', lang)}
           </UIText>
           <View className="gap-2">
-            <View className="flex-row justify-between">
+            <View className={largeText ? 'gap-1' : 'flex-row justify-between'}>
               <UIText variant="body">{t('stats.currentStreak', lang)}</UIText>
               <UIText variant="body" className="font-semibold">{stats.engagement.currentStreak} {t('home.streakDays', lang)}</UIText>
             </View>
-            <View className="flex-row justify-between">
+            <View className={largeText ? 'gap-1' : 'flex-row justify-between'}>
               <UIText variant="body">{t('stats.lastStudy', lang)}</UIText>
               <UIText variant="body" className="font-semibold">{formatLastStudyDate()}</UIText>
             </View>

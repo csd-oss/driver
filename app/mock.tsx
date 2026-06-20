@@ -682,7 +682,9 @@ export default function MockScreen() {
               <Pressable
                 key={qNo}
                 onPress={() => handleQuestionNavigation(qNo)}
-                className="w-10 h-10 rounded-full items-center justify-center border"
+                // min size keeps single digits circular; px lets 2-digit numbers
+                // and Larger Text grow the dot into a pill instead of clipping.
+                className="min-w-10 min-h-10 px-2.5 rounded-full items-center justify-center border"
                 style={{
                   backgroundColor,
                   borderColor,

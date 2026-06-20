@@ -16,13 +16,15 @@ import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 import { ensureProAccess, isPurchasesSupported, isSubscribed } from '@/src/lib/purchases';
+import { useLargeText } from '@/hooks/use-large-text';
 
 export default function HomeScreen() {
   const router = useRouter();
   const posthog = usePostHog();
+  const largeText = useLargeText();
   const [lang, setLang] = useState(getCachedLanguage);
   const [mistakeCount, setMistakeCount] = useState(0);
   const [recentAccuracy, setRecentAccuracy] = useState<number | null>(null);
@@ -149,7 +151,7 @@ export default function HomeScreen() {
 
   return (
     <Screen testID="screen.home">
-      <View className="flex-1 gap-4">
+      <ScrollView className="flex-1" contentContainerClassName="gap-4 pb-4" showsVerticalScrollIndicator={false}>
         <View className="flex-row justify-end -mb-2">
           <PressableScale
             onPress={() => {
@@ -183,16 +185,20 @@ export default function HomeScreen() {
                 <UIText variant="caption" className="uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-300">
                   {t('stats.yourProgress', lang)}
                 </UIText>
-                <View className="rounded-full border border-indigo-200/80 dark:border-indigo-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-1">
-                  <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200">
-                    {t('home.viewStats', lang)}
-                  </UIText>
-                </View>
+                {/* "View stats" pill is redundant at large text (whole card is
+                    tappable) and won't fit beside the label — hide it. */}
+                {!largeText && (
+                  <View className="rounded-full border border-indigo-200/80 dark:border-indigo-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-1">
+                    <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200">
+                      {t('home.viewStats', lang)}
+                    </UIText>
+                  </View>
+                )}
               </View>
 
               {/* Readiness Score Section */}
               <View className="gap-2">
-                <View className="flex-row items-center justify-between">
+                <View className={largeText ? 'gap-2 items-start' : 'flex-row items-center justify-between'}>
                   <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
                     {t('readiness.title', lang)}
                   </UIText>
@@ -215,9 +221,10 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              {/* flex-1 columns so labels wrap instead of clipping at Larger Text */}
-              <View className="flex-row items-end justify-between gap-3">
-                <View className="flex-1">
+              {/* Side-by-side normally; stack to full-width blocks at Larger
+                  Text so the labels/values never clip. */}
+              <View className={largeText ? 'gap-3' : 'flex-row items-end justify-between gap-3'}>
+                <View className={largeText ? '' : 'flex-1'}>
                   <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
                     {t('stats.accuracy7d', lang)}
                   </UIText>
@@ -225,11 +232,11 @@ export default function HomeScreen() {
                     {recentAccuracy !== null ? `${recentAccuracy}%` : '—'}
                   </UIText>
                 </View>
-                <View className="flex-1 items-end">
-                  <UIText variant="caption" className="text-slate-600 dark:text-slate-300 text-right">
+                <View className={largeText ? '' : 'flex-1 items-end'}>
+                  <UIText variant="caption" className={`text-slate-600 dark:text-slate-300 ${largeText ? '' : 'text-right'}`}>
                     {t('stats.currentStreak', lang)}
                   </UIText>
-                  <UIText variant="subtitle" className="text-emerald-600 dark:text-emerald-300 text-right">
+                  <UIText variant="subtitle" className={`text-emerald-600 dark:text-emerald-300 ${largeText ? '' : 'text-right'}`}>
                     {streak} {t('home.streakDays', lang)}
                   </UIText>
                 </View>
@@ -299,7 +306,7 @@ export default function HomeScreen() {
             {t('home.smartStudyCta', lang)}
           </Button>
         </Card>
-      </View>
+      </ScrollView>
     </Screen>
   );
 }
