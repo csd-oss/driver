@@ -231,6 +231,9 @@ export default function StatsScreen() {
             </View>
 
             <View className="mt-1">
+              <UIText variant="caption" className="mb-1 text-slate-600 dark:text-slate-300">
+                {t('readiness.coverage', lang)}
+              </UIText>
               <View className="h-2 rounded-full bg-slate-200/70 dark:bg-slate-800/70 overflow-hidden">
                 {questionsSeenCount > 0 && (
                   <AnimatedBar
