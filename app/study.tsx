@@ -350,17 +350,16 @@ export default function StudyScreen() {
               const isSelected = selectedAnswer === answerNum;
               const isCorrectAnswer = answerNum === question.correct;
               
-              let buttonVariant = 'outline';
-              let buttonClassName = 'w-full ';
-              
+              // Inline style for the feedback colour: NativeWind doesn't reliably
+              // let a className bg or opacity override the variant's background or
+              // the disabled opacity, so correct answers showed faded/indigo.
+              // RN inline styles always win → vivid green (correct) / red (wrong).
+              let feedbackStyle: { backgroundColor: string; borderColor: string; borderWidth: number; opacity: number } | undefined;
               if (isAnswered) {
                 if (isCorrectAnswer) {
-                  // Keep the 'outline' variant: the 'default' variant's indigo bg
-                  // was overriding emerald (correct answers showed purple).
-                  // opacity-100 keeps the colour vivid despite the disabled state.
-                  buttonClassName += 'bg-emerald-500 dark:bg-emerald-600 border border-emerald-400/60 opacity-100';
+                  feedbackStyle = { backgroundColor: '#10b981', borderColor: '#34d399', borderWidth: 1, opacity: 1 };
                 } else if (isSelected && !isCorrect) {
-                  buttonClassName += 'bg-rose-500 dark:bg-rose-600 border border-rose-400/60 opacity-100';
+                  feedbackStyle = { backgroundColor: '#f43f5e', borderColor: '#fb7185', borderWidth: 1, opacity: 1 };
                 }
               }
 
@@ -378,10 +377,11 @@ export default function StudyScreen() {
                 <Button
                   key={index}
                   onPress={() => handleAnswer(answerNum)}
-                  variant={buttonVariant}
+                  variant="outline"
                   disabled={isAnswered}
-                  className={buttonClassName}
-                  textClassName={isAnswered && (isCorrectAnswer || (isSelected && !isCorrect)) ? 'text-white dark:text-white' : ''}
+                  className="w-full"
+                  style={feedbackStyle}
+                  textStyle={feedbackStyle ? { color: '#ffffff' } : undefined}
                   testID={`study.answer.${answerNum}`}
                 >
                   {`${feedbackPrefix}${answer}`}

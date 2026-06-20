@@ -215,8 +215,9 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              <View className="flex-row items-end justify-between">
-                <View>
+              {/* flex-1 columns so labels wrap instead of clipping at Larger Text */}
+              <View className="flex-row items-end justify-between gap-3">
+                <View className="flex-1">
                   <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
                     {t('stats.accuracy7d', lang)}
                   </UIText>
@@ -224,11 +225,11 @@ export default function HomeScreen() {
                     {recentAccuracy !== null ? `${recentAccuracy}%` : '—'}
                   </UIText>
                 </View>
-                <View className="items-end">
-                  <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                <View className="flex-1 items-end">
+                  <UIText variant="caption" className="text-slate-600 dark:text-slate-300 text-right">
                     {t('stats.currentStreak', lang)}
                   </UIText>
-                  <UIText variant="subtitle" className="text-emerald-600 dark:text-emerald-300">
+                  <UIText variant="subtitle" className="text-emerald-600 dark:text-emerald-300 text-right">
                     {streak} {t('home.streakDays', lang)}
                   </UIText>
                 </View>
