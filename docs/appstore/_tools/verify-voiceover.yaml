@@ -1,0 +1,23 @@
+# Verifies icon-only controls have discernible accessibility names by tapping
+# them BY NAME (Maestro matches the iOS accessibility label) — the same way
+# Voice Control / VoiceOver would target them. If these taps navigate, the
+# names exist in the accessibility tree.
+appId: com.smartie.driver
+---
+- launchApp
+- tapOn: { text: "Cancel", optional: true }
+- extendedWaitUntil: { visible: { id: "screen.home" }, timeout: 20000 }
+
+# Icon-only gear button — tap by its accessibility name "Settings"
+- tapOn: { text: "Settings" }
+- extendedWaitUntil: { visible: { id: "screen.settings" }, timeout: 12000 }
+- takeScreenshot: "/tmp/vo/1-settings-via-name"
+
+# Icon-only back chevron — tap by its accessibility name "Go back"
+- tapOn: { text: "Go back" }
+- extendedWaitUntil: { visible: { id: "screen.home" }, timeout: 12000 }
+- takeScreenshot: "/tmp/vo/2-back-via-name"
+
+# Stats card announces its name+value — tap by name to open stats
+- tapOn: { text: "Your progress: .*", optional: true }
+- takeScreenshot: "/tmp/vo/3-after-stats-tap"

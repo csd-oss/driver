@@ -1,24 +1,37 @@
 # Verification flow for accessibility fixes (not a marketing capture).
-#   maestro --device $SIM test docs/appstore/_tools/verify-a11y.yaml
+# OUTDIR is set per run so the same flow can capture at different text sizes.
+#   maestro --device $SIM test -e OUTDIR=/tmp/a11y/normal docs/appstore/_tools/verify-a11y.yaml
 appId: com.smartie.driver
 ---
 - launchApp
 - tapOn: { text: "Cancel", optional: true }
 - extendedWaitUntil: { visible: { id: "screen.home" }, timeout: 20000 }
-- takeScreenshot: "/tmp/a11y/home"
+- takeScreenshot: "${OUTDIR}/home"
 
-# Study: answer a question -> ✓/✗ marks (Differentiate Without Color)
+# Settings: switch sliver fix + larger-text layout
+- openLink: "driver://settings"
+- tapOn: { text: "Open", optional: true }
+- extendedWaitUntil: { visible: { id: "screen.settings" }, timeout: 12000 }
+- takeScreenshot: "${OUTDIR}/settings"
+
+# Stats: two-column rows reflow at larger text
+- openLink: "driver://stats"
+- tapOn: { text: "Open", optional: true }
+- extendedWaitUntil: { visible: { id: "screen.stats" }, timeout: 12000 }
+- takeScreenshot: "${OUTDIR}/stats"
+
+# Study answered: green correct + ✓/✗ (Differentiate Without Color)
 - openLink: "driver://study"
 - tapOn: { text: "Open", optional: true }
 - extendedWaitUntil: { visible: { id: "screen.study" }, timeout: 12000 }
 - tapOn: { id: "study.answer.1" }
-- takeScreenshot: "/tmp/a11y/study-answered"
+- takeScreenshot: "${OUTDIR}/study-answered"
 
-# Mock: answer Q1, move to Q2 so Q1's answered ✓ badge shows on the nav dot
+# Mock nav badges: ✓ on answered dots
 - openLink: "driver://mock?t=62"
 - tapOn: { text: "Open", optional: true }
 - extendedWaitUntil: { visible: { id: "screen.mock" }, timeout: 12000 }
 - tapOn: { id: "mock.answer.1" }
 - tapOn: { text: "Next" }
 - tapOn: { id: "mock.answer.2" }
-- takeScreenshot: "/tmp/a11y/mock-nav-badges"
+- takeScreenshot: "${OUTDIR}/mock-nav"
