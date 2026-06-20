@@ -268,7 +268,7 @@ export default function SettingsScreen() {
               onValueChange={handleReadinessModeChange}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={useConservativeReadiness ? '#ffffff' : '#f4f3f4'}
-              ios_backgroundColor="#cbd5e1"
+              ios_backgroundColor={useConservativeReadiness ? '#6366f1' : '#cbd5e1'}
               accessibilityLabel={t('settings.conservativeMode', lang)}
               accessibilityRole="switch"
             />
@@ -295,7 +295,7 @@ export default function SettingsScreen() {
               onValueChange={(value) => handleNotificationToggle('morning', value)}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={notificationMorningEnabled ? '#ffffff' : '#f4f3f4'}
-              ios_backgroundColor="#cbd5e1"
+              ios_backgroundColor={notificationMorningEnabled ? '#6366f1' : '#cbd5e1'}
               accessibilityLabel={t('settings.notificationsMorning', lang)}
               accessibilityRole="switch"
             />
@@ -313,7 +313,7 @@ export default function SettingsScreen() {
               onValueChange={(value) => handleNotificationToggle('lunch', value)}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={notificationLunchEnabled ? '#ffffff' : '#f4f3f4'}
-              ios_backgroundColor="#cbd5e1"
+              ios_backgroundColor={notificationLunchEnabled ? '#6366f1' : '#cbd5e1'}
               accessibilityLabel={t('settings.notificationsLunch', lang)}
               accessibilityRole="switch"
             />
@@ -331,7 +331,7 @@ export default function SettingsScreen() {
               onValueChange={(value) => handleNotificationToggle('evening', value)}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={notificationEveningEnabled ? '#ffffff' : '#f4f3f4'}
-              ios_backgroundColor="#cbd5e1"
+              ios_backgroundColor={notificationEveningEnabled ? '#6366f1' : '#cbd5e1'}
               accessibilityLabel={t('settings.notificationsEvening', lang)}
               accessibilityRole="switch"
             />
@@ -359,7 +359,7 @@ export default function SettingsScreen() {
               disabled={!posthog}
               trackColor={{ false: '#cbd5e1', true: '#6366f1' }}
               thumbColor={analyticsOptOut ? '#ffffff' : '#f4f3f4'}
-              ios_backgroundColor="#cbd5e1"
+              ios_backgroundColor={analyticsOptOut ? '#6366f1' : '#cbd5e1'}
               accessibilityLabel={t('settings.analyticsOptOut', lang)}
               accessibilityRole="switch"
             />
