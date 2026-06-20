@@ -457,10 +457,12 @@ export default function MistakesScreen() {
               
               if (isAnswered) {
                 if (isCorrectAnswer) {
-                  buttonVariant = 'default';
-                  buttonClassName += 'bg-emerald-500 dark:bg-emerald-600 border border-emerald-400/60';
+                  // Keep the 'outline' variant: the 'default' variant's indigo bg
+                  // was overriding emerald (correct answers showed purple).
+                  // opacity-100 keeps the colour vivid despite the disabled state.
+                  buttonClassName += 'bg-emerald-500 dark:bg-emerald-600 border border-emerald-400/60 opacity-100';
                 } else if (isSelected && !isCorrect) {
-                  buttonClassName += 'bg-rose-500 dark:bg-rose-600 border border-rose-400/60';
+                  buttonClassName += 'bg-rose-500 dark:bg-rose-600 border border-rose-400/60 opacity-100';
                 }
               }
 
