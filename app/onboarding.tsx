@@ -17,6 +17,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useReducedMotion } from 'react-native-reanimated';
 import { usePostHog } from 'posthog-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
@@ -31,6 +32,7 @@ interface OnboardingSlide {
 export default function OnboardingScreen() {
   const router = useRouter();
   const posthog = usePostHog();
+  const reducedMotion = useReducedMotion();
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -171,12 +173,8 @@ export default function OnboardingScreen() {
 
   const handleFinish = async () => {
     const wasSkipped = currentSlide < slides.length - 1;
-    
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(async () => {
+
+    const completeOnboarding = async () => {
       // Mark onboarding as complete
       await updateSettings({ hasOnboarded: true });
       clearCache(); // Clear cache to ensure fresh settings are loaded
@@ -213,7 +211,20 @@ export default function OnboardingScreen() {
       } else {
         router.replace('/language');
       }
-    });
+    };
+
+    // Reduce Motion: skip the fade-out, complete immediately.
+    if (reducedMotion) {
+      fadeAnim.setValue(0);
+      completeOnboarding();
+      return;
+    }
+
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(completeOnboarding);
   };
 
   const handleScroll = (event: any) => {

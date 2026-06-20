@@ -362,6 +362,16 @@ export default function StudyScreen() {
                 }
               }
 
+              // Non-color cue so correctness is clear without relying on
+              // green/red alone (accessibility: Differentiate Without Color).
+              const feedbackPrefix = isAnswered
+                ? isCorrectAnswer
+                  ? '✓  '
+                  : isSelected && !isCorrect
+                    ? '✗  '
+                    : ''
+                : '';
+
               return (
                 <Button
                   key={index}
@@ -372,7 +382,7 @@ export default function StudyScreen() {
                   textClassName={isAnswered && (isCorrectAnswer || (isSelected && !isCorrect)) ? 'text-white dark:text-white' : ''}
                   testID={`study.answer.${answerNum}`}
                 >
-                  {answer}
+                  {`${feedbackPrefix}${answer}`}
                 </Button>
               );
             })}

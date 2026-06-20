@@ -35,7 +35,9 @@ export const UIText = ({
   className = '',
   style,
   allowFontScaling = true,
-  maxFontSizeMultiplier = 1.5,
+  // 2x lets the app meet Apple's "Larger Text" criterion (text scales to 200%)
+  // while still capping the largest accessibility sizes that would break layout.
+  maxFontSizeMultiplier = 2,
   ...rest
 }: UITextProps) => {
   // Use updateKey from context to force re-render when font scale changes

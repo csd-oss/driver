@@ -696,6 +696,33 @@ export default function MockScreen() {
                 >
                   {qNo}
                 </UIText>
+                {/* Non-color cue: a check badge marks answered questions so
+                    progress isn't conveyed by fill colour alone. */}
+                {hasAnswer && !isCurrent && (
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      right: -2,
+                      bottom: -2,
+                      width: 15,
+                      height: 15,
+                      borderRadius: 8,
+                      backgroundColor: isDark ? '#6366f1' : '#4f46e5',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 1.5,
+                      borderColor: isDark ? '#0f172a' : '#f8fafc',
+                    }}
+                  >
+                    <UIText
+                      allowFontScaling={false}
+                      style={{ color: '#ffffff', fontSize: 9, lineHeight: 10, fontWeight: '800' }}
+                    >
+                      ✓
+                    </UIText>
+                  </View>
+                )}
               </Pressable>
             );
           })}

@@ -49,7 +49,8 @@ export const Button = ({
   style,
   textStyle,
   allowFontScaling = true,
-  maxFontSizeMultiplier = 1.5,
+  // 2x to meet Apple's "Larger Text" (200%) criterion; buttons grow with text.
+  maxFontSizeMultiplier = 2,
   accessibilityLabel,
   accessibilityHint,
   testID,

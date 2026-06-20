@@ -45,7 +45,7 @@ export const CategorySelector = ({ lang, selectedCategory, onSelect }: CategoryS
                 {displayLabel}
               </UIText>
             </View>
-            <UIText variant="body" className="text-slate-400 dark:text-slate-500 ml-2">
+            <UIText variant="body" className="text-slate-500 dark:text-slate-400 ml-2">
               ▼
             </UIText>
           </View>

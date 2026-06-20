@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
@@ -37,13 +38,15 @@ export const PressableScale = forwardRef<View, PressableScaleProps>(
     ref,
   ) => {
     const scale = useSharedValue(1);
+    const reducedMotion = useReducedMotion();
 
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scale.value }],
     }));
 
     const handlePressIn = (e: GestureResponderEvent) => {
-      scale.value = withSpring(scaleTo, SPRING_CONFIG);
+      // Reduce Motion: keep the press feedback to colour only, no scale spring.
+      if (!reducedMotion) scale.value = withSpring(scaleTo, SPRING_CONFIG);
       if (haptic && !disabled) {
         Haptics.selectionAsync();
       }
@@ -51,7 +54,7 @@ export const PressableScale = forwardRef<View, PressableScaleProps>(
     };
 
     const handlePressOut = (e: GestureResponderEvent) => {
-      scale.value = withSpring(1, SPRING_CONFIG);
+      if (!reducedMotion) scale.value = withSpring(1, SPRING_CONFIG);
       onPressOut?.(e);
     };
 

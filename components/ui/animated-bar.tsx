@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import Animated, {
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -14,13 +15,15 @@ interface AnimatedBarProps {
 
 export const AnimatedBar = ({ value, className = '', durationMs = 800 }: AnimatedBarProps) => {
   const progress = useSharedValue(0);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    progress.value = withTiming(Math.max(value, 0), {
-      duration: durationMs,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [value, durationMs, progress]);
+    const target = Math.max(value, 0);
+    // Reduce Motion: jump to the value, no growing animation.
+    progress.value = reducedMotion
+      ? target
+      : withTiming(target, { duration: durationMs, easing: Easing.out(Easing.cubic) });
+  }, [value, durationMs, progress, reducedMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     width: `${progress.value}%`,

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, Animated, Platform, Easing } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/ui/screen';
 import { getSettings } from '@/src/lib/settings';
@@ -11,6 +12,7 @@ import { useCallback } from 'react';
 export default function IntroAnimationScreen() {
   const router = useRouter();
   const posthog = usePostHog();
+  const reducedMotion = useReducedMotion();
 
   // Track screen view
   useFocusEffect(
@@ -25,6 +27,25 @@ export default function IntroAnimationScreen() {
   const scale = useRef(new Animated.Value(0.98)).current;
 
   useEffect(() => {
+    const routeNext = async () => {
+      const settings = await getSettings();
+      if (!settings?.hasOnboarded) {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/home');
+      }
+    };
+
+    // Reduce Motion: show the wordmark statically for a beat, then route —
+    // no fade/rise/scale sequence.
+    if (reducedMotion) {
+      opacity.setValue(1);
+      translateY.setValue(0);
+      scale.setValue(1);
+      const timer = setTimeout(routeNext, 500);
+      return () => clearTimeout(timer);
+    }
+
     const animation = Animated.sequence([
       // In — fade + subtle rise, no bounce, no overshoot
       Animated.parallel([
@@ -58,21 +79,16 @@ export default function IntroAnimationScreen() {
       }),
     ]);
 
-    animation.start(async ({ finished }) => {
+    animation.start(({ finished }) => {
       if (!finished) return;
-      const settings = await getSettings();
-      if (!settings?.hasOnboarded) {
-        router.replace('/onboarding');
-      } else {
-        // Cold launch always goes to /home. The post-onboarding paywall is a
-        // one-shot shown from the onboarding/language completion flow; gated
-        // features (Smart Study, Mistakes) present it on tap via ensureProAccess().
-        router.replace('/home');
-      }
+      // Cold launch always goes to /home (onboarded) or /onboarding. The
+      // post-onboarding paywall is a one-shot from the onboarding/language flow;
+      // gated features present it on tap via ensureProAccess().
+      routeNext();
     });
 
     return () => animation.stop();
-  }, [opacity, translateY, scale, router]);
+  }, [opacity, translateY, scale, router, reducedMotion]);
 
   return (
     <Screen className="items-center justify-center" style={{ backgroundColor: '#0f172a' }}>
