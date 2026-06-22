@@ -108,8 +108,26 @@ In App Store Connect → your app → **Subscriptions** and **In-App Purchases**
    manifest is also already written into `ios/DriverSK/PrivacyInfo.xcprivacy` so an
    archive without a prebuild still includes it.
 3. `npm run bump:ios` to bump the build number.
-4. Archive + upload via your usual flow (see the `ios-deploy-workflow` memory note —
-   archive **without** API-key signing flags, upload via `xcrun altool` with the API key).
+4. Archive → export → upload (build number 5; `ExportOptions.plist` is in repo root):
+
+   ```bash
+   # archive — ONLY -allowProvisioningUpdates (NOT the API key; cloud-signing gotcha)
+   xcodebuild -workspace ios/DriverSK.xcworkspace -scheme DriverSK \
+     -configuration Release -destination 'generic/platform=iOS' \
+     -archivePath build/DriverSK.xcarchive -allowProvisioningUpdates archive
+
+   # export the .ipa
+   xcodebuild -exportArchive -archivePath build/DriverSK.xcarchive \
+     -exportPath build/export -exportOptionsPlist ExportOptions.plist \
+     -allowProvisioningUpdates
+
+   # upload (API key ONLY here). Issuer ID: ASC → Users and Access → Integrations
+   xcrun altool --upload-app -f build/export/DriverSK.ipa -t ios \
+     --apiKey G62K9FQNYB --apiIssuer <ISSUER_ID>
+   ```
+   Distribution cert "Apple Distribution: Smartie s. r. o. (DBPU7PVUBJ)" is installed;
+   `.p8` lives in `~/.appstoreconnect/private_keys/`. GUI alternative: Xcode → Product →
+   Archive → Distribute App.
 5. **Export compliance:** already answered in code (`usesNonExemptEncryption: false`),
    so App Store Connect won't ask at upload time.
 6. Do one **sandbox purchase pass on a real device**: gated tap → paywall → purchase →
