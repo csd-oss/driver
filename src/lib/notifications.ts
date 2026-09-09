@@ -152,14 +152,18 @@ const COPY: Record<number, Record<Slot, NotificationText>> = {
   },
 };
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Web has no local scheduled notifications; the handler would touch native
+// modules at import time, so only register it on iOS / Android.
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 function toLocalDateKey(date: Date): string {
   const year = date.getFullYear();

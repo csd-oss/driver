@@ -1,0 +1,33 @@
+# Only what the web build needs goes to Vercel. Native projects, archives,
+# device screenshots, keys, and docs stay local.
+.git
+.github
+.expo
+.maestro
+.cursor
+node_modules
+ios
+android
+build
+dist
+web-build
+docs
+drizzle
+__tests__
+data/env
+iPhone 17
+iPhone 17 Pro
+iPhone 17 Pro Max
+iPhone Air
+Apple iPhone 13 Pro
+img_paywall.jpg
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+*.jks
+.env
+.env.*
+ExportOptions.plist
+AuthKey_*

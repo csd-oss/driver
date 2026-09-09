@@ -17,6 +17,9 @@ appId: com.smartie.driver
     timeout: 10000
 - tapOn:
     id: "language.lang2" # English
+# Language pick is a two-step choice since the explicit Continue button was added.
+- tapOn:
+    id: "language.continue"
 - extendedWaitUntil:
     visible:
       id: "screen.home"

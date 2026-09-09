@@ -33,6 +33,7 @@ function createTables(): void {
       notification_morning_enabled INTEGER NOT NULL DEFAULT 1,
       notification_lunch_enabled INTEGER NOT NULL DEFAULT 1,
       notification_evening_enabled INTEGER NOT NULL DEFAULT 1,
+      exam_date INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )
@@ -54,6 +55,11 @@ function createTables(): void {
   }
   try {
     database.execSync(`ALTER TABLE settings ADD COLUMN notification_evening_enabled INTEGER NOT NULL DEFAULT 1`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
+    database.execSync(`ALTER TABLE settings ADD COLUMN exam_date INTEGER`);
   } catch (e) {
     // Column already exists, ignore
   }
@@ -141,6 +147,25 @@ function createTables(): void {
   database.execSync(`CREATE INDEX IF NOT EXISTS mock_exams_lang_idx ON mock_exams(lang)`);
   database.execSync(`CREATE INDEX IF NOT EXISTS mock_exams_date_idx ON mock_exams(created_at)`);
   database.execSync(`CREATE INDEX IF NOT EXISTS mock_exams_sync_idx ON mock_exams(synced_at)`);
+
+  // Exam results table (real driving-exam outcomes reported by the user)
+  database.execSync(`
+    CREATE TABLE IF NOT EXISTS exam_results (
+      id TEXT PRIMARY KEY,
+      device_id TEXT NOT NULL,
+      lang INTEGER NOT NULL,
+      passed INTEGER NOT NULL,
+      points INTEGER NOT NULL,
+      max_points INTEGER NOT NULL DEFAULT 100,
+      min_to_pass INTEGER NOT NULL DEFAULT 90,
+      readiness_score INTEGER,
+      taken_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      synced_at INTEGER
+    )
+  `);
+  database.execSync(`CREATE INDEX IF NOT EXISTS exam_results_lang_idx ON exam_results(lang)`);
+  database.execSync(`CREATE INDEX IF NOT EXISTS exam_results_date_idx ON exam_results(taken_at)`);
 
   // Answer attempts table
   database.execSync(`

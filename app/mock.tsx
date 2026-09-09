@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { View, ScrollView, Alert, Pressable, Modal } from 'react-native';
+import { View, ScrollView, Pressable, Modal } from 'react-native';
 import { AspectImage } from '@/components/ui/aspect-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,6 +18,7 @@ import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
 import { t } from '@/src/i18n/i18n';
+import { alertDialog, confirmDialog } from '@/src/lib/dialog';
 import * as MockDB from '@/src/db/queries/mockExams';
 import * as AttemptsDB from '@/src/db/queries/attempts';
 import * as MistakesDB from '@/src/db/queries/mistakes';
@@ -239,19 +240,14 @@ export default function MockScreen() {
   const requestFinish = useCallback(() => {
     if (!test) return;
     if (currentQuestion < test.pocet) {
-      Alert.alert(
-        t('mock.finishEarlyTitle', lang),
-        t('mock.finishEarlyMessage', lang),
-        [
-          { text: t('common.cancel', lang), style: 'cancel' },
-          {
-            text: t('mock.finishEarlyConfirm', lang),
-            onPress: () => {
-              void handleFinish();
-            },
-          },
-        ]
-      );
+      confirmDialog({
+        title: t('mock.finishEarlyTitle', lang),
+        message: t('mock.finishEarlyMessage', lang),
+        confirmText: t('mock.finishEarlyConfirm', lang),
+        cancelText: t('common.cancel', lang),
+      }).then((confirmed) => {
+        if (confirmed) void handleFinish();
+      });
     } else {
       void handleFinish();
     }
@@ -323,7 +319,7 @@ export default function MockScreen() {
       await MockDB.updateAddedToMistakesCount(mockExamId, wrongCount);
     }
 
-    Alert.alert(t('mock.addWrongSuccessTitle', lang), t('mock.addWrongSuccessMessage', lang));
+    void alertDialog(t('mock.addWrongSuccessTitle', lang), t('mock.addWrongSuccessMessage', lang));
   };
 
   const formatTime = (seconds) => {

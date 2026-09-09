@@ -148,3 +148,97 @@ export async function getLast7DaysAccuracy(lang: number): Promise<number | null>
   if (attempts === 0) return null;
   return Math.round((correct / attempts) * 100);
 }
+
+/**
+ * Attempts and correct answers in a window of calendar days, counted in
+ * local time. `fromDaysAgo` is inclusive, `toDaysAgo` is exclusive, so
+ * (14, 7) means "the 7 days before the last 7 days".
+ */
+export async function getWindowStats(lang: number, fromDaysAgo: number, toDaysAgo: number) {
+  const result = await database.getAllAsync(
+    `SELECT 
+      COUNT(*) as attempts,
+      SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct
+    FROM answer_attempts
+    WHERE lang = ?
+      AND mode IN ('study', 'mistakes')
+      AND DATE(created_at, 'unixepoch', 'localtime') >= DATE('now', 'localtime', '-' || ? || ' days')
+      AND DATE(created_at, 'unixepoch', 'localtime') < DATE('now', 'localtime', '-' || ? || ' days')`,
+    [lang, fromDaysAgo, toDaysAgo]
+  );
+
+  const row = result[0] as any;
+  return {
+    attempts: Number(row?.attempts || 0),
+    correct: Number(row?.correct || 0),
+  };
+}
+
+/**
+ * Every open mistake with its spaced-repetition state. `nextReviewAt` is
+ * Unix seconds or null (null means due now).
+ */
+export async function getOpenMistakes(lang: number) {
+  const result = await database.getAllAsync(
+    `SELECT interval_days, next_review_at
+    FROM mistakes
+    WHERE lang = ?`,
+    [lang]
+  );
+
+  return (result as any[]).map((row) => ({
+    intervalDays: Number(row.interval_days || 0),
+    nextReviewAt: row.next_review_at === null || row.next_review_at === undefined
+      ? null
+      : Number(row.next_review_at),
+  }));
+}
+
+/**
+ * Accuracy over mock-exam attempts only. Mock questions are a random sample
+ * of the bank, so this is the closest thing to real-exam accuracy.
+ * Returns 0-100 or null when no mock attempts exist.
+ */
+export async function getMockAccuracy(lang: number): Promise<number | null> {
+  const result = await database.getAllAsync(
+    `SELECT 
+      COUNT(*) as attempts,
+      SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct
+    FROM answer_attempts
+    WHERE lang = ? AND mode = 'mock'`,
+    [lang]
+  );
+
+  const row = result[0] as any;
+  const attempts = Number(row?.attempts || 0);
+  if (attempts === 0) return null;
+  return Math.round((Number(row?.correct || 0) / attempts) * 100);
+}
+
+/**
+ * Inputs for the study pace: attempts in the last 14 calendar days (all
+ * modes) and the Unix-seconds timestamp of the very first attempt.
+ */
+export async function getPaceStats(lang: number) {
+  const recent = await database.getAllAsync(
+    `SELECT COUNT(*) as attempts
+    FROM answer_attempts
+    WHERE lang = ?
+      AND DATE(created_at, 'unixepoch', 'localtime') >= DATE('now', 'localtime', '-13 days')`,
+    [lang]
+  );
+  const first = await database.getAllAsync(
+    `SELECT MIN(created_at) as first_at
+    FROM answer_attempts
+    WHERE lang = ?`,
+    [lang]
+  );
+
+  const recentRow = recent[0] as any;
+  const firstRow = first[0] as any;
+  const firstAt = firstRow?.first_at;
+  return {
+    attempts14d: Number(recentRow?.attempts || 0),
+    firstAttemptAt: firstAt === null || firstAt === undefined ? null : Number(firstAt),
+  };
+}

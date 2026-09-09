@@ -162,6 +162,33 @@ CREATE TABLE mock_exams (
 );
 
 -- ============================================
+-- EXAM RESULTS (real driving-exam outcomes reported by the user)
+-- ============================================
+-- Event-sourced: one row per real attempt, never updated. A retake is a new row.
+-- `readiness_score` freezes the app's readiness score at the moment the user
+-- recorded the result, so real outcomes can later calibrate the readiness model.
+CREATE TABLE exam_results (
+  id TEXT PRIMARY KEY,           -- UUID, sync-ready
+  device_id TEXT NOT NULL,
+  lang INTEGER NOT NULL,
+  passed INTEGER NOT NULL CHECK(passed IN (0, 1)),
+  points INTEGER NOT NULL,       -- 0..max_points
+  max_points INTEGER NOT NULL DEFAULT 100,
+  min_to_pass INTEGER NOT NULL DEFAULT 90,
+  readiness_score INTEGER,       -- null = unknown
+  taken_at INTEGER NOT NULL,     -- date of the real exam (unix seconds)
+  created_at INTEGER NOT NULL,
+  synced_at INTEGER
+);
+CREATE INDEX exam_results_lang_idx ON exam_results(lang);
+CREATE INDEX exam_results_date_idx ON exam_results(taken_at);
+
+-- Settings also carries the planned exam date (nullable unix seconds):
+--   ALTER TABLE settings ADD COLUMN exam_date INTEGER;
+-- The readiness forecast uses it to compute the study pace needed to be
+-- ready by that date.
+
+-- ============================================
 -- QUESTION COVERAGE (First-seen tracking)
 -- ============================================
 CREATE TABLE question_coverage (

@@ -36,9 +36,12 @@ export default function IntroAnimationScreen() {
       }
     };
 
-    // Reduce Motion: show the wordmark statically for a beat, then route —
-    // no fade/rise/scale sequence.
-    if (reducedMotion) {
+    // Reduce Motion: show the wordmark statically for a beat, then route,
+    // no fade/rise/scale sequence. A browser tab opened in the background
+    // gets no animation frames at all, so the PWA takes the same path there
+    // instead of sitting on the wordmark until the tab is focused.
+    const hiddenTab = Platform.OS === 'web' && typeof document !== 'undefined' && document.hidden;
+    if (reducedMotion || hiddenTab) {
       opacity.setValue(1);
       translateY.setValue(0);
       scale.setValue(1);
@@ -53,19 +56,19 @@ export default function IntroAnimationScreen() {
           toValue: 1,
           duration: 300,
           easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(translateY, {
           toValue: 0,
           duration: 380,
           easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(scale, {
           toValue: 1,
           duration: 380,
           easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]),
       // Hold
@@ -75,7 +78,7 @@ export default function IntroAnimationScreen() {
         toValue: 0,
         duration: 220,
         easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]);
 

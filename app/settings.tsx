@@ -1,10 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { DateField } from '@/components/ui/date-field';
+import { InstallHint } from '@/components/InstallHint';
 import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
+import * as ExamResultsDB from '@/src/db/queries/examResults';
 import * as MistakesDB from '@/src/db/queries/mistakes';
-import { t } from '@/src/i18n/i18n';
+import { t, tf } from '@/src/i18n/i18n';
+import { formatDate, today } from '@/src/lib/dates';
+import { alertDialog, confirmDialog } from '@/src/lib/dialog';
 import { ensureNotificationPermission, syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { clearCache, getCachedLanguage, getSettings, updateSettings } from '@/src/lib/settings';
 import { resetStats } from '@/src/lib/stats';
@@ -12,7 +17,7 @@ import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Linking, ScrollView, Switch, View } from 'react-native';
+import { Linking, Platform, ScrollView, Switch, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Application from 'expo-application';
 import { usePostHog } from 'posthog-react-native';
@@ -34,6 +39,8 @@ export default function SettingsScreen() {
   const [notificationLunchEnabled, setNotificationLunchEnabled] = useState(true);
   const [notificationEveningEnabled, setNotificationEveningEnabled] = useState(true);
   const [hasPro, setHasPro] = useState(isSubscribed);
+  const [examDate, setExamDate] = useState<Date | null>(null);
+  const [examResults, setExamResults] = useState<ExamResultsDB.ExamResultRow[]>([]);
 
   const loadSettings = useCallback(async () => {
     setHasPro(isSubscribed());
@@ -45,6 +52,8 @@ export default function SettingsScreen() {
       setNotificationMorningEnabled(settings.notificationMorningEnabled ?? true);
       setNotificationLunchEnabled(settings.notificationLunchEnabled ?? true);
       setNotificationEveningEnabled(settings.notificationEveningEnabled ?? true);
+      setExamDate(settings.examDate ?? null);
+      setExamResults(await ExamResultsDB.getExamResults(settings.lang));
     }
   }, []);
 
@@ -77,6 +86,15 @@ export default function SettingsScreen() {
     
     await updateSettings({ useConservativeReadiness: value });
     setUseConservativeReadiness(value);
+  };
+
+  const handleExamDateChange = async (date: Date | null) => {
+    trackEvent(posthog, 'settings_exam_date_changed', {
+      has_date: date !== null,
+      language: lang,
+    });
+    await updateSettings({ examDate: date });
+    setExamDate(date);
   };
 
   const handleAnalyticsToggle = async (optOut: boolean) => {
@@ -114,18 +132,14 @@ export default function SettingsScreen() {
           language: lang,
         });
         // Tell the user why the switch snapped back and route them to the
-        // system settings — silently doing nothing reads as a broken toggle.
-        Alert.alert(
-          t('settings.notifications.permissionTitle', lang),
-          t('settings.notifications.permissionBody', lang),
-          [
-            { text: t('common.cancel', lang), style: 'cancel' },
-            {
-              text: t('settings.notifications.openSettings', lang),
-              onPress: () => Linking.openSettings(),
-            },
-          ]
-        );
+        // system settings. Silently doing nothing reads as a broken toggle.
+        const openSettings = await confirmDialog({
+          title: t('settings.notifications.permissionTitle', lang),
+          message: t('settings.notifications.permissionBody', lang),
+          confirmText: t('settings.notifications.openSettings', lang),
+          cancelText: t('common.cancel', lang),
+        });
+        if (openSettings) Linking.openSettings();
         return;
       }
     }
@@ -175,10 +189,7 @@ export default function SettingsScreen() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
-      Alert.alert(
-        t('paywall.errorTitle', lang),
-        message || t('paywall.errorBody', lang)
-      );
+      await alertDialog(t('paywall.errorTitle', lang), message || t('paywall.errorBody', lang));
     }
   };
 
@@ -186,28 +197,24 @@ export default function SettingsScreen() {
     WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}));
   };
 
-  const handleResetProgress = () => {
-    Alert.alert(
-      t('home.reset', lang),
-      t('settings.resetConfirmMessage', lang),
-      [
-        { text: t('common.cancel', lang), style: 'cancel' },
-        {
-          text: t('settings.resetConfirmButton', lang),
-          style: 'destructive',
-          onPress: async () => {
-            await MistakesDB.resetMistakes();
-            await resetStats();
-            await updateSettings({
-              hasOnboarded: false,
-              hasChosenLanguage: false,
-            });
-            clearCache();
-            router.replace('/onboarding');
-          },
-        },
-      ]
-    );
+  const handleResetProgress = async () => {
+    const confirmed = await confirmDialog({
+      title: t('home.reset', lang),
+      message: t('settings.resetConfirmMessage', lang),
+      confirmText: t('settings.resetConfirmButton', lang),
+      cancelText: t('common.cancel', lang),
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await MistakesDB.resetMistakes();
+    await resetStats();
+    await updateSettings({
+      hasOnboarded: false,
+      hasChosenLanguage: false,
+      examDate: null,
+    });
+    clearCache();
+    router.replace('/onboarding');
   };
 
   return (
@@ -245,6 +252,8 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
+        {Platform.OS === 'web' && <InstallHint lang={lang} placement="settings" />}
+
         <Card className="gap-3">
           <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
             {t('settings.readinessTitle', lang)}
@@ -275,6 +284,86 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
+        <Card className="gap-3">
+          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+            {t('exam.title', lang)}
+          </UIText>
+          <UIText variant="body" className="text-slate-600 dark:text-slate-300">
+            {t('exam.settingsDescription', lang)}
+          </UIText>
+
+          <View className="gap-2">
+            <UIText variant="caption" className="uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              {t('exam.examDate', lang)}
+            </UIText>
+            <DateField
+              value={examDate}
+              onChange={handleExamDateChange}
+              lang={lang}
+              placeholder={t('exam.setDate', lang)}
+              minimumDate={today()}
+              testID="exam.examDate"
+            />
+            {examDate && (
+              <Button
+                onPress={() => handleExamDateChange(null)}
+                variant="secondary"
+                className="w-full"
+                testID="exam.clearDate"
+              >
+                {t('exam.clearDate', lang)}
+              </Button>
+            )}
+          </View>
+
+          <Button
+            onPress={() => router.push('/exam')}
+            variant="outline"
+            className="w-full"
+            testID="exam.recordResult"
+          >
+            {t('exam.recordResult', lang)}
+          </Button>
+
+          {examResults.length > 0 && (
+            <View className="gap-2 mt-1">
+              <UIText variant="caption" className="uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                {t('exam.history', lang)}
+              </UIText>
+              {examResults.map((result) => (
+                <View
+                  key={result.id}
+                  className="flex-row items-center justify-between rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2"
+                >
+                  <UIText variant="body" className="text-slate-900 dark:text-slate-50">
+                    {formatDate(result.takenAt, lang)}
+                  </UIText>
+                  <View className="flex-row items-center gap-2">
+                    <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                      {tf('exam.pointsShort', lang, { points: result.points })}
+                    </UIText>
+                    <View
+                      className={`rounded-full px-2 py-0.5 ${
+                        result.passed ? 'bg-emerald-500/15 dark:bg-emerald-500/20' : 'bg-rose-500/15 dark:bg-rose-500/20'
+                      }`}
+                    >
+                      <UIText
+                        variant="caption"
+                        className={`font-semibold ${
+                          result.passed ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'
+                        }`}
+                      >
+                        {result.passed ? t('mock.pass', lang) : t('mock.fail', lang)}
+                      </UIText>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </Card>
+
+        {Platform.OS !== 'web' && (
         <Card className="gap-3">
           <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
             {t('settings.notificationsTitle', lang)}
@@ -337,6 +426,7 @@ export default function SettingsScreen() {
             />
           </View>
         </Card>
+        )}
 
         <Card className="gap-3">
           <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">

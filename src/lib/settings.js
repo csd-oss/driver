@@ -60,6 +60,7 @@ export const getSettings = async () => {
     notificationMorningEnabled: dbSettings.notificationMorningEnabled ?? true,
     notificationLunchEnabled: dbSettings.notificationLunchEnabled ?? true,
     notificationEveningEnabled: dbSettings.notificationEveningEnabled ?? true,
+    examDate: dbSettings.examDate ?? null,
   };
   
   cachedSettings = settings;
@@ -97,6 +98,10 @@ export const updateSettings = async (updates) => {
   }
   if (updates.notificationEveningEnabled !== undefined) {
     await SettingsDB.setNotificationSlot('evening', updates.notificationEveningEnabled);
+  }
+  // null is a valid value here (clears the date), so only skip when absent
+  if (updates.examDate !== undefined) {
+    await SettingsDB.setExamDate(updates.examDate);
   }
   if (updates.selectedCategoryByLang) {
     for (const [langStr, categoryText] of Object.entries(updates.selectedCategoryByLang)) {

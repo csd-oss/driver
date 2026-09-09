@@ -87,8 +87,14 @@
       "package": "com.smartie.driver"
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Driver SK",
+      "shortName": "Driver SK",
+      "lang": "sk",
+      "themeColor": "#0f172a",
+      "backgroundColor": "#0f172a",
+      "description": "Offline-first Slovak driving-licence study app with English and Hungarian translations."
     },
     "plugins": [
       "expo-router",

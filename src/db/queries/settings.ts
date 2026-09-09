@@ -14,6 +14,7 @@ export interface SettingsData {
   notificationMorningEnabled: boolean;
   notificationLunchEnabled: boolean;
   notificationEveningEnabled: boolean;
+  examDate: Date | null;
 }
 
 /**
@@ -51,6 +52,7 @@ export async function getSettings(): Promise<SettingsData> {
       notificationMorningEnabled: true,
       notificationLunchEnabled: true,
       notificationEveningEnabled: true,
+      examDate: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -64,6 +66,7 @@ export async function getSettings(): Promise<SettingsData> {
       notificationMorningEnabled: true,
       notificationLunchEnabled: true,
       notificationEveningEnabled: true,
+      examDate: null,
     };
   }
   
@@ -77,6 +80,7 @@ export async function getSettings(): Promise<SettingsData> {
     notificationMorningEnabled: s.notificationMorningEnabled ?? true,
     notificationLunchEnabled: s.notificationLunchEnabled ?? true,
     notificationEveningEnabled: s.notificationEveningEnabled ?? true,
+    examDate: s.examDate ?? null,
   };
 }
 
@@ -149,4 +153,19 @@ export async function setNotificationSlot(slot: 'morning' | 'lunch' | 'evening',
   }
 
   await updateSettings({ notificationEveningEnabled: enabled });
+}
+
+/**
+ * Get the planned real-exam date (null when not set)
+ */
+export async function getExamDate(): Promise<Date | null> {
+  const s = await getSettings();
+  return s.examDate;
+}
+
+/**
+ * Set or clear (null) the planned real-exam date
+ */
+export async function setExamDate(date: Date | null): Promise<void> {
+  await updateSettings({ examDate: date });
 }

@@ -4,8 +4,10 @@ import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { StatsOverviewSkeleton } from '@/components/StatsOverviewSkeleton';
 import { UIText } from '@/components/ui/text';
-import { t } from '@/src/i18n/i18n';
-import { getCachedLanguage, getLanguage, getReadinessMode } from '@/src/lib/settings';
+import { t, tf, tp } from '@/src/i18n/i18n';
+import { MAX_FORECAST_DAYS, getReadinessForecast, getReadinessLabel } from '@/src/lib/readiness';
+import { formatDate } from '@/src/lib/dates';
+import { getCachedLanguage, getLanguage, getReadinessMode, getSettings } from '@/src/lib/settings';
 import { calculateAccuracy, getLast7Days, getReadinessBreakdown, getTotalUniqueQuestions, loadStats } from '@/src/lib/stats';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import { trackScreenView } from '@/src/lib/analytics';
@@ -25,6 +27,7 @@ export default function StatsScreen() {
   const [stats, setStats] = useState(null);
   const [totalUniqueQuestions, setTotalUniqueQuestions] = useState(0);
   const [readinessBreakdown, setReadinessBreakdown] = useState(null);
+  const [forecast, setForecast] = useState<Awaited<ReturnType<typeof getReadinessForecast>> | null>(null);
 
   const loadData = useCallback(async () => {
     const currentLang = await getLanguage();
@@ -43,6 +46,20 @@ export default function StatsScreen() {
     // Get total unique questions
     const total = getTotalUniqueQuestions(currentLang);
     setTotalUniqueQuestions(total);
+
+    // Forecast: days until the score reaches "ready", plus exam-date maths
+    try {
+      const settings = await getSettings();
+      const useConservative = await getReadinessMode();
+      setForecast(
+        await getReadinessForecast(currentLang, {
+          useConservative,
+          examDate: settings?.examDate ?? null,
+        })
+      );
+    } catch {
+      setForecast(null);
+    }
   }, []);
 
   useFocusEffect(
@@ -126,26 +143,76 @@ export default function StatsScreen() {
   // Calculate progress bar width - ensure minimum 1% for visibility when there's progress
   const progressBarPercentage = questionsSeenCount > 0 ? Math.max(coverage, 1) : 0;
   
-  // Get readiness status colors
+  // Get readiness status colors and label; thresholds live in readiness.js
   const getReadinessStatusInfo = (score) => {
-    if (score >= 80) {
-      return {
-        bgColor: 'bg-emerald-500/15 dark:bg-emerald-500/20',
-        textColor: 'text-emerald-700 dark:text-emerald-200',
-        barColor: 'bg-emerald-500',
-      };
-    } else if (score >= 60) {
-      return {
-        bgColor: 'bg-amber-500/15 dark:bg-amber-500/20',
-        textColor: 'text-amber-700 dark:text-amber-200',
-        barColor: 'bg-amber-500',
-      };
-    } else {
-      return {
-        bgColor: 'bg-rose-500/15 dark:bg-rose-500/20',
-        textColor: 'text-rose-700 dark:text-rose-200',
-        barColor: 'bg-rose-500',
-      };
+    const label = getReadinessLabel(score);
+    switch (label) {
+      case 'ready':
+        return {
+          label: t('readiness.ready', lang),
+          bgColor: 'bg-emerald-500/15 dark:bg-emerald-500/20',
+          textColor: 'text-emerald-700 dark:text-emerald-200',
+          barColor: 'bg-emerald-500',
+        };
+      case 'almostReady':
+        return {
+          label: t('readiness.almostReady', lang),
+          bgColor: 'bg-teal-500/15 dark:bg-teal-500/20',
+          textColor: 'text-teal-700 dark:text-teal-200',
+          barColor: 'bg-teal-500',
+        };
+      case 'gettingThere':
+        return {
+          label: t('readiness.gettingThere', lang),
+          bgColor: 'bg-amber-500/15 dark:bg-amber-500/20',
+          textColor: 'text-amber-700 dark:text-amber-200',
+          barColor: 'bg-amber-500',
+        };
+      default:
+        return {
+          label: t('readiness.needsWork', lang),
+          bgColor: 'bg-rose-500/15 dark:bg-rose-500/20',
+          textColor: 'text-rose-700 dark:text-rose-200',
+          barColor: 'bg-rose-500',
+        };
+    }
+  };
+
+  // Forecast text pieces for the readiness card
+  const forecastLine = (() => {
+    if (!forecast) return null;
+    if (forecast.daysToReady === 0) return t('forecast.readyNow', lang);
+    if (forecast.daysToReady === null) return tf('forecast.moreThan', lang, { days: MAX_FORECAST_DAYS });
+    return tp('forecast.days', lang, forecast.daysToReady, { days: forecast.daysToReady });
+  })();
+
+  const examLine = (() => {
+    if (!forecast || forecast.daysUntilExam === null) return null;
+    const days = forecast.daysUntilExam;
+    if (days === 0) return t('forecast.examToday', lang);
+    if (days < 0) return null;
+    const countdown = tp('forecast.daysUntilExam', lang, days, { days });
+    if (forecast.daysToReady === 0 || forecast.onTrackForExam) return `${countdown}. ${t('forecast.onTrack', lang)}`;
+    if (forecast.requiredPace !== null) {
+      return `${countdown}. ${tf('forecast.requiredPace', lang, { pace: forecast.requiredPace })}`;
+    }
+    return `${countdown}. ${t('forecast.notReachable', lang)}`;
+  })();
+
+  const blockerText = (blocker: { key: string; count?: number; current?: number | null; needed?: number }) => {
+    switch (blocker.key) {
+      case 'accuracy':
+        return blocker.current === null || blocker.current === undefined
+          ? tf('forecast.blocker.accuracyNoData', lang, { needed: blocker.needed })
+          : tf('forecast.blocker.accuracy', lang, { current: blocker.current, needed: blocker.needed });
+      case 'unseen':
+        return tf('forecast.blocker.unseen', lang, { count: blocker.count });
+      case 'mistakes':
+        return tf('forecast.blocker.mistakes', lang, { count: blocker.count });
+      case 'mocks':
+        return tp('forecast.blocker.mocks', lang, blocker.needed, { needed: blocker.needed });
+      default:
+        return null;
     }
   };
   
@@ -303,9 +370,7 @@ export default function StatsScreen() {
               </UIText>
               <View className={`rounded-full px-3 py-1 ${readinessInfo.bgColor}`}>
                 <UIText variant="caption" className={`font-semibold ${readinessInfo.textColor}`}>
-                  {readinessBreakdown.overall >= 80 ? t('readiness.ready', lang) : 
-                   readinessBreakdown.overall >= 60 ? t('readiness.gettingThere', lang) : 
-                   t('readiness.needsWork', lang)}
+                  {readinessInfo.label}
                 </UIText>
               </View>
             </View>
@@ -320,7 +385,70 @@ export default function StatsScreen() {
                 className={`rounded-full ${readinessInfo.barColor}`}
               />
             </View>
+            <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+              {tf('readiness.readyAt', lang, { score: 97 })}
+            </UIText>
           </View>
+
+          {/* Forecast: days to ready, pace, exam date, and what is left */}
+          {forecast && (
+            <View className="gap-3 mt-2" testID="stats.forecast">
+              <UIText variant="caption" className="text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                {t('forecast.title', lang)}
+              </UIText>
+              <View className="rounded-2xl border border-indigo-200/80 dark:border-indigo-700/60 bg-indigo-50/60 dark:bg-indigo-950/30 px-3 py-3 gap-2">
+                <UIText variant="subtitle" className="text-indigo-700 dark:text-indigo-200">
+                  {forecastLine}
+                </UIText>
+                <View className={largeText ? 'gap-1 items-start' : 'flex-row items-center justify-between'}>
+                  <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                    {t('forecast.paceLabel', lang)}
+                  </UIText>
+                  <UIText variant="caption" className="font-semibold text-slate-900 dark:text-slate-50">
+                    {tp('forecast.pace', lang, forecast.pace, { pace: forecast.pace })}
+                  </UIText>
+                </View>
+                {forecast.paceSource === 'default' && (
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    {t('forecast.paceDefault', lang)}
+                  </UIText>
+                )}
+                {forecast.examDate && (
+                  <View className={largeText ? 'gap-1 items-start' : 'flex-row items-center justify-between'}>
+                    <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                      {t('exam.examDate', lang)}
+                    </UIText>
+                    <UIText variant="caption" className="font-semibold text-slate-900 dark:text-slate-50">
+                      {formatDate(forecast.examDate, lang)}
+                    </UIText>
+                  </View>
+                )}
+                {examLine && (
+                  <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200">
+                    {examLine}
+                  </UIText>
+                )}
+              </View>
+              {forecast.blockers.length > 0 && (
+                <View className="gap-1">
+                  <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                    {t('forecast.whatsLeft', lang)}
+                  </UIText>
+                  {forecast.blockers.map((blocker: { key: string; count?: number; current?: number | null; needed?: number }) => {
+                    const text = blockerText(blocker);
+                    return text ? (
+                      <UIText key={blocker.key} variant="caption" className="text-slate-700 dark:text-slate-200">
+                        {'\u2022 '}{text}
+                      </UIText>
+                    ) : null;
+                  })}
+                </View>
+              )}
+              <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                {t('forecast.assumption', lang)}
+              </UIText>
+            </View>
+          )}
 
           {/* Component Breakdown */}
           <View className="gap-3 mt-2">

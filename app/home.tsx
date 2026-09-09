@@ -1,3 +1,4 @@
+import { InstallHint } from '@/components/InstallHint';
 import { AnimatedBar } from '@/components/ui/animated-bar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -6,12 +7,13 @@ import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import * as EngagementDB from '@/src/db/queries/engagement';
+import * as ExamResultsDB from '@/src/db/queries/examResults';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import * as StatsDB from '@/src/db/queries/stats';
-import { t } from '@/src/i18n/i18n';
+import { t, tf, tp } from '@/src/i18n/i18n';
 import { promptForNotificationsIfNeverAsked } from '@/src/lib/notifications';
-import { getCachedLanguage, getLanguage, getReadinessMode } from '@/src/lib/settings';
-import { getReadinessBreakdown, loadStats } from '@/src/lib/stats';
+import { MAX_FORECAST_DAYS, getReadinessForecast, getReadinessLabel } from '@/src/lib/readiness';
+import { getCachedLanguage, getLanguage, getReadinessMode, getSettings } from '@/src/lib/settings';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -32,6 +34,8 @@ export default function HomeScreen() {
   const [readinessScore, setReadinessScore] = useState(0);
   const [readinessStatus, setReadinessStatus] = useState('needsWork');
   const [showProBadge, setShowProBadge] = useState(false);
+  const [forecast, setForecast] = useState<Awaited<ReturnType<typeof getReadinessForecast>> | null>(null);
+  const [latestExam, setLatestExam] = useState<ExamResultsDB.ExamResultRow | null>(null);
 
   const loadData = useCallback(async () => {
     // Notification scheduling is handled at launch (_layout) and after any
@@ -61,26 +65,24 @@ export default function HomeScreen() {
       promptForNotificationsIfNeverAsked().catch(() => {});
     }
 
-    // Calculate readiness score
-    const stats = await loadStats(currentLang);
-    const langStats = stats.statsByLang?.[String(currentLang)];
-    if (langStats) {
-      const useConservative = await getReadinessMode();
-      const breakdown = await getReadinessBreakdown(currentLang, mistakesCount, langStats, useConservative);
-      setReadinessScore(breakdown.overall);
-      
-      // Determine status based on score
-      if (breakdown.overall >= 80) {
-        setReadinessStatus('ready');
-      } else if (breakdown.overall >= 60) {
-        setReadinessStatus('gettingThere');
-      } else {
-        setReadinessStatus('needsWork');
-      }
-    } else {
+    // Readiness score plus the forecast of days until it reaches "ready"
+    const settings = await getSettings();
+    const useConservative = await getReadinessMode();
+    try {
+      const nextForecast = await getReadinessForecast(currentLang, {
+        useConservative,
+        examDate: settings?.examDate ?? null,
+      });
+      setForecast(nextForecast);
+      setReadinessScore(nextForecast.score);
+      setReadinessStatus(getReadinessLabel(nextForecast.score));
+    } catch {
+      setForecast(null);
       setReadinessScore(0);
       setReadinessStatus('needsWork');
     }
+
+    setLatestExam(await ExamResultsDB.getLatestExamResult(currentLang));
   }, []);
 
   useFocusEffect(
@@ -100,6 +102,13 @@ export default function HomeScreen() {
           textColor: 'text-emerald-700 dark:text-emerald-200',
           barColor: 'bg-emerald-500',
         };
+      case 'almostReady':
+        return {
+          label: t('readiness.almostReady', lang),
+          bgColor: 'bg-teal-500/15 dark:bg-teal-500/20',
+          textColor: 'text-teal-700 dark:text-teal-200',
+          barColor: 'bg-teal-500',
+        };
       case 'gettingThere':
         return {
           label: t('readiness.gettingThere', lang),
@@ -118,6 +127,36 @@ export default function HomeScreen() {
   };
   
   const readinessInfo = getReadinessStatusInfo();
+  const hasPassed = Boolean(latestExam?.passed);
+
+  // One line under the score: "about 12 days at your pace".
+  const forecastLine = (() => {
+    if (!forecast || hasPassed) return null;
+    if (forecast.daysToReady === 0) return t('forecast.readyNow', lang);
+    if (forecast.daysToReady === null) return tf('forecast.moreThan', lang, { days: MAX_FORECAST_DAYS });
+    return tp('forecast.days', lang, forecast.daysToReady, { days: forecast.daysToReady });
+  })();
+
+  // Second line when an exam date is set: days left and whether the pace is enough.
+  const examLine = (() => {
+    if (!forecast || hasPassed || forecast.daysUntilExam === null) return null;
+    const days = forecast.daysUntilExam;
+    if (days === 0) return t('forecast.examToday', lang);
+    if (days < 0) return null;
+    const countdown = tp('forecast.daysUntilExam', lang, days, { days });
+    if (forecast.daysToReady === 0 || forecast.onTrackForExam) return `${countdown}. ${t('forecast.onTrack', lang)}`;
+    if (forecast.requiredPace !== null) {
+      return `${countdown}. ${tf('forecast.requiredPace', lang, { pace: forecast.requiredPace })}`;
+    }
+    return `${countdown}. ${t('forecast.notReachable', lang)}`;
+  })();
+
+  // Exam date has passed and no result was recorded on or after it: ask.
+  const showExamPrompt = (() => {
+    if (!forecast?.examDate || forecast.daysUntilExam === null || forecast.daysUntilExam > 0) return false;
+    if (latestExam && latestExam.takenAt.getTime() >= forecast.examDate.getTime() - 86_400_000) return false;
+    return true;
+  })();
 
   // Gated entries: tap → if subscribed, navigate; otherwise present paywall.
   // Navigate only if the user has (or just acquired) the Pro entitlement.
@@ -196,7 +235,17 @@ export default function HomeScreen() {
                 )}
               </View>
 
-              {/* Readiness Score Section */}
+              {/* Passed the real exam: swap the readiness section for the result */}
+              {hasPassed && latestExam ? (
+                <View className="gap-1" testID="home.examPassed">
+                  <UIText variant="subtitle" className="text-emerald-700 dark:text-emerald-200">
+                    {t('exam.passedCardTitle', lang)}
+                  </UIText>
+                  <UIText variant="body" className="text-slate-700 dark:text-slate-200">
+                    {tf('exam.passedCardBody', lang, { points: latestExam.points })}
+                  </UIText>
+                </View>
+              ) : (
               <View className="gap-2">
                 <View className={largeText ? 'gap-2 items-start' : 'flex-row items-center justify-between'}>
                   <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
@@ -219,7 +268,23 @@ export default function HomeScreen() {
                     className={`rounded-full ${readinessInfo.barColor}`}
                   />
                 </View>
+                {forecastLine && (
+                  <UIText variant="caption" className="text-slate-700 dark:text-slate-200" testID="home.forecast">
+                    {forecastLine}
+                  </UIText>
+                )}
+                {examLine && (
+                  <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200" testID="home.examCountdown">
+                    {examLine}
+                  </UIText>
+                )}
+                {latestExam && !hasPassed && (
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    {tf('exam.lastAttempt', lang, { points: latestExam.points })}
+                  </UIText>
+                )}
               </View>
+              )}
 
               {/* Side-by-side normally; stack to full-width blocks at Larger
                   Text so the labels/values never clip. */}
@@ -237,13 +302,37 @@ export default function HomeScreen() {
                     {t('stats.currentStreak', lang)}
                   </UIText>
                   <UIText variant="subtitle" className={`text-emerald-600 dark:text-emerald-300 ${largeText ? '' : 'text-right'}`}>
-                    {streak} {t('home.streakDays', lang)}
+                    {tp('home.streakDays', lang, streak, { count: streak })}
                   </UIText>
                 </View>
               </View>
             </View>
           </Card>
         </PressableScale>
+
+        {showExamPrompt && (
+          <Card
+            className="gap-2 border-indigo-300/70 dark:border-indigo-600/50 bg-indigo-50/80 dark:bg-indigo-950/40"
+            onPress={() => {
+              trackEvent(posthog, 'home_exam_prompt_clicked', { language: lang });
+              router.push('/exam');
+            }}
+            testID="home.examPrompt"
+            accessibilityLabel={`${t('exam.didYouTake', lang)}, ${t('exam.didYouTakeCta', lang)}`}
+          >
+            <UIText variant="subtitle" className="text-indigo-700 dark:text-indigo-200">
+              {t('exam.didYouTake', lang)}
+            </UIText>
+            <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+              {t('exam.didYouTakeBody', lang)}
+            </UIText>
+            <UIText variant="body" className="font-semibold text-indigo-700 dark:text-indigo-200">
+              {t('exam.didYouTakeCta', lang)}
+            </UIText>
+          </Card>
+        )}
+
+        <InstallHint lang={lang} />
 
         <Card
           className="flex-row items-center justify-between bg-slate-50/80 dark:bg-slate-900/40"

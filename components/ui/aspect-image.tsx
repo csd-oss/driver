@@ -27,8 +27,13 @@ export function AspectImage({
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
-    // Get the image dimensions from the asset source
-    const resolved = Image.resolveAssetSource(source);
+    // Get the image dimensions from the asset source. react-native-web has
+    // no resolveAssetSource; there a require() already yields {uri, width, height}.
+    const resolved = typeof Image.resolveAssetSource === 'function'
+      ? Image.resolveAssetSource(source)
+      : source && typeof source === 'object' && 'width' in source
+        ? (source as { width?: number; height?: number })
+        : null;
     if (resolved && resolved.width && resolved.height) {
       setImageSize({ width: resolved.width, height: resolved.height });
     }

@@ -1027,4 +1027,314 @@ export const STR = {
     2: 'answered',
     3: 'megválaszolva',
   },
+  'readiness.almostReady': {
+    1: 'Takmer pripravený',
+    2: 'Almost ready',
+    3: 'Majdnem kész',
+  },
+  'readiness.readyAt': {
+    1: 'Pripravený od {score}%',
+    2: 'Ready at {score}%',
+    3: 'Felkészült {score}%-tól',
+  },
+  'forecast.title': {
+    1: 'Odhad do pripravenosti',
+    2: 'Time to ready',
+    3: 'Idő a felkészültségig',
+  },
+  'forecast.readyNow': {
+    1: 'Si pripravený na skúšku',
+    2: 'You are ready for the exam',
+    3: 'Készen állsz a vizsgára',
+  },
+  'forecast.days.one': {
+    1: 'približne {days} deň pri tvojom tempe',
+    2: 'about {days} day at your pace',
+    3: 'körülbelül {days} nap a tempóddal',
+  },
+  'forecast.days.few': {
+    1: 'približne {days} dni pri tvojom tempe',
+    2: 'about {days} days at your pace',
+    3: 'körülbelül {days} nap a tempóddal',
+  },
+  'forecast.days.many': {
+    1: 'približne {days} dní pri tvojom tempe',
+    2: 'about {days} days at your pace',
+    3: 'körülbelül {days} nap a tempóddal',
+  },
+  'forecast.moreThan': {
+    1: 'viac ako {days} dní pri tvojom tempe',
+    2: 'more than {days} days at your pace',
+    3: 'több mint {days} nap a tempóddal',
+  },
+  'forecast.pace.one': {
+    1: '{pace} otázka denne',
+    2: '{pace} question a day',
+    3: 'napi {pace} kérdés',
+  },
+  'forecast.pace.few': {
+    1: '{pace} otázky denne',
+    2: '{pace} questions a day',
+    3: 'napi {pace} kérdés',
+  },
+  'forecast.pace.many': {
+    1: '{pace} otázok denne',
+    2: '{pace} questions a day',
+    3: 'napi {pace} kérdés',
+  },
+  'forecast.paceLabel': {
+    1: 'Tvoje tempo',
+    2: 'Your pace',
+    3: 'Tempód',
+  },
+  'forecast.paceDefault': {
+    1: 'Kým nemáš históriu, počítame s 30 otázkami denne.',
+    2: 'Until you have some history we assume 30 questions a day.',
+    3: 'Amíg nincs előzményed, napi 30 kérdéssel számolunk.',
+  },
+  'forecast.assumption': {
+    1: 'Vychádza z tvojho tempa a presnosti za posledných 14 dní a predpokladá, že sa budeš ďalej zlepšovať.',
+    2: 'Based on your pace and accuracy over the last 14 days, assuming you keep improving.',
+    3: 'Az elmúlt 14 nap tempója és pontossága alapján, feltételezve, hogy tovább fejlődsz.',
+  },
+  'forecast.daysUntilExam.one': {
+    1: 'Do skúšky zostáva {days} deň',
+    2: '{days} day until your exam',
+    3: '{days} nap a vizsgáig',
+  },
+  'forecast.daysUntilExam.few': {
+    1: 'Do skúšky zostávajú {days} dni',
+    2: '{days} days until your exam',
+    3: '{days} nap a vizsgáig',
+  },
+  'forecast.daysUntilExam.many': {
+    1: 'Do skúšky zostáva {days} dní',
+    2: '{days} days until your exam',
+    3: '{days} nap a vizsgáig',
+  },
+  'forecast.examToday': {
+    1: 'Skúšku máš dnes. Veľa šťastia!',
+    2: 'Your exam is today. Good luck!',
+    3: 'Ma van a vizsgád. Sok sikert!',
+  },
+  'forecast.requiredPace': {
+    1: 'Aby si bol pripravený do skúšky, potrebuješ {pace} otázok denne.',
+    2: 'To be ready by your exam you need {pace} questions a day.',
+    3: 'Hogy a vizsgáig kész legyél, napi {pace} kérdés kell.',
+  },
+  'forecast.onTrack': {
+    1: 'Pri tvojom tempe to do skúšky stihneš.',
+    2: 'At your pace you will be ready in time.',
+    3: 'A tempóddal időben készen leszel.',
+  },
+  'forecast.notReachable': {
+    1: 'Termín je tesný pri akomkoľvek tempe. Cvič viac alebo posuň termín.',
+    2: 'The date is tight at any pace. Practise more or move the date.',
+    3: 'Az időpont bármilyen tempóval szoros. Gyakorolj többet, vagy tedd későbbre.',
+  },
+  'forecast.whatsLeft': {
+    1: 'Čo ešte zostáva',
+    2: 'What is left',
+    3: 'Ami még hátravan',
+  },
+  'forecast.blocker.accuracy': {
+    1: 'Presnosť je {current}%, na pripravenosť treba približne {needed}%',
+    2: 'Accuracy is {current}%, ready needs about {needed}%',
+    3: 'A pontosságod {current}%, a felkészültséghez kb. {needed}% kell',
+  },
+  'forecast.blocker.accuracyNoData': {
+    1: 'Zatiaľ nemáme dáta o presnosti, na pripravenosť treba približne {needed}%',
+    2: 'No accuracy data yet, ready needs about {needed}%',
+    3: 'Még nincs adat a pontosságról, a felkészültséghez kb. {needed}% kell',
+  },
+  'forecast.blocker.unseen': {
+    1: '{count} otázok si ešte nevidel',
+    2: '{count} questions not yet seen',
+    3: '{count} kérdést még nem láttál',
+  },
+  'forecast.blocker.mistakes': {
+    1: '{count} otvorených chýb na zopakovanie',
+    2: '{count} open mistakes to clear',
+    3: '{count} nyitott hiba javításra vár',
+  },
+  'forecast.blocker.mocks.one': {
+    1: 'Prejdi ešte {needed} skúšobný test',
+    2: 'Pass {needed} more mock exam',
+    3: 'Teljesíts még {needed} próbavizsgát',
+  },
+  'forecast.blocker.mocks.few': {
+    1: 'Prejdi ešte {needed} skúšobné testy',
+    2: 'Pass {needed} more mock exams',
+    3: 'Teljesíts még {needed} próbavizsgát',
+  },
+  'forecast.blocker.mocks.many': {
+    1: 'Prejdi ešte {needed} skúšobných testov',
+    2: 'Pass {needed} more mock exams',
+    3: 'Teljesíts még {needed} próbavizsgát',
+  },
+  'exam.didYouTakeCta': {
+    1: 'Zapísať výsledok',
+    2: 'Record result',
+    3: 'Eredmény rögzítése',
+  },
+  'exam.title': {
+    1: 'Skutočná skúška',
+    2: 'Real exam',
+    3: 'Az igazi vizsga',
+  },
+  'exam.settingsDescription': {
+    1: 'Zaznamenaj termín a výsledok skutočnej skúšky. Spresní to odhad pripravenosti.',
+    2: 'Record your real exam date and result. It makes the readiness estimate more accurate.',
+    3: 'Rögzítsd az igazi vizsga időpontját és eredményét. Pontosabbá teszi a felkészültségi becslést.',
+  },
+  'exam.examDate': {
+    1: 'Termín skúšky',
+    2: 'Exam date',
+    3: 'Vizsga időpontja',
+  },
+  'exam.setDate': {
+    1: 'Nastaviť termín',
+    2: 'Set date',
+    3: 'Időpont beállítása',
+  },
+  'exam.clearDate': {
+    1: 'Odstrániť termín',
+    2: 'Remove date',
+    3: 'Időpont törlése',
+  },
+  'exam.noDate': {
+    1: 'Termín nie je nastavený',
+    2: 'No date set',
+    3: 'Nincs beállított időpont',
+  },
+  'exam.recordResult': {
+    1: 'Zapísať výsledok skúšky',
+    2: 'Record exam result',
+    3: 'Vizsgaeredmény rögzítése',
+  },
+  'exam.didYouTake': {
+    1: 'Bol si už na skúške?',
+    2: 'Did you take the exam?',
+    3: 'Voltál már a vizsgán?',
+  },
+  'exam.didYouTakeBody': {
+    1: 'Zapíš si výsledok. Pomôže to spresniť odhad pripravenosti pre teba aj ostatných.',
+    2: 'Record your result. It helps make the readiness estimate more accurate for you and everyone else.',
+    3: 'Rögzítsd az eredményed. Pontosabbá teszi a becslést neked és mindenki másnak.',
+  },
+  'exam.outcome': {
+    1: 'Výsledok',
+    2: 'Outcome',
+    3: 'Eredmény',
+  },
+  'exam.passed': {
+    1: 'Prešiel som',
+    2: 'I passed',
+    3: 'Sikerült',
+  },
+  'exam.failed': {
+    1: 'Neprešiel som',
+    2: 'I failed',
+    3: 'Nem sikerült',
+  },
+  'exam.points': {
+    1: 'Body zo skúšky',
+    2: 'Points scored',
+    3: 'Elért pontok',
+  },
+  'exam.pointsHint': {
+    1: 'Na prejdenie treba 90 zo 100 bodov.',
+    2: 'You need 90 of 100 points to pass.',
+    3: 'A sikeres vizsgához 100-ból 90 pont kell.',
+  },
+  'exam.date': {
+    1: 'Dátum skúšky',
+    2: 'Date of the exam',
+    3: 'A vizsga dátuma',
+  },
+  'exam.save': {
+    1: 'Uložiť výsledok',
+    2: 'Save result',
+    3: 'Eredmény mentése',
+  },
+  'exam.invalidPoints': {
+    1: 'Zadaj celé číslo od 0 do 100.',
+    2: 'Enter a whole number from 0 to 100.',
+    3: 'Adj meg egy egész számot 0 és 100 között.',
+  },
+  'exam.passedCardTitle': {
+    1: 'Gratulujeme, máš to!',
+    2: 'Congratulations, you passed!',
+    3: 'Gratulálunk, sikerült!',
+  },
+  'exam.passedCardBody': {
+    1: 'Skúšku si zvládol s {points} bodmi. Pripomienky sme vypli, cvičiť môžeš ďalej.',
+    2: 'You passed with {points} points. Reminders are off now, but you can keep practising.',
+    3: '{points} ponttal sikerült a vizsga. Az emlékeztetőket kikapcsoltuk, de folytathatod a gyakorlást.',
+  },
+  'exam.lastAttempt': {
+    1: 'Posledná skúška: {points} bodov',
+    2: 'Last exam: {points} points',
+    3: 'Utolsó vizsga: {points} pont',
+  },
+  'exam.history': {
+    1: 'Tvoje skúšky',
+    2: 'Your exams',
+    3: 'Vizsgáid',
+  },
+  'exam.pointsShort': {
+    1: '{points} b.',
+    2: '{points} pts',
+    3: '{points} pont',
+  },
+  'pwa.installTitle': {
+    1: 'Pridaj si aplikáciu na plochu',
+    2: 'Add the app to your home screen',
+    3: 'Tedd az alkalmazást a kezdőképernyőre',
+  },
+  'pwa.installBody': {
+    1: 'Funguje offline a otvára sa ako bežná aplikácia.',
+    2: 'It works offline and opens like a regular app.',
+    3: 'Offline is működik, és úgy nyílik meg, mint egy hagyományos alkalmazás.',
+  },
+  'pwa.installSafariSteps': {
+    1: 'V Safari ťukni na Zdieľať a potom na „Pridať na plochu".',
+    2: 'In Safari tap Share, then "Add to Home Screen".',
+    3: 'Safariban koppints a Megosztás gombra, majd a „Hozzáadás a kezdőképernyőhöz" lehetőségre.',
+  },
+  'pwa.installButton': {
+    1: 'Nainštalovať',
+    2: 'Install',
+    3: 'Telepítés',
+  },
+  'pwa.installed': {
+    1: 'Aplikácia je nainštalovaná na ploche. Otváraš ju ako bežnú aplikáciu a funguje aj offline.',
+    2: 'The app is installed on your home screen. It opens like a regular app and works offline.',
+    3: 'Az alkalmazás a kezdőképernyőre van telepítve. Hagyományos alkalmazásként nyílik meg, és offline is működik.',
+  },
+  'pwa.dismiss': {
+    1: 'Teraz nie',
+    2: 'Not now',
+    3: 'Most nem',
+  },
+  'home.streakDays.one': {
+    1: '{count} deň',
+    2: '{count} day',
+    3: '{count} nap',
+  },
+  'home.streakDays.few': {
+    1: '{count} dni',
+    2: '{count} days',
+    3: '{count} nap',
+  },
+  'home.streakDays.many': {
+    1: '{count} dní',
+    2: '{count} days',
+    3: '{count} nap',
+  },
+  'common.ok': {
+    1: 'OK',
+    2: 'OK',
+    3: 'OK',
+  },
 };

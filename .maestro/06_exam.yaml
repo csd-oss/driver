@@ -1,0 +1,45 @@
+# Real exam result: record a pass from Settings and see the "passed" card on Home.
+appId: com.smartie.driver
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/complete_onboarding.yaml
+- tapOn:
+    id: "home.settings"
+- extendedWaitUntil:
+    visible:
+      id: "screen.settings"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "exam.recordResult"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "exam.recordResult"
+- extendedWaitUntil:
+    visible:
+      id: "screen.exam"
+    timeout: 10000
+- tapOn:
+    id: "exam.points"
+- inputText: "96"
+# 96 points auto-selects "I passed". Dragging the list dismisses the number pad
+# (keyboardDismissMode="on-drag") so Save is reachable; Save returns to Settings.
+- scrollUntilVisible:
+    element:
+      id: "exam.save"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "exam.save"
+- extendedWaitUntil:
+    visible:
+      id: "screen.settings"
+    timeout: 10000
+- tapOn:
+    id: "nav.back"
+- extendedWaitUntil:
+    visible:
+      id: "home.examPassed"
+    timeout: 10000

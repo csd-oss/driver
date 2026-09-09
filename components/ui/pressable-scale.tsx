@@ -1,5 +1,6 @@
 import { forwardRef, type ReactNode } from 'react';
 import {
+  Platform,
   Pressable,
   type GestureResponderEvent,
   type PressableProps,
@@ -12,10 +13,16 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { cssInterop } from 'nativewind';
 
 const SPRING_CONFIG = { damping: 18, stiffness: 320, mass: 0.4 } as const;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+// NativeWind does not map className onto animated components on web by itself.
+// Native already has the mapping; re-registering there strips the styles.
+if (Platform.OS === 'web') {
+  cssInterop(AnimatedPressable, { className: 'style' });
+}
 
 interface PressableScaleProps extends PressableProps {
   scaleTo?: number;
