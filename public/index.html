@@ -47,6 +47,14 @@
         height: 100dvh;
         flex: 1;
       }
+      /* Home-screen app: WebKit computes dvh as if Safari's toolbar were still
+         there and leaves a dead strip at the bottom. The body is fixed to the
+         screen, so 100% of it is the real height. */
+      @media (display-mode: standalone) {
+        #root {
+          height: 100%;
+        }
+      }
     </style>
 
     <script>
@@ -84,6 +92,45 @@
           });
         });
       }
+
+      // Storage failure message. Shown when the SQLite worker cannot open its
+      // database (private browsing, blocked site data, no OPFS support), or
+      // when nothing has mounted after 45 s for any other reason. Without
+      // this the page would sit on the wordmark forever.
+      (function () {
+        var shown = false;
+        function showUnavailable() {
+          if (shown) return;
+          shown = true;
+          var lang = (navigator.language || '').toLowerCase();
+          var sk = lang.indexOf('sk') === 0 || lang.indexOf('cs') === 0;
+          var hu = lang.indexOf('hu') === 0;
+          var title = sk ? 'Driver SK sa tu nedá spustiť'
+            : hu ? 'A Driver SK itt nem indítható'
+            : 'Driver SK cannot start here';
+          var body = sk
+            ? 'Prehliadač nedovolí aplikácii ukladať dáta. Stáva sa to v súkromnom (anonymnom) okne alebo pri zablokovaných údajoch stránok. Otvor driver.smartie.team v bežnej karte Safari alebo Chrome, alebo si aplikáciu pridaj na plochu.'
+            : hu
+              ? 'A böngésző nem engedi az alkalmazásnak az adatok mentését. Ez privát ablakban vagy letiltott webhelyadatok esetén fordul elő. Nyisd meg a driver.smartie.team címet egy normál Safari vagy Chrome lapon, vagy add hozzá a kezdőképernyőhöz.'
+              : 'The browser will not let the app store data. This happens in a private (incognito) window or when site data is blocked. Open driver.smartie.team in a normal Safari or Chrome tab, or add it to your home screen.';
+          var retry = sk ? 'Skúsiť znova' : hu ? 'Újra' : 'Try again';
+          var root = document.getElementById('root');
+          root.innerHTML =
+            '<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font:16px/1.5 -apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#f8fafc;background:#0f172a">' +
+            '<div style="max-width:420px"><div style="font-size:22px;font-weight:700;margin-bottom:12px">' + title + '</div>' +
+            '<div style="color:#cbd5e1;margin-bottom:20px">' + body + '</div>' +
+            '<button onclick="location.reload()" style="font:600 16px inherit;color:#fff;background:#4f46e5;border:0;border-radius:12px;padding:12px 20px;cursor:pointer">' + retry + '</button></div></div>';
+        }
+        var ready = false;
+        window.addEventListener('driver:db-ready', function () { ready = true; });
+        window.addEventListener('driver:db-unavailable', showUnavailable);
+        setTimeout(function () {
+          if (ready) return;
+          var root = document.getElementById('root');
+          // Still only the static wordmark: nothing mounted.
+          if (root && root.children.length <= 1 && !root.querySelector('[data-testid]')) showUnavailable();
+        }, 45000);
+      })();
 
       // Capture the install prompt before React mounts. src/lib/platform.ts reads it.
       window.__driverInstallPrompt = null;

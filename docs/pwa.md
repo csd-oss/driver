@@ -146,3 +146,5 @@ location = /sw.js { add_header Cache-Control "no-cache"; }
 - **Background tabs.** A tab opened in the background gets no animation frames, so the intro skips its animation there (`app/index.tsx`).
 - **Desktop layout.** `Screen` centres content at 480 px, but onboarding uses the full window width for its slides. Fine on phones, wide on desktop.
 - **First visit downloads about 16 MB** (Brotli brings the bundle to 1.5 MB; the 250 question images dominate). The service worker precaches all of it so later visits and offline use are instant.
+- **Private browsing.** Safari private tabs and other storage-restricted contexts cannot open the SQLite database. `index.js` gives up after three warm-up attempts and `public/index.html` shows a "cannot start here" message with a retry button (also after 45 s with nothing mounted). Private tabs have their own storage anyway, so nothing recorded there would survive.
+- **Standalone viewport.** WebKit computes `100dvh` in a home-screen app as if Safari's toolbar were present. `public/index.html` overrides `#root` to `height: 100%` under `@media (display-mode: standalone)`.
