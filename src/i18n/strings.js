@@ -1697,4 +1697,29 @@ export const STR = {
     2: 'Emergency vehicle with its signals on: {vehicle}.',
     3: 'Megkülönböztető jelzést használó jármű: {vehicle}.',
   },
+  'crossing.stop': {
+    1: 'STOP',
+    2: 'STOP',
+    3: 'STOP',
+  },
+  'crossing.runnerHint': {
+    1: 'Potiahni nadol, ak musíš dať prednosť. Nahor, keď je voľno.',
+    2: 'Swipe down when you must give way. Swipe up once the way is clear.',
+    3: 'Húzz lefelé, ha elsőbbséget kell adnod. Felfelé, ha szabad az út.',
+  },
+  'crossing.hesitated': {
+    1: 'Zbytočne si zastavil. Mal si prednosť.',
+    2: 'Needless stop. You had priority.',
+    3: 'Fölöslegesen álltál meg. Elsőbbséged volt.',
+  },
+  'crossing.levelUp': {
+    1: 'Úroveň {n}. Rýchlejšie!',
+    2: 'Level {n}. Faster!',
+    3: '{n}. szint. Gyorsabban!',
+  },
+  'crossing.passedCount': {
+    1: 'Prejdené križovatky: {n}',
+    2: 'Junctions passed: {n}',
+    3: 'Áthaladt kereszteződések: {n}',
+  },
 };
