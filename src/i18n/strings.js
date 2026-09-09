@@ -1722,4 +1722,104 @@ export const STR = {
     2: 'Junctions passed: {n}',
     3: 'Áthaladt kereszteződések: {n}',
   },
+  'crossing.instr.left': {
+    1: 'Na križovatke odbočte vľavo.',
+    2: 'At the junction, turn left.',
+    3: 'A kereszteződésben forduljon balra.',
+  },
+  'crossing.instr.right': {
+    1: 'Na križovatke odbočte vpravo.',
+    2: 'At the junction, turn right.',
+    3: 'A kereszteződésben forduljon jobbra.',
+  },
+  'crossing.instr.straight': {
+    1: 'Na križovatke pokračujte rovno.',
+    2: 'At the junction, go straight on.',
+    3: 'A kereszteződésben hajtson egyenesen tovább.',
+  },
+  'crossing.instr.main': {
+    1: 'Pokračujte po hlavnej ceste.',
+    2: 'Follow the main road.',
+    3: 'Kövesse a főutat.',
+  },
+  'crossing.instr.roundabout.right': {
+    1: 'Na kruhovom objazde prvý výjazd.',
+    2: 'At the roundabout, take the first exit.',
+    3: 'A körforgalomban az első kijáraton hajtson ki.',
+  },
+  'crossing.instr.roundabout.straight': {
+    1: 'Na kruhovom objazde druhý výjazd.',
+    2: 'At the roundabout, take the second exit.',
+    3: 'A körforgalomban a második kijáraton hajtson ki.',
+  },
+  'crossing.instr.roundabout.left': {
+    1: 'Na kruhovom objazde tretí výjazd.',
+    2: 'At the roundabout, take the third exit.',
+    3: 'A körforgalomban a harmadik kijáraton hajtson ki.',
+  },
+  'crossing.wrongWay': {
+    1: 'Nesprávny smer. Inštruktor povedal: {instruction}',
+    2: 'Wrong way. The instructor said: {instruction}',
+    3: 'Rossz irány. Az oktató azt mondta: {instruction}',
+  },
+  'crossing.needTurn': {
+    1: 'Tu sa nedá ísť rovno. Potiahni doľava alebo doprava.',
+    2: 'No straight on here. Swipe left or right.',
+    3: 'Itt nem lehet egyenesen menni. Húzz balra vagy jobbra.',
+  },
+  'crossing.legendTitle': {
+    1: 'Ovládanie',
+    2: 'Controls',
+    3: 'Irányítás',
+  },
+  'crossing.legendDown': {
+    1: 'Potiahni nadol: zastav a daj prednosť',
+    2: 'Swipe down: stop and give way',
+    3: 'Húzz lefelé: állj meg és adj elsőbbséget',
+  },
+  'crossing.legendUp': {
+    1: 'Potiahni nahor: rozbehni sa, keď je voľno',
+    2: 'Swipe up: move off once the way is clear',
+    3: 'Húzz felfelé: indulj el, ha szabad az út',
+  },
+  'crossing.legendSide': {
+    1: 'Potiahni doľava alebo doprava: odboč podľa inštruktora',
+    2: 'Swipe left or right: turn as the instructor says',
+    3: 'Húzz balra vagy jobbra: fordulj az oktató szerint',
+  },
+  'crossing.legendRules': {
+    1: 'Zrážka stojí život. Zbytočné zastavenie a zlý smer stoja body.',
+    2: 'A crash costs a life. A needless stop or a wrong turn costs the points.',
+    3: 'Az ütközés egy életbe kerül. A fölösleges megállás és a rossz irány pontokba.',
+  },
+  'crossing.coach.giveWay': {
+    1: 'Prednosť má {vehicle}. Potiahni nadol a počkaj.',
+    2: '{vehicle} has priority. Swipe down and wait.',
+    3: '{vehicle} elsőbbséget élvez. Húzz lefelé és várj.',
+  },
+  'crossing.coach.priority': {
+    1: 'Máš prednosť. Pokračuj bez zastavenia.',
+    2: 'You have priority. Keep going, do not stop.',
+    3: 'Tiéd az elsőbbség. Haladj tovább, ne állj meg.',
+  },
+  'crossing.coach.turn': {
+    1: 'Potiahni {dir}, aby si odbočil.',
+    2: 'Swipe {dir} to turn.',
+    3: 'Húzz {dir} a kanyarodáshoz.',
+  },
+  'crossing.coach.dirLeft': {
+    1: 'doľava',
+    2: 'left',
+    3: 'balra',
+  },
+  'crossing.coach.dirRight': {
+    1: 'doprava',
+    2: 'right',
+    3: 'jobbra',
+  },
+  'crossing.coach.intro': {
+    1: 'Prvé tri križovatky idú pomalšie a napovedáme ti.',
+    2: 'The first three junctions are slower and come with hints.',
+    3: 'Az első három kereszteződés lassabb, és súgunk.',
+  },
 };

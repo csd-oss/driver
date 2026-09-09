@@ -20,12 +20,16 @@ appId: com.smartie.driver
     id: "crossing.start"
 - extendedWaitUntil:
     visible:
-      id: "crossing.go"
+      id: "crossing.scene"
     timeout: 10000
-- tapOn:
-    id: "crossing.go"
-# Whatever the outcome, the run continues: either the next scene appears or a feedback card does.
-- extendedWaitUntil:
-    visible:
-      id: "screen.crossing"
-    timeout: 10000
+# Swipe down on the road to stop, then up to move off; the run continues either way.
+- swipe:
+    start: "50%,45%"
+    end: "50%,65%"
+    duration: 200
+- swipe:
+    start: "50%,65%"
+    end: "50%,45%"
+    duration: 200
+- assertVisible:
+    id: "crossing.scene"

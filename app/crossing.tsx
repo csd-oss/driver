@@ -10,6 +10,7 @@ import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { confirmDialog } from '@/src/lib/dialog';
 import { makeRng } from '@/src/lib/priority/generator';
 import {
+  COACH_JUNCTIONS,
   LIVES,
   applyInput,
   createRun,
@@ -31,10 +32,20 @@ import { PanResponder, View, useWindowDimensions } from 'react-native';
 type Phase = 'intro' | 'running' | 'over';
 
 interface Toast {
-  kind: 'crash' | 'late' | 'ok' | 'level';
+  kind: 'crash' | 'late' | 'ok' | 'level' | 'wrong';
   text: string;
   until: number;
 }
+
+interface Instruction {
+  kind: string;
+  turn: string;
+  to: string;
+  junction: number;
+}
+
+const instructionText = (i: { kind: string; turn: string }, lang: number) =>
+  i.kind === 'roundabout' ? t(`crossing.instr.roundabout.${i.turn}`, lang) : t(`crossing.instr.${i.kind}`, lang);
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 const TOAST_MS = 1500;
@@ -70,7 +81,11 @@ export default function CrossingScreen() {
   const [hud, setHud] = useState({ level: 1, lives: LIVES, score: 0, streak: 0, passed: 0 });
   const [frame, setFrame] = useState<{ junctions: any[]; vehicles: WorldVehicle[]; you: any; heading: number; youVehicle: any; blink: boolean; shake: number } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [instruction, setInstruction] = useState<Instruction | null>(null);
+  const [coachHint, setCoachHint] = useState<string | null>(null);
+  const [intent, setIntent] = useState<string | null>(null);
   const [isNewBest, setIsNewBest] = useState(false);
+  const [roundsPlayed, setRoundsPlayed] = useState<number | null>(null);
 
   const runRef = useRef<any>(null);
   const frameRef = useRef<number | null>(null);
@@ -87,6 +102,7 @@ export default function CrossingScreen() {
         setLang(l);
         const stats = await GameRoundsDB.getGameStats(l, 'crossing');
         setBest(stats.best);
+        setRoundsPlayed(stats.rounds);
       });
     }, [posthog])
   );
@@ -151,7 +167,9 @@ export default function CrossingScreen() {
           haptic.honk();
         } else if (e.type === 'passed') {
           highlightRef.current = [];
-          if (!e.hesitated) {
+          setInstruction(null);
+          setCoachHint(null);
+          if (!e.hesitated && !e.wrongWay) {
             setToast({ kind: 'ok', text: tf('game.plusPoints', lang, { points: e.points }), until: tNow + 900 });
             haptic.passed();
           }
@@ -162,6 +180,33 @@ export default function CrossingScreen() {
           haptic.stopped();
         } else if (e.type === 'resumed') {
           haptic.resumed();
+        } else if (e.type === 'instruction') {
+          setInstruction({ kind: e.kind, turn: e.turn, to: e.to, junction: e.junction });
+          setIntent(null);
+          if (run.coach && run.passed < COACH_JUNCTIONS) {
+            const junction = run.junctions.find((j: any) => j.index === e.junction);
+            const blocker = e.blockers?.[0];
+            const vehicle = junction?.scene?.vehicles?.find((v: any) => v.id === blocker);
+            if (e.turn !== 'straight') {
+              setCoachHint(tf('crossing.coach.turn', lang, { dir: t(e.turn === 'left' ? 'crossing.coach.dirLeft' : 'crossing.coach.dirRight', lang) }));
+            } else if (vehicle) {
+              const name = t(`crossing.vehicle.${vehicle.color}`, lang);
+              setCoachHint(tf('crossing.coach.giveWay', lang, { vehicle: name.charAt(0).toUpperCase() + name.slice(1) }));
+            } else {
+              setCoachHint(t('crossing.coach.priority', lang));
+            }
+          } else {
+            setCoachHint(null);
+          }
+        } else if (e.type === 'intent') {
+          setIntent(e.intent);
+          haptic.resumed();
+        } else if (e.type === 'needTurn') {
+          setToast({ kind: 'late', text: t('crossing.needTurn', lang), until: tNow + TOAST_MS * 2 });
+          haptic.honk();
+        } else if (e.type === 'wrongWay') {
+          setToast({ kind: 'wrong', text: tf('crossing.wrongWay', lang, { instruction: instructionText(e.instruction, lang) }), until: tNow + TOAST_MS + 400 });
+          haptic.honk();
         }
       }
       setHud({ level: run.level, lives: run.lives, score: run.score, streak: run.streak, passed: run.passed });
@@ -198,6 +243,10 @@ export default function CrossingScreen() {
   const startRun = () => {
     runRef.current = createRun(makeRng(Date.now() % 1000003), 1);
     runRef.current.now = now();
+    runRef.current.coach = roundsPlayed === 0;
+    setInstruction(null);
+    setCoachHint(null);
+    setIntent(null);
     headingRef.current = 0;
     finishedRef.current = false;
     highlightRef.current = [];
@@ -214,17 +263,28 @@ export default function CrossingScreen() {
   const go = useCallback(() => {
     if (phase === 'running' && runRef.current) applyInput(runRef.current, 'go');
   }, [phase]);
+  const turn = useCallback(
+    (dir: 'left' | 'right') => {
+      if (phase === 'running' && runRef.current) applyInput(runRef.current, dir);
+    },
+    [phase]
+  );
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 12 && Math.abs(g.dy) > Math.abs(g.dx),
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 10 || Math.abs(g.dy) > 10,
         onPanResponderRelease: (_e, g) => {
-          if (g.dy > 30) brake();
-          else if (g.dy < -30) go();
+          const horizontal = Math.abs(g.dx) > Math.abs(g.dy);
+          if (horizontal) {
+            if (g.dx > 28) turn('right');
+            else if (g.dx < -28) turn('left');
+          } else if (g.dy > 28) brake();
+          else if (g.dy < -28) go();
         },
       }),
-    [brake, go]
+    [brake, go, turn]
   );
 
   const handleBack = async () => {
@@ -256,9 +316,20 @@ export default function CrossingScreen() {
       <UIText variant="body" className="text-slate-600 dark:text-slate-300">
         {t('crossing.hubBody', lang)}
       </UIText>
-      <UIText variant="body" className="text-slate-600 dark:text-slate-300">
-        {t('crossing.runnerHint', lang)}
-      </UIText>
+      <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-3 gap-2">
+        <UIText variant="caption" className="uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+          {t('crossing.legendTitle', lang)}
+        </UIText>
+        <UIText variant="body" className="text-slate-800 dark:text-slate-100">⬇️  {t('crossing.legendDown', lang)}</UIText>
+        <UIText variant="body" className="text-slate-800 dark:text-slate-100">⬆️  {t('crossing.legendUp', lang)}</UIText>
+        <UIText variant="body" className="text-slate-800 dark:text-slate-100">↔️  {t('crossing.legendSide', lang)}</UIText>
+        <UIText variant="caption" className="text-slate-500 dark:text-slate-400">{t('crossing.legendRules', lang)}</UIText>
+      </View>
+      {roundsPlayed === 0 && (
+        <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200">
+          {t('crossing.coach.intro', lang)}
+        </UIText>
+      )}
       <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
         {t('game.best', lang)}: {best}
       </UIText>
@@ -296,7 +367,8 @@ export default function CrossingScreen() {
     </Card>
   );
 
-  const toastStyle = toast?.kind === 'ok' ? 'bg-emerald-600/90' : toast?.kind === 'level' ? 'bg-indigo-600/90' : 'bg-rose-600/90';
+  const toastStyle = toast?.kind === 'ok' ? 'bg-emerald-600/90' : toast?.kind === 'level' ? 'bg-indigo-600/90' : toast?.kind === 'wrong' ? 'bg-amber-600/95' : 'bg-rose-600/90';
+  const turnArrow = intent === 'left' ? '⬅️' : intent === 'right' ? '➡️' : '⬆️';
 
   return (
     <Screen testID="screen.crossing" header={<Header title={t('crossing.title', lang)} onBackPress={handleBack} />}>
@@ -336,8 +408,19 @@ export default function CrossingScreen() {
                 blinkOn={frame.blink}
                 shake={frame.shake}
               />
-              {toastVisible && (
+              {instruction && (
                 <View pointerEvents="none" style={{ position: 'absolute', left: 12, right: 12, top: 12 }}>
+                  <View className="rounded-2xl px-4 py-3 bg-slate-900/85 dark:bg-slate-950/85 flex-row items-center gap-3" testID="crossing.instruction">
+                    <UIText variant="subtitle" className="text-white">🧑‍🏫</UIText>
+                    <UIText variant="body" className="text-white font-semibold flex-1">
+                      {instructionText(instruction, lang)}
+                    </UIText>
+                    <UIText variant="subtitle" className="text-white">{turnArrow}</UIText>
+                  </View>
+                </View>
+              )}
+              {toastVisible && (
+                <View pointerEvents="none" style={{ position: 'absolute', left: 12, right: 12, top: instruction ? 72 : 12 }}>
                   <View className={`rounded-2xl px-4 py-3 ${toastStyle}`} testID={`crossing.toast.${toast.kind}`}>
                     <UIText variant="body" className="text-white font-semibold text-center">
                       {toast.text}
@@ -345,18 +428,19 @@ export default function CrossingScreen() {
                   </View>
                 </View>
               )}
+              {coachHint && !toastVisible && (
+                <View pointerEvents="none" style={{ position: 'absolute', left: 12, right: 12, bottom: 12 }}>
+                  <View className="rounded-2xl px-4 py-3 bg-indigo-600/95" testID="crossing.coach">
+                    <UIText variant="body" className="text-white font-semibold text-center">
+                      {coachHint}
+                    </UIText>
+                  </View>
+                </View>
+              )}
             </View>
             <UIText variant="caption" className="text-center text-slate-500 dark:text-slate-400">
-              {t('crossing.runnerHint', lang)}
+              {t('crossing.legendSide', lang)}
             </UIText>
-            <View className="flex-row gap-3">
-              <Button onPress={brake} variant="secondary" className="flex-1 min-h-[64px]" textStyle={{ fontSize: 20, letterSpacing: 2, color: '#dc2626' }} testID="crossing.stop">
-                {t('crossing.stop', lang)}
-              </Button>
-              <Button onPress={go} variant="default" className="flex-1 min-h-[64px]" textStyle={{ fontSize: 20, letterSpacing: 2 }} testID="crossing.go">
-                {t('crossing.go', lang)}
-              </Button>
-            </View>
           </>
         )}
       </View>

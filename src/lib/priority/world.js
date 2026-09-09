@@ -1,5 +1,6 @@
 import { resolve } from './engine';
 import { generatePlayable } from './generator';
+import { leftOf, rightOf, oppositeOf } from './geometry';
 import { EXIT_HEADING, CENTER, ROAD_HALF, SIZE, WAIT, vehiclePath, approachPoint } from './layout';
 import { durationOf, GROUP_GAP_MS, CLEAR_FRACTION, poseAt } from './timeline';
 
@@ -29,8 +30,28 @@ export const HONK_MS = 900;            // how long a needless stop holds you
 export const CRASH_PAUSE_MS = 1400;
 export const JUNCTIONS_PER_LEVEL = 4;
 export const LIVES = 3;
+export const COACH_JUNCTIONS = 3;     // slower junctions on a first run
+export const COACH_SPEED = 0.6;
 
-export const speedFor = (level) => Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_STEP);
+export const speedFor = (level, coachActive = false) =>
+  Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_STEP) * (coachActive ? COACH_SPEED : 1);
+
+/** Arm a swipe direction points at, for a car arriving on S. */
+export const armForIntent = (intent) => (intent === 'left' ? leftOf('S') : intent === 'right' ? rightOf('S') : oppositeOf('S'));
+
+/**
+ * The instructor's direction for a junction, phrased from the movement the
+ * generator chose. "main" (follow the main road) is used when the main road
+ * carries on where you are going, so the player has to read the panel.
+ */
+const instructionFor = (rng, scene, to) => {
+  const straight = oppositeOf('S');
+  const turn = to === straight ? 'straight' : to === leftOf('S') ? 'left' : 'right';
+  if (scene.layout === 'roundabout') return { kind: 'roundabout', turn, to };
+  const onMain = scene.mainRoad && scene.mainRoad.includes('S') && scene.mainRoad.includes(to);
+  if (onMain && rng() < 0.6) return { kind: 'main', turn, to };
+  return { kind: turn, turn, to };
+};
 
 const rad = (deg) => (deg * Math.PI) / 180;
 
@@ -97,16 +118,33 @@ const throughWorld = (junction) => {
   return path.through.map((p) => toWorld(junction, p));
 };
 
+const applyResolution = (junction) => {
+  const { scene } = junction;
+  const resolution = resolve(scene);
+  junction.resolution = resolution;
+  const group = resolution.order.findIndex((g) => g.includes('you'));
+  // A player-chosen movement can deadlock the junction (the generator only
+  // guarantees the instructed one). Then you simply go last and everyone
+  // with priority over you is sent off first.
+  junction.youGroup = group >= 0 ? group : resolution.order.length;
+  junction.blockers = (resolution.yields.you || []).filter((id) => scene.vehicles.some((v) => v.id === id));
+};
+
 const createJunction = (rng, level, prev) => {
   const scene = generatePlayable(rng, level);
-  const resolution = scene.resolution || resolve(scene);
+  const you = scene.vehicles.find((v) => v.id === 'you');
   const junction = prev
     ? placeAfter(prev, scene)
     : { scene, cx: CENTER, cy: CENTER, rot: 0 };
-  junction.resolution = resolution;
+  junction.instruction = instructionFor(rng, scene, you.to);
+  // The car goes straight unless the player turns; where there is no
+  // straight ahead the frame is placed as if the instruction is followed.
+  const straight = oppositeOf('S');
+  you.to = scene.arms.includes(straight) ? straight : junction.instruction.to;
+  junction.executedTo = null;
+  junction.needTurn = false;
+  applyResolution(junction);
   junction.index = prev ? prev.index + 1 : 0;
-  junction.youGroup = resolution.order.findIndex((g) => g.includes('you'));
-  junction.blockers = (resolution.yields.you || []).filter((id) => scene.vehicles.some((v) => v.id === id));
   junction.starts = Object.fromEntries(scene.vehicles.map((v) => [v.id, null]));
   junction.scheduled = false;
   junction.passed = false;
@@ -144,7 +182,9 @@ export const createRun = (rng, level = 1) => {
     junctions: [],
     route: measure([approachPoint('S', CENTER), approachPoint('S', ROAD_HALF + WAIT)]), // placeholder
     s: 0,               // your distance along the route
-    speed: speedFor(level),
+    speed: speedFor(level, false),
+    coach: false,
+    intent: null,
     braking: false,
     stoppedAt: null,    // distance where you are stopped
     crashUntil: 0,
@@ -227,15 +267,62 @@ const startFollowers = (run, junction, from) => {
   const groups = junction.resolution.order;
   let t = from;
   for (let k = junction.youGroup; k < groups.length; k++) {
-    for (const id of groups[k]) if (id !== 'you' && junction.starts[id] === null) junction.starts[id] = t;
+    for (const id of groups[k] || []) if (id !== 'you' && junction.starts[id] === null) junction.starts[id] = t;
     t += GROUP_GAP_MS;
   }
+  // Vehicles left out of the order by a deadlock still cross, after you.
+  for (const id of Object.keys(junction.starts)) if (id !== 'you' && junction.starts[id] === null) junction.starts[id] = t;
 };
 
-/** Player input: 'brake' | 'go' | null. */
+/**
+ * Change where you will go at the junction ahead. Re-resolves priority for
+ * the new movement, moves any vehicle that now has priority over you off at
+ * once, and re-places the junctions after this one along the new exit.
+ */
+const setYourMovement = (run, junction, to) => {
+  const you = junction.scene.vehicles.find((v) => v.id === 'you');
+  if (!junction.scene.arms.includes(to) || you.to === to) return false;
+  you.to = to;
+  junction.needTurn = false;
+  const previousBlockers = new Set(junction.blockers);
+  applyResolution(junction);
+  junction.through = throughWorld(junction);
+  if (junction.scheduled) {
+    const byId = Object.fromEntries(junction.scene.vehicles.map((v) => [v.id, v]));
+    let clearAt = run.now;
+    for (const id of junction.blockers) {
+      if (junction.starts[id] === null) junction.starts[id] = run.now; // it goes before you: now
+      clearAt = Math.max(clearAt, junction.starts[id] + durationOf(byId[id]) * CLEAR_FRACTION);
+    }
+    junction.clearAt = junction.blockers.length ? clearAt : run.now;
+    // Followers that lost their start keep it; nothing else changes.
+    for (const id of previousBlockers) if (!junction.blockers.includes(id) && junction.starts[id] === null) junction.starts[id] = null;
+  }
+  // Everything after this junction depends on where you leave it.
+  run.junctions = run.junctions.filter((j) => j.index <= junction.index);
+  rebuildRoute(run);
+  ensureAhead(run);
+  return true;
+};
+
+/** Player input: 'brake' | 'go' | 'left' | 'right' | null. */
 export const applyInput = (run, input) => {
   if (run.over || run.now < run.crashUntil) return;
   const junction = currentJunction(run);
+  if (input === 'left' || input === 'right') {
+    if (run.s >= junction.sLine || junction.starts.you !== null) return;
+    const next = run.intent === input ? null : input;
+    const to = armForIntent(next);
+    if (!junction.scene.arms.includes(to)) return; // no such arm here
+    run.intent = next;
+    setYourMovement(run, junction, to);
+    run.events.push({ type: 'intent', junction: junction.index, intent: next, to });
+    // A car waiting for a direction moves off again.
+    if (run.stoppedAt !== null && junction.needTurn === false && junction.resumeAt === null) {
+      junction.resumeAt = run.now + 300;
+    }
+    return;
+  }
   if (input === 'brake') {
     if (run.s < junction.sLine && run.stoppedAt === null) run.braking = true;
   } else if (input === 'go') {
@@ -285,16 +372,18 @@ const crash = (run, junction, culprit) => {
 const passJunction = (run, junction) => {
   junction.passed = true;
   run.passed += 1;
+  const wrongWay = junction.executedTo !== null && junction.executedTo !== junction.instruction.to;
   const base = 100 + (run.level - 1) * 15;
   const bonus = junction.earlyResume ? 60 : 0;
   const multiplier = Math.min(2, 1 + 0.1 * run.streak);
-  const points = junction.hesitated ? 0 : Math.round((base + bonus) * multiplier);
+  const spoiled = junction.hesitated || wrongWay;
+  const points = spoiled ? 0 : Math.round((base + bonus) * multiplier);
   run.score += points;
-  run.streak = junction.hesitated ? 0 : run.streak + 1;
-  run.events.push({ type: 'passed', junction: junction.index, points, hesitated: junction.hesitated, early: Boolean(junction.earlyResume) });
+  run.streak = spoiled ? 0 : run.streak + 1;
+  if (wrongWay) run.events.push({ type: 'wrongWay', junction: junction.index, instruction: junction.instruction, executed: junction.executedTo });
+  run.events.push({ type: 'passed', junction: junction.index, points, hesitated: junction.hesitated, wrongWay, early: Boolean(junction.earlyResume) });
   if (run.passed % JUNCTIONS_PER_LEVEL === 0) {
     run.level += 1;
-    run.speed = speedFor(run.level);
     run.events.push({ type: 'level', level: run.level });
   }
 };
@@ -310,7 +399,11 @@ export const step = (run, now) => {
 
   ensureAhead(run);
   const junction = currentJunction(run);
-  if (!junction.scheduled && junction.sWait - run.s < run.speed * 6) schedule(run, junction);
+  run.speed = speedFor(run.level, run.coach && run.passed < COACH_JUNCTIONS);
+  if (!junction.scheduled && junction.sWait - run.s < run.speed * 6) {
+    schedule(run, junction);
+    run.events.push({ type: 'instruction', junction: junction.index, ...junction.instruction, blockers: [...junction.blockers] });
+  }
 
   if (now < run.crashUntil) {
     return run.events.splice(0);
@@ -329,7 +422,17 @@ export const step = (run, now) => {
     }
   } else {
     let next = run.s + (run.speed * dt) / 1000;
-    if (run.braking && next >= junction.sWait && run.s < junction.sLine) {
+    // No straight ahead and no direction chosen: wait at the line for a swipe.
+    const straight = oppositeOf('S');
+    const you = junction.scene.vehicles.find((v) => v.id === 'you');
+    if (!junction.scene.arms.includes(straight) && run.intent === null && !junction.needTurn && next >= junction.sWait && run.s < junction.sLine) {
+      next = junction.sWait;
+      run.stoppedAt = next;
+      run.braking = false;
+      junction.needTurn = true;
+      junction.resumeAt = null;
+      run.events.push({ type: 'needTurn', junction: junction.index, instruction: junction.instruction });
+    } else if (run.braking && next >= junction.sWait && run.s < junction.sLine) {
       next = junction.sWait;
       run.stoppedAt = next;
       run.braking = false;
@@ -356,6 +459,8 @@ export const step = (run, now) => {
     }
     if (junction.starts.you === null) {
       junction.starts.you = now;
+      junction.executedTo = junction.scene.vehicles.find((v) => v.id === 'you').to;
+      run.intent = null;
       startFollowers(run, junction, now + 400);
     }
   }
@@ -378,7 +483,10 @@ export const vehiclePoses = (run) => {
     if (Math.hypot(junction.cx - me.x, junction.cy - me.y) > SPACING * 1.6) continue;
     for (const v of junction.scene.vehicles) {
       if (v.id === 'you') continue;
-      const start = junction.scheduled ? junction.starts[v.id] : null;
+      // poseAt works on a scene-relative clock: both the start and "now"
+      // must be measured from the moment the junction was scheduled.
+      const absolute = junction.scheduled ? junction.starts[v.id] : null;
+      const start = absolute === null ? null : absolute - junction.t0;
       const local = poseAt(junction.scene, v, start, junction.scheduled ? run.now - junction.t0 : 0, junction.pathCache);
       if (!local) continue;
       const w = toWorld(junction, local);
