@@ -39,6 +39,9 @@
         body {
           background: #0f172a;
         }
+        #driver-splash {
+          color: #f8fafc;
+        }
       }
       /* These styles make the root element full-height */
       #root {
@@ -47,13 +50,15 @@
         height: 100dvh;
         flex: 1;
       }
-      /* Home-screen app: WebKit computes dvh as if Safari's toolbar were still
-         there and leaves a dead strip at the bottom. The body is fixed to the
-         screen, so 100% of it is the real height. */
+      /* Home-screen app with a translucent status bar: WebKit sizes the
+         window to screen minus the status bar (812 of 874 pt on a Dynamic
+         Island phone) but paints from the top edge, leaving a dead strip at
+         the bottom. 100vh is the full screen height in that mode, measured
+         with an on-page ruler in the simulator. */
       @media (display-mode: standalone) {
-        #root {
-          height: 100%;
-        }
+        html, body { height: 100vh; }
+        body { bottom: auto; }
+        #root { height: 100vh; }
       }
     </style>
 
@@ -157,7 +162,7 @@
     <!-- The root element for your Expo app. The wordmark inside is a static
          placeholder shown while the database worker starts; React replaces it. -->
     <div id="root">
-      <div style="flex:1;display:flex;align-items:center;justify-content:center;font:700 34px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#f8fafc;letter-spacing:-0.02em;">Driver SK</div>
+      <div id="driver-splash" style="flex:1;display:flex;align-items:center;justify-content:center;font:700 34px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;letter-spacing:-0.02em;">Driver SK</div>
     </div>
   </body>
 </html>

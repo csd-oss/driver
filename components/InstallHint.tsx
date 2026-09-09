@@ -145,9 +145,10 @@ export const InstallHint = ({ lang, placement = 'home' }: InstallHintProps) => {
           accessibilityRole="button"
           accessibilityLabel={t('pwa.dismiss', lang)}
           testID="pwa.dismiss"
-          className="rounded-full bg-white/15 px-2.5 py-1"
+          className="rounded-full px-3 py-1.5"
+          style={{ backgroundColor: 'rgba(255,255,255,0.92)' }}
         >
-          <UIText variant="caption" className="text-indigo-50">
+          <UIText variant="caption" className="font-semibold" style={{ color: '#3730a3' }}>
             {t('pwa.dismiss', lang)}
           </UIText>
         </Pressable>
