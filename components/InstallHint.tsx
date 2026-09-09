@@ -122,10 +122,13 @@ export const InstallHint = ({ lang, placement = 'home' }: InstallHintProps) => {
   }
 
   // Home: solid indigo so it reads as a call to action, not another list card.
+  // Inline colours on purpose: on web the Card's dark: background rule would
+  // otherwise beat a className override.
   return (
     <Card
       testID="pwa.installHint"
-      className="gap-2 bg-indigo-600 dark:bg-indigo-500 border-indigo-400/40 shadow-indigo-500/30"
+      className="gap-2"
+      style={{ backgroundColor: '#4f46e5', borderColor: 'rgba(129,140,248,0.5)' }}
     >
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 flex-row items-center gap-2">
@@ -160,8 +163,9 @@ export const InstallHint = ({ lang, placement = 'home' }: InstallHintProps) => {
         <Button
           onPress={install}
           testID="pwa.installButton"
-          className="mt-1 bg-white dark:bg-white border-white"
-          textClassName="text-indigo-700 dark:text-indigo-700"
+          className="mt-1"
+          style={{ backgroundColor: '#ffffff', borderColor: '#ffffff' }}
+          textStyle={{ color: '#4338ca' }}
         >
           {t('pwa.installButton', lang)}
         </Button>
