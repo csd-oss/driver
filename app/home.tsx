@@ -332,6 +332,30 @@ export default function HomeScreen() {
           </Card>
         )}
 
+        <Card
+          className="gap-1 border-amber-300/70 dark:border-amber-500/40 bg-amber-50/70 dark:bg-amber-950/30"
+          onPress={() => {
+            trackEvent(posthog, 'home_game_clicked', { language: lang });
+            router.push('/game');
+          }}
+          testID="home.game"
+          accessibilityLabel={`${t('game.title', lang)}, ${t('game.homeSubtitle', lang)}`}
+        >
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 gap-1">
+              <View className="flex-row items-center gap-2">
+                <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
+                  🚦 {t('game.title', lang)}
+                </UIText>
+              </View>
+              <UIText variant="caption" className="text-slate-600 dark:text-slate-300">
+                {t('game.homeSubtitle', lang)}
+              </UIText>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
+          </View>
+        </Card>
+
         <InstallHint lang={lang} />
 
         <Card

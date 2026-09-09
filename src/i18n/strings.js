@@ -1337,4 +1337,209 @@ export const STR = {
     2: 'OK',
     3: 'OK',
   },
+  'game.title': {
+    1: 'Kto ide prvý?',
+    2: 'Who goes first?',
+    3: 'Ki megy először?',
+  },
+  'game.homeSubtitle': {
+    1: '88 križovatiek, 3 životy, čas beží',
+    2: '88 intersections, 3 lives, the clock is running',
+    3: '88 útkereszteződés, 3 élet, fut az óra',
+  },
+  'game.intro': {
+    1: 'Pozri sa na križovatku a rozhodni, kto ide prvý. Za rýchlosť je bonus, séria správnych odpovedí násobí body. Tri chyby a kolo končí.',
+    2: 'Look at the intersection and decide who goes first. Speed earns a bonus, a streak of correct answers multiplies the points. Three mistakes end the round.',
+    3: 'Nézd meg az útkereszteződést, és döntsd el, ki megy először. A gyorsaságért bónusz jár, a helyes válaszok sorozata szorozza a pontokat. Három hiba után vége a körnek.',
+  },
+  'game.start': {
+    1: 'Hrať',
+    2: 'Play',
+    3: 'Játék',
+  },
+  'game.best': {
+    1: 'Najlepšie skóre',
+    2: 'Best score',
+    3: 'Legjobb pontszám',
+  },
+  'game.roundsPlayed': {
+    1: 'Odohrané kolá',
+    2: 'Rounds played',
+    3: 'Lejátszott körök',
+  },
+  'game.score': {
+    1: 'Skóre',
+    2: 'Score',
+    3: 'Pont',
+  },
+  'game.streak': {
+    1: 'Séria',
+    2: 'Streak',
+    3: 'Sorozat',
+  },
+  'game.lives': {
+    1: 'Životy',
+    2: 'Lives',
+    3: 'Életek',
+  },
+  'game.situation': {
+    1: 'Situácia {n} z {total}',
+    2: 'Situation {n} of {total}',
+    3: '{n}. helyzet a {total}-ból',
+  },
+  'game.tapOrder': {
+    1: 'Ťukaj na vozidlá v poradí, v akom prejdú križovatkou',
+    2: 'Tap the vehicles in the order they cross',
+    3: 'Koppints a járművekre abban a sorrendben, ahogy áthaladnak',
+  },
+  'game.tapOne': {
+    1: 'Ťukni na správnu odpoveď',
+    2: 'Tap the right answer',
+    3: 'Koppints a helyes válaszra',
+  },
+  'game.yourOrder': {
+    1: 'Tvoje poradie',
+    2: 'Your order',
+    3: 'A te sorrended',
+  },
+  'game.undo': {
+    1: 'Späť o krok',
+    2: 'Undo',
+    3: 'Visszavonás',
+  },
+  'game.correct': {
+    1: 'Správne!',
+    2: 'Correct!',
+    3: 'Helyes!',
+  },
+  'game.wrong': {
+    1: 'Nesprávne',
+    2: 'Wrong',
+    3: 'Helytelen',
+  },
+  'game.timeUp': {
+    1: 'Čas vypršal',
+    2: 'Time is up',
+    3: 'Lejárt az idő',
+  },
+  'game.correctAnswer': {
+    1: 'Správna odpoveď',
+    2: 'Correct answer',
+    3: 'Helyes válasz',
+  },
+  'game.next': {
+    1: 'Ďalšia',
+    2: 'Next',
+    3: 'Következő',
+  },
+  'game.roundOver': {
+    1: 'Koniec kola',
+    2: 'Round over',
+    3: 'Vége a körnek',
+  },
+  'game.newBest': {
+    1: 'Nový rekord!',
+    2: 'New best!',
+    3: 'Új rekord!',
+  },
+  'game.result': {
+    1: '{correct} z {total} správne',
+    2: '{correct} of {total} correct',
+    3: '{correct} / {total} helyes',
+  },
+  'game.points.one': {
+    1: '{points} bod',
+    2: '{points} point',
+    3: '{points} pont',
+  },
+  'game.points.few': {
+    1: '{points} body',
+    2: '{points} points',
+    3: '{points} pont',
+  },
+  'game.points.many': {
+    1: '{points} bodov',
+    2: '{points} points',
+    3: '{points} pont',
+  },
+  'game.plusPoints': {
+    1: '+{points}',
+    2: '+{points}',
+    3: '+{points}',
+  },
+  'game.playAgain': {
+    1: 'Hrať znova',
+    2: 'Play again',
+    3: 'Újra',
+  },
+  'game.backHome': {
+    1: 'Domov',
+    2: 'Home',
+    3: 'Főoldal',
+  },
+  'game.quit': {
+    1: 'Ukončiť kolo',
+    2: 'Quit round',
+    3: 'Kör befejezése',
+  },
+  'game.quitMessage': {
+    1: 'Skóre z tohto kola sa neuloží.',
+    2: 'The score from this round will not be saved.',
+    3: 'Ennek a körnek a pontszáma nem lesz elmentve.',
+  },
+  'game.vehicle.you': {
+    1: 'Vy',
+    2: 'You',
+    3: 'Ön',
+  },
+  'game.vehicle.tram': {
+    1: 'Električka',
+    2: 'Tram',
+    3: 'Villamos',
+  },
+  'game.vehicle.red': {
+    1: 'Červené',
+    2: 'Red',
+    3: 'Piros',
+  },
+  'game.vehicle.blue': {
+    1: 'Modré',
+    2: 'Blue',
+    3: 'Kék',
+  },
+  'game.vehicle.green': {
+    1: 'Zelené',
+    2: 'Green',
+    3: 'Zöld',
+  },
+  'game.vehicle.yellow': {
+    1: 'Žlté',
+    2: 'Yellow',
+    3: 'Sárga',
+  },
+  'game.ordinal.first': {
+    1: 'Prvé',
+    2: 'First',
+    3: 'Első',
+  },
+  'game.ordinal.second': {
+    1: 'Druhé',
+    2: 'Second',
+    3: 'Második',
+  },
+  'game.ordinal.third': {
+    1: 'Tretie',
+    2: 'Third',
+    3: 'Harmadik',
+  },
+  'game.ordinal.fourth': {
+    1: 'Štvrté',
+    2: 'Fourth',
+    3: 'Negyedik',
+  },
+  'game.ordinal.last': {
+    1: 'Posledné',
+    2: 'Last',
+    3: 'Utolsó',
+  },
 };

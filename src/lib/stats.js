@@ -5,6 +5,7 @@ import * as MockDB from '../db/queries/mockExams';
 import * as AttemptsDB from '../db/queries/attempts';
 import * as StudySessionDB from '../db/queries/studySessions';
 import * as ExamResultsDB from '../db/queries/examResults';
+import * as GameRoundsDB from '../db/queries/gameRounds';
 import { WEIGHTS, scoreComponents } from './readiness';
 
 /**
@@ -283,6 +284,9 @@ export const resetStats = async (lang = null) => {
 
   // Delete real exam results
   await ExamResultsDB.deleteExamResults(lang);
+
+  // Delete game rounds
+  await GameRoundsDB.deleteGameRounds(lang);
   
   return true;
 };

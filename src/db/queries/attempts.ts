@@ -7,7 +7,7 @@ import { generateId } from '../utils';
 export interface AnswerAttemptData {
   lang: number;
   questionId: string;
-  mode: 'study' | 'mock' | 'mistakes';
+  mode: 'study' | 'mock' | 'mistakes' | 'game';
   sessionId?: string;
   mockExamId?: string;
   categoryText?: string;

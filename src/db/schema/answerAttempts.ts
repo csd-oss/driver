@@ -9,7 +9,7 @@ export const answerAttempts = sqliteTable('answer_attempts', {
   questionId: text('question_id').notNull(),
   
   // Context
-  mode: text('mode').notNull(), // 'study' | 'mock' | 'mistakes'
+  mode: text('mode').notNull(), // 'study' | 'mock' | 'mistakes' | 'game'
   sessionId: text('session_id').references(() => studySessions.id), // FK to study_sessions (study/mistakes modes)
   mockExamId: text('mock_exam_id').references(() => mockExams.id), // FK to mock_exams (mock mode)
   categoryText: text('category_text'), // category at time of attempt

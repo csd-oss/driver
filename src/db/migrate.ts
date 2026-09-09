@@ -167,6 +167,23 @@ function createTables(): void {
   database.execSync(`CREATE INDEX IF NOT EXISTS exam_results_lang_idx ON exam_results(lang)`);
   database.execSync(`CREATE INDEX IF NOT EXISTS exam_results_date_idx ON exam_results(taken_at)`);
 
+  // Game rounds ("Who goes first?"), one row per finished round
+  database.execSync(`
+    CREATE TABLE IF NOT EXISTS game_rounds (
+      id TEXT PRIMARY KEY,
+      device_id TEXT NOT NULL,
+      lang INTEGER NOT NULL,
+      score INTEGER NOT NULL,
+      correct_count INTEGER NOT NULL,
+      total INTEGER NOT NULL,
+      duration_sec INTEGER,
+      created_at INTEGER NOT NULL,
+      synced_at INTEGER
+    )
+  `);
+  database.execSync(`CREATE INDEX IF NOT EXISTS game_rounds_lang_idx ON game_rounds(lang)`);
+  database.execSync(`CREATE INDEX IF NOT EXISTS game_rounds_date_idx ON game_rounds(created_at)`);
+
   // Answer attempts table
   database.execSync(`
     CREATE TABLE IF NOT EXISTS answer_attempts (
@@ -227,7 +244,7 @@ async function createViews(): Promise<void> {
        SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct,
        SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong
      FROM answer_attempts
-     WHERE mode IN ('study', 'mistakes')
+     WHERE mode IN ('study', 'mistakes', 'game')
      GROUP BY lang, DATE(created_at, 'unixepoch', 'localtime')`,
 
     // Category stats view
@@ -240,7 +257,7 @@ async function createViews(): Promise<void> {
        SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong,
        ROUND(SUM(CASE WHEN is_correct THEN 1.0 ELSE 0 END) / COUNT(*) * 100, 1) as accuracy
      FROM answer_attempts
-     WHERE category_text IS NOT NULL AND mode IN ('study', 'mistakes')
+     WHERE category_text IS NOT NULL AND mode IN ('study', 'mistakes', 'game')
      GROUP BY lang, category_text`,
 
     // Study stats view
@@ -251,7 +268,7 @@ async function createViews(): Promise<void> {
        SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct,
        SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong
      FROM answer_attempts
-     WHERE mode IN ('study', 'mistakes')
+     WHERE mode IN ('study', 'mistakes', 'game')
      GROUP BY lang`,
 
     // Mock stats view

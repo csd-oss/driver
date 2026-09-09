@@ -12,7 +12,7 @@ export async function getStudyStats(lang: number) {
       SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct,
       SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong
     FROM answer_attempts
-    WHERE lang = ? AND mode IN ('study', 'mistakes')`,
+    WHERE lang = ? AND mode IN ('study', 'mistakes', 'game')`,
     [lang]
   );
   
@@ -37,7 +37,7 @@ export async function getDailyStats(lang: number, days: number = 14) {
       SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong
     FROM answer_attempts
     WHERE lang = ? 
-      AND mode IN ('study', 'mistakes')
+      AND mode IN ('study', 'mistakes', 'game')
       AND DATE(created_at, 'unixepoch', 'localtime') >= DATE('now', 'localtime', '-' || ? || ' days')
     GROUP BY DATE(created_at, 'unixepoch', 'localtime')
     ORDER BY study_date DESC`,
@@ -66,7 +66,7 @@ export async function getCategoryStats(lang: number) {
     FROM answer_attempts
     WHERE lang = ? 
       AND category_text IS NOT NULL 
-      AND mode IN ('study', 'mistakes')
+      AND mode IN ('study', 'mistakes', 'game')
     GROUP BY category_text`,
     [lang]
   );
@@ -136,7 +136,7 @@ export async function getLast7DaysAccuracy(lang: number): Promise<number | null>
       COUNT(*) as attempts
     FROM answer_attempts
     WHERE lang = ? 
-      AND mode IN ('study', 'mistakes')
+      AND mode IN ('study', 'mistakes', 'game')
       AND DATE(created_at, 'unixepoch', 'localtime') >= DATE('now', 'localtime', '-7 days')`,
     [lang]
   );
@@ -161,7 +161,7 @@ export async function getWindowStats(lang: number, fromDaysAgo: number, toDaysAg
       SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct
     FROM answer_attempts
     WHERE lang = ?
-      AND mode IN ('study', 'mistakes')
+      AND mode IN ('study', 'mistakes', 'game')
       AND DATE(created_at, 'unixepoch', 'localtime') >= DATE('now', 'localtime', '-' || ? || ' days')
       AND DATE(created_at, 'unixepoch', 'localtime') < DATE('now', 'localtime', '-' || ? || ' days')`,
     [lang, fromDaysAgo, toDaysAgo]

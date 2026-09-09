@@ -61,6 +61,10 @@ The DB is **the** source of truth; AsyncStorage is legacy. The design (see `docs
 
 `app/exam.tsx` records the outcome of the real exam (pass/fail, points 0..100, date) via `src/db/queries/examResults.ts`; one row per attempt, never updated. The readiness score at save time is stored for calibration and sent to PostHog as `exam_result_recorded`. A pass turns all reminder slots off and clears `settings.exam_date`. Home shows a "Did you take the exam?" card once the exam date has passed with no result recorded on or after it, and swaps the readiness section for a "passed" card after a pass.
 
+### "Who goes first?" game (`src/lib/game.js`, `app/game.tsx`)
+
+A timed game built from the 88 intersection situations (questions whose image is under `obr3/ds/` or `2023/*_DS*`). `classifyQuestion` turns each one into an interaction from its answer texts alone: `order` (tap vehicles in crossing order), `pick` (tap the vehicle, paired "at the same time as" answers become two-colour chips), `ordinal` (first/second/last), or `choice` (plain three-answer fallback for reason-based questions). Rounds are `ROUND_SIZE` 10 with `LIVES` 3 and `TIME_LIMIT_MS` 20 s; `scoreAnswer` gives 100 base plus a linear speed bonus, times a streak multiplier capped at 2x. Every answer is logged to `answer_attempts` with `mode = 'game'` and goes through `applyAnswer` for mistakes; the study views, 7-day accuracy, and streak count that mode. Finished rounds land in `game_rounds` (best score is `MAX(score)`). Free on every platform.
+
 ### Smart Practice (`src/lib/smartPractice.js`)
 
 `getSmartQuestion({ lang, selectedCategory, recentIds })` picks the next study question via a 4-tier priority:

@@ -10,7 +10,7 @@ export async function getCurrentStreak(lang: number): Promise<number> {
   const studyDates = await database.getAllAsync(
     `SELECT DISTINCT DATE(created_at, 'unixepoch', 'localtime') as study_date
     FROM answer_attempts
-    WHERE lang = ? AND mode IN ('study', 'mistakes')
+    WHERE lang = ? AND mode IN ('study', 'mistakes', 'game')
     ORDER BY study_date DESC`,
     [lang]
   );
@@ -79,7 +79,7 @@ export async function getLastStudyDate(lang: number): Promise<string | null> {
   const result = await database.getAllAsync(
     `SELECT MAX(DATE(created_at, 'unixepoch', 'localtime')) as last_date
     FROM answer_attempts
-    WHERE lang = ? AND mode IN ('study', 'mistakes')`,
+    WHERE lang = ? AND mode IN ('study', 'mistakes', 'game')`,
     [lang]
   );
   

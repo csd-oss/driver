@@ -941,3 +941,22 @@ Note: SQLite doesn't support IF statements in triggers directly. You'd need to u
   - `answer_time_ms`: Milliseconds between question display and answer submission
   - Both fields are nullable (for backward compatibility and cases where timing isn't tracked)
   - In application code: `question_shown_at = Date.now()` when question loads, `answer_time_ms = Date.now() - question_shown_at` when answer submitted
+
+## GAME ROUNDS (`game_rounds`)
+
+One row per finished "Who goes first?" round (event-sourced; best score is `MAX(score)`).
+
+| column | type | notes |
+|---|---|---|
+| id | TEXT PK | UUID |
+| device_id | TEXT | |
+| lang | INTEGER | 1, 2, 3 |
+| score | INTEGER | points earned in the round |
+| correct_count | INTEGER | |
+| total | INTEGER | situations played (10) |
+| duration_sec | INTEGER | nullable |
+| created_at | INTEGER | unix seconds |
+| synced_at | INTEGER | nullable |
+
+Game answers are also logged to `answer_attempts` with `mode = 'game'`; the study views and
+streak count that mode alongside `study` and `mistakes`.

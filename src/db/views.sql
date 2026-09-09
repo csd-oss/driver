@@ -15,7 +15,7 @@ SELECT
   SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct,
   SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong
 FROM answer_attempts
-WHERE mode IN ('study', 'mistakes')
+WHERE mode IN ('study', 'mistakes', 'game')
 GROUP BY lang, DATE(created_at, 'unixepoch');
 
 -- Category stats view (replaces study.byCategory)
@@ -28,7 +28,7 @@ SELECT
   SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong,
   ROUND(SUM(CASE WHEN is_correct THEN 1.0 ELSE 0 END) / COUNT(*) * 100, 1) as accuracy
 FROM answer_attempts
-WHERE category_text IS NOT NULL AND mode IN ('study', 'mistakes')
+WHERE category_text IS NOT NULL AND mode IN ('study', 'mistakes', 'game')
 GROUP BY lang, category_text;
 
 -- Study stats view (replaces study.attempts/correct/wrong)
@@ -39,7 +39,7 @@ SELECT
   SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct,
   SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as wrong
 FROM answer_attempts
-WHERE mode IN ('study', 'mistakes')
+WHERE mode IN ('study', 'mistakes', 'game')
 GROUP BY lang;
 
 -- Mock stats view (replaces mock.* aggregates)

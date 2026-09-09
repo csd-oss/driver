@@ -124,6 +124,7 @@ export default function RootLayout() {
             <Stack.Screen name="settings" options={{ headerShown: false }} />
             <Stack.Screen name="stats" options={{ headerShown: false }} />
             <Stack.Screen name="exam" options={{ headerShown: false }} />
+            <Stack.Screen name="game" options={{ headerShown: false }} />
             <Stack.Screen
               name="paywall"
               options={{ headerShown: false, gestureEnabled: false }}
