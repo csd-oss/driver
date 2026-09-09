@@ -5,7 +5,7 @@ describe('generator', () => {
   it('produces playable scenes at every level band without deadlocks', () => {
     const rng = makeRng(42);
     const seen = { cross: 0, t: 0, roundabout: 0 };
-    for (let level = 1; level <= 12; level++) {
+    for (let level = 1; level <= 8; level++) {
       for (let i = 0; i < 40; i++) {
         const scene = generatePlayable(rng, level);
         seen[scene.layout] += 1;

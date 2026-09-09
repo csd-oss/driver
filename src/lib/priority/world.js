@@ -50,6 +50,8 @@ const instructionFor = (rng, scene, to) => {
   if (scene.layout === 'roundabout') return { kind: 'roundabout', turn, to };
   const onMain = scene.mainRoad && scene.mainRoad.includes('S') && scene.mainRoad.includes(to);
   if (onMain && rng() < 0.6) return { kind: 'main', turn, to };
+  // Straight on is the default and goes unsaid; the instructor only speaks for a turn.
+  if (turn === 'straight') return { kind: 'none', turn, to };
   return { kind: turn, turn, to };
 };
 
@@ -283,7 +285,6 @@ const setYourMovement = (run, junction, to) => {
   const you = junction.scene.vehicles.find((v) => v.id === 'you');
   if (!junction.scene.arms.includes(to) || you.to === to) return false;
   you.to = to;
-  junction.needTurn = false;
   const previousBlockers = new Set(junction.blockers);
   applyResolution(junction);
   junction.through = throughWorld(junction);
@@ -317,9 +318,11 @@ export const applyInput = (run, input) => {
     run.intent = next;
     setYourMovement(run, junction, to);
     run.events.push({ type: 'intent', junction: junction.index, intent: next, to });
-    // A car waiting for a direction moves off again.
-    if (run.stoppedAt !== null && junction.needTurn === false && junction.resumeAt === null) {
-      junction.resumeAt = run.now + 300;
+    // A car waiting for a direction moves off again, even when the chosen
+    // arm is the one the frame already assumed.
+    if (junction.needTurn) {
+      junction.needTurn = false;
+      if (run.stoppedAt !== null && junction.resumeAt === null) junction.resumeAt = run.now + 300;
     }
     return;
   }
@@ -424,7 +427,6 @@ export const step = (run, now) => {
     let next = run.s + (run.speed * dt) / 1000;
     // No straight ahead and no direction chosen: wait at the line for a swipe.
     const straight = oppositeOf('S');
-    const you = junction.scene.vehicles.find((v) => v.id === 'you');
     if (!junction.scene.arms.includes(straight) && run.intent === null && !junction.needTurn && next >= junction.sWait && run.s < junction.sLine) {
       next = junction.sWait;
       run.stoppedAt = next;

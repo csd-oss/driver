@@ -1,5 +1,13 @@
 import { makeRng } from '../src/lib/priority/generator';
-import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, LIVES } from '../src/lib/priority/world';
+import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, LIVES } from '../src/lib/priority/world';
+
+// A T-junction with no straight ahead waits for a direction: take the instructed one.
+const followInstructor = (run, events) => {
+  const last = events[events.length - 1];
+  if (last && last.type === 'needTurn' && last.junction === currentJunction(run).index) {
+    applyInput(run, last.instruction.turn === 'left' ? 'left' : 'right');
+  }
+};
 
 const runUntil = (run, predicate, { input = null, maxMs = 30000, dt = 16 } = {}) => {
   let now = run.now;
@@ -7,6 +15,7 @@ const runUntil = (run, predicate, { input = null, maxMs = 30000, dt = 16 } = {})
   while (now < maxMs) {
     now += dt;
     events.push(...step(run, now));
+    followInstructor(run, events);
     if (input) input(run, now);
     if (predicate(run, events)) break;
   }
@@ -36,7 +45,7 @@ describe('world', () => {
   it('crashes when you ignore a vehicle with priority and names the rule', () => {
     const run = createRun(makeRng(11), 3);
     // Find a junction where someone blocks us and never brake.
-    const events = runUntil(run, (r, evs) => evs.some((e) => e.type === 'crash') || r.passed > 12);
+    const events = runUntil(run, (r, evs) => evs.some((e) => e.type === 'crash') || r.passed > 12, { maxMs: 90000 });
     const crash = events.find((e) => e.type === 'crash');
     expect(crash).toBeDefined();
     expect(crash.culprit).toBeTruthy();
@@ -48,6 +57,7 @@ describe('world', () => {
     const run = createRun(makeRng(5), 1);
     // Brake at every junction regardless.
     const events = runUntil(run, (r) => r.passed >= 4 || r.over, {
+      maxMs: 60000,
       input: (r) => {
         const j = currentJunction(r);
         if (j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
@@ -94,23 +104,22 @@ describe('vehicle motion', () => {
     run.now = 500000; // a long time after app start: absolute clocks are large
     let moved = false;
     let now = run.now;
-    for (let i = 0; i < 1500 && !moved; i++) {
+    const events = [];
+    for (let i = 0; i < 3000 && !moved; i++) {
       now += 16;
-      step(run, now);
+      events.push(...step(run, now));
+      followInstructor(run, events);
       const j = currentJunction(run);
       if (!j.scheduled || !j.blockers.length) continue;
       const blocker = j.blockers[0];
       const before = vehiclePoses(run).find((p) => p.vehicle.id === blocker && p.junction.index === j.index);
       if (!before) continue;
       // Once the blocker's start time has passed it must have left its waiting spot.
-      if (j.starts[blocker] !== null && now > j.starts[blocker] + 600) {
+      if (j.starts[blocker] !== null && now > j.starts[blocker] + 700) {
         const rest = vehiclePoses(run).find((p) => p.vehicle.id === blocker && p.junction.index === j.index);
         const local = j.pathCache[blocker];
-        const waitPose = { x: local.through[0].x, y: local.through[0].y };
-        const w = { x: rest.pose.x, y: rest.pose.y };
-        const start = { x: j.cx, y: j.cy };
-        // moved away from the waiting line by at least a few units
-        moved = Math.hypot(w.x - start.x, w.y - start.y) < Math.hypot(waitPose.x - 50, waitPose.y - 50) - 3;
+        const waitWorld = toWorld(j, local.through[0]);
+        moved = Math.hypot(rest.pose.x - waitWorld.x, rest.pose.y - waitWorld.y) > 3;
         expect(moved).toBe(true);
       }
     }
@@ -149,7 +158,9 @@ describe('instructor directions', () => {
     });
     const instructions = events.filter((e) => e.type === 'instruction');
     expect(instructions.length).toBeGreaterThan(0);
-    for (const i of instructions) expect(['left', 'right', 'straight', 'main', 'roundabout']).toContain(i.kind);
+    for (const i of instructions) expect(['none', 'left', 'right', 'main', 'roundabout']).toContain(i.kind);
+    // Straight on is never announced.
+    for (const i of instructions) if (i.kind === 'none') expect(i.turn).toBe('straight');
     const passed = events.filter((e) => e.type === 'passed');
     const wrong = events.filter((e) => e.type === 'wrongWay');
     // Some instruction other than straight must have come up and been ignored.

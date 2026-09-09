@@ -61,9 +61,9 @@ export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle
             <G key={j.index} transform={`translate(${j.cx} ${j.cy}) rotate(${j.rot}) translate(${-CENTER} ${-CENTER})`}>
               <JunctionStatic scene={j.scene} dark={dark} extendArms={extendArms} />
               {!j.passed &&
-                j.scene.vehicles.map((v: SceneVehicle) => (
-                  <PathArrow key={`arrow-${j.index}-${v.id}`} scene={j.scene} vehicle={v} opacity={v.id === 'you' ? 0.95 : 0.7} span={v.id === 'you' ? 0.7 : 0.62} />
-                ))}
+                j.scene.vehicles
+                  .filter((v: SceneVehicle) => v.id !== 'you')
+                  .map((v: SceneVehicle) => <PathArrow key={`arrow-${j.index}-${v.id}`} scene={j.scene} vehicle={v} opacity={0.7} span={0.62} />)}
             </G>
           );
         })}

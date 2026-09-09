@@ -5,14 +5,8 @@ import { ARMS, turnOf } from './geometry';
  * Procedural intersections for the game. `generateScene(rng, level)` returns
  * a scene in the docs/game/scene-format.md shape plus its resolution, or
  * null when the random draw produced something unplayable (the caller
- * retries). `you` always arrives on S.
- *
- * Level bands (roughly):
- *   1-2  plain crossing, one other car, no left turns
- *   3-4  two other cars, left turns
- *   5-6  main road signs (yield / stop), T-junctions
- *   7-8  bent main road, three other cars, trams
- *   9+   roundabouts with all three sign variants, everything mixed
+ * retries). `you` always arrives on S. Every feature can appear at any
+ * level; the level only raises how many other vehicles there are.
  */
 
 export const COLOURS = ['red', 'blue', 'green', 'yellow'];
@@ -43,13 +37,19 @@ const shuffle = (rng, list) => {
 const destinations = (from, arms, allowLeft) =>
   arms.filter((to) => to !== from && (allowLeft || turnOf(from, to) !== 'left'));
 
-const bandFor = (level) => {
-  if (level <= 2) return { others: 1, left: false, signs: false, t: false, bent: false, trams: false, roundabout: false };
-  if (level <= 4) return { others: 2, left: true, signs: false, t: false, bent: false, trams: false, roundabout: false };
-  if (level <= 6) return { others: 2, left: true, signs: true, t: true, bent: false, trams: false, roundabout: false };
-  if (level <= 8) return { others: 3, left: true, signs: true, t: true, bent: true, trams: true, roundabout: false };
-  return { others: 3, left: true, signs: true, t: true, bent: true, trams: true, roundabout: true };
-};
+/**
+ * Everything is in play from the first junction; what rises with the level
+ * is traffic density (and, in world.js, speed). Runner-style, not unlocks.
+ */
+const bandFor = (level) => ({
+  others: level <= 2 ? 1 + (level - 1) : level <= 6 ? 2 : 3,
+  left: true,
+  signs: true,
+  t: true,
+  bent: true,
+  trams: level >= 2,
+  roundabout: true,
+});
 
 const buildCrossing = (rng, band) => {
   const isT = band.t && chance(rng, 0.3);
@@ -92,11 +92,11 @@ const buildCrossing = (rng, band) => {
 const buildRoundabout = (rng) => {
   const sign = pick(rng, ['roundabout', 'roundabout-yield', 'roundabout-stop']);
   const exits = ['N', 'E', 'W'];
+  const colour = pick(rng, COLOURS);
   const vehicles = [
     { id: 'you', kind: 'car', color: 'you', from: 'S', to: pick(rng, exits) },
-    { id: pick(rng, COLOURS), kind: 'car', color: null, from: 'ring', to: pick(rng, exits) },
+    { id: colour, kind: 'car', color: colour, from: 'ring', to: pick(rng, exits) },
   ];
-  vehicles[1].color = vehicles[1].id;
   return { layout: 'roundabout', arms: [...ARMS], signs: { S: sign }, mainRoad: null, tramTracks: [], control: null, vehicles, pedestrians: [] };
 };
 

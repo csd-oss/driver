@@ -181,7 +181,7 @@ export default function CrossingScreen() {
         } else if (e.type === 'resumed') {
           haptic.resumed();
         } else if (e.type === 'instruction') {
-          setInstruction({ kind: e.kind, turn: e.turn, to: e.to, junction: e.junction });
+          setInstruction(e.kind === 'none' ? null : { kind: e.kind, turn: e.turn, to: e.to, junction: e.junction });
           setIntent(null);
           if (run.coach && run.passed < COACH_JUNCTIONS) {
             const junction = run.junctions.find((j: any) => j.index === e.junction);
@@ -307,6 +307,7 @@ export default function CrossingScreen() {
 
   const hearts = Array.from({ length: LIVES }, (_, i) => (i < hud.lives ? '♥' : '♡')).join(' ');
   const toastVisible = toast && now() < toast.until;
+  const turnArrow = intent === 'left' ? '⬅️' : intent === 'right' ? '➡️' : '⬆️';
 
   const renderIntro = () => (
     <Card className="gap-4" testID="crossing.intro">
@@ -368,7 +369,6 @@ export default function CrossingScreen() {
   );
 
   const toastStyle = toast?.kind === 'ok' ? 'bg-emerald-600/90' : toast?.kind === 'level' ? 'bg-indigo-600/90' : toast?.kind === 'wrong' ? 'bg-amber-600/95' : 'bg-rose-600/90';
-  const turnArrow = intent === 'left' ? '⬅️' : intent === 'right' ? '➡️' : '⬆️';
 
   return (
     <Screen testID="screen.crossing" header={<Header title={t('crossing.title', lang)} onBackPress={handleBack} />}>
@@ -382,7 +382,7 @@ export default function CrossingScreen() {
                 {hearts}
               </UIText>
               <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                {tf('crossing.level', lang, { n: hud.level })}
+                {tf('crossing.level', lang, { n: hud.level })}{intent ? `  ${turnArrow}` : ''}
               </UIText>
               <View className="flex-row items-center gap-3">
                 {hud.streak > 1 && (
