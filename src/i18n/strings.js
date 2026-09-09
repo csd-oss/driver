@@ -1542,4 +1542,159 @@ export const STR = {
     2: 'Last',
     3: 'Utolsó',
   },
+  'crossing.title': {
+    1: 'Križovatky',
+    2: 'Crossings',
+    3: 'Kereszteződések',
+  },
+  'crossing.hubBody': {
+    1: 'Ty šoféruješ. Ostatní jazdia podľa pravidiel. Prejdi križovatkou v správnej chvíli.',
+    2: 'You drive. Everyone else follows the rules. Cross at the right moment.',
+    3: 'Te vezetsz. Mindenki más a szabályok szerint halad. Menj át a kereszteződésen a megfelelő pillanatban.',
+  },
+  'crossing.modeGame': {
+    1: 'Minihra',
+    2: 'Minigame',
+    3: 'Minijáték',
+  },
+  'crossing.modeQuiz': {
+    1: 'Skúškové situácie',
+    2: 'Exam situations',
+    3: 'Vizsgahelyzetek',
+  },
+  'crossing.modeQuizBody': {
+    1: 'Kvíz z 88 oficiálnych obrázkov križovatiek.',
+    2: 'A quiz on the 88 official intersection pictures.',
+    3: 'Kvíz a 88 hivatalos kereszteződés-képből.',
+  },
+  'crossing.go': {
+    1: 'CHOĎ',
+    2: 'GO',
+    3: 'MEHET',
+  },
+  'crossing.swipeHint': {
+    1: 'Potiahni nahor alebo ťukni na CHOĎ, keď je rad na tebe.',
+    2: 'Swipe up or tap GO when it is your turn.',
+    3: 'Húzz felfelé vagy koppints a MEHET gombra, ha rajtad a sor.',
+  },
+  'crossing.level': {
+    1: 'Úroveň {n}',
+    2: 'Level {n}',
+    3: '{n}. szint',
+  },
+  'crossing.crash': {
+    1: 'Zrážka!',
+    2: 'Crash!',
+    3: 'Ütközés!',
+  },
+  'crossing.late': {
+    1: 'Neskoro',
+    2: 'Too late',
+    3: 'Túl késő',
+  },
+  'crossing.lateBody': {
+    1: 'Mal si prednosť. Nezdržuj premávku za sebou.',
+    2: 'You had priority. Do not hold up the traffic behind you.',
+    3: 'Elsőbbséged volt. Ne tartsd fel a mögötted lévő forgalmat.',
+  },
+  'crossing.goodBody': {
+    1: 'Presne v správnej chvíli.',
+    2: 'Right on time.',
+    3: 'Pont időben.',
+  },
+  'crossing.continue': {
+    1: 'Pokračovať',
+    2: 'Continue',
+    3: 'Folytatás',
+  },
+  'crossing.gameOver': {
+    1: 'Koniec jazdy',
+    2: 'End of the drive',
+    3: 'Vége a vezetésnek',
+  },
+  'crossing.reached': {
+    1: 'Dosiahnutá úroveň {n}',
+    2: 'Reached level {n}',
+    3: 'Elért szint: {n}',
+  },
+  'crossing.vehicle.you': {
+    1: 'tvoje vozidlo',
+    2: 'your car',
+    3: 'a te autód',
+  },
+  'crossing.vehicle.tram': {
+    1: 'električka',
+    2: 'the tram',
+    3: 'a villamos',
+  },
+  'crossing.vehicle.red': {
+    1: 'červené vozidlo',
+    2: 'the red car',
+    3: 'a piros autó',
+  },
+  'crossing.vehicle.blue': {
+    1: 'modré vozidlo',
+    2: 'the blue car',
+    3: 'a kék autó',
+  },
+  'crossing.vehicle.green': {
+    1: 'zelené vozidlo',
+    2: 'the green car',
+    3: 'a zöld autó',
+  },
+  'crossing.vehicle.yellow': {
+    1: 'žlté vozidlo',
+    2: 'the yellow car',
+    3: 'a sárga autó',
+  },
+  'rule.right-hand': {
+    1: 'Pravidlo pravej ruky: {vehicle} prichádza sprava.',
+    2: 'Right-hand rule: {vehicle} came from your right.',
+    3: 'Jobbkéz-szabály: {vehicle} jobbról jött.',
+  },
+  'rule.sign': {
+    1: 'Si na vedľajšej ceste: {vehicle} ide po hlavnej.',
+    2: 'You are on the side road: {vehicle} is on the main road.',
+    3: 'Mellékúton vagy: {vehicle} a főúton halad.',
+  },
+  'rule.left-turn': {
+    1: 'Odbočuješ vľavo: {vehicle} ide oproti.',
+    2: 'You turn left: {vehicle} is oncoming.',
+    3: 'Balra kanyarodsz: {vehicle} szemből jön.',
+  },
+  'rule.tram': {
+    1: 'Električka má prednosť: {vehicle}.',
+    2: 'The tram has priority: {vehicle}.',
+    3: 'A villamosnak elsőbbsége van: {vehicle}.',
+  },
+  'rule.roundabout': {
+    1: 'Kruhový objazd s daj prednosť: {vehicle} v objazde ide prvé.',
+    2: 'Roundabout with a give-way sign: {vehicle} in the ring goes first.',
+    3: 'Körforgalom elsőbbségadás táblával: {vehicle} a körben megy először.',
+  },
+  'rule.queue': {
+    1: 'Vozidlo pred tebou ide prvé: {vehicle}.',
+    2: 'The vehicle ahead of you goes first: {vehicle}.',
+    3: 'Az előtted lévő jármű megy először: {vehicle}.',
+  },
+  'rule.signal': {
+    1: 'Signál alebo pokyn policajta: {vehicle} má voľno, ty nie.',
+    2: 'Signal or officer: {vehicle} may go, you may not.',
+    3: 'Jelzés vagy rendőri utasítás: {vehicle} mehet, te nem.',
+  },
+  'rule.entry': {
+    1: 'Vchádzaš z miesta mimo cesty: {vehicle} má prednosť.',
+    2: 'You enter from off the road: {vehicle} has priority.',
+    3: 'Nem útról hajtasz be: {vehicle} elsőbbséget élvez.',
+  },
+  'rule.pedestrian': {
+    1: 'Chodci na priechode majú prednosť.',
+    2: 'Pedestrians on the crossing go first.',
+    3: 'A gyalogosoknak a zebrán elsőbbségük van.',
+  },
+  'rule.emergency': {
+    1: 'Vozidlo s právom prednostnej jazdy: {vehicle}.',
+    2: 'Emergency vehicle with its signals on: {vehicle}.',
+    3: 'Megkülönböztető jelzést használó jármű: {vehicle}.',
+  },
 };

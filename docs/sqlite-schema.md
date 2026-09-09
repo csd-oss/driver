@@ -951,6 +951,7 @@ One row per finished "Who goes first?" round (event-sourced; best score is `MAX(
 | id | TEXT PK | UUID |
 | device_id | TEXT | |
 | lang | INTEGER | 1, 2, 3 |
+| mode | TEXT | `quiz` or `crossing`, default `quiz` |
 | score | INTEGER | points earned in the round |
 | correct_count | INTEGER | |
 | total | INTEGER | situations played (10) |

@@ -1,0 +1,31 @@
+# Crossings minigame: open it from the game hub, start a run, press GO, see feedback.
+appId: com.smartie.driver
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/complete_onboarding.yaml
+- tapOn:
+    id: "home.game"
+- extendedWaitUntil:
+    visible:
+      id: "screen.game"
+    timeout: 10000
+- tapOn:
+    id: "game.playCrossing"
+- extendedWaitUntil:
+    visible:
+      id: "screen.crossing"
+    timeout: 10000
+- tapOn:
+    id: "crossing.start"
+- extendedWaitUntil:
+    visible:
+      id: "crossing.go"
+    timeout: 10000
+- tapOn:
+    id: "crossing.go"
+# Whatever the outcome, the run continues: either the next scene appears or a feedback card does.
+- extendedWaitUntil:
+    visible:
+      id: "screen.crossing"
+    timeout: 10000

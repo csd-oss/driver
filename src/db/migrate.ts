@@ -173,6 +173,7 @@ function createTables(): void {
       id TEXT PRIMARY KEY,
       device_id TEXT NOT NULL,
       lang INTEGER NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'quiz',
       score INTEGER NOT NULL,
       correct_count INTEGER NOT NULL,
       total INTEGER NOT NULL,
@@ -183,6 +184,11 @@ function createTables(): void {
   `);
   database.execSync(`CREATE INDEX IF NOT EXISTS game_rounds_lang_idx ON game_rounds(lang)`);
   database.execSync(`CREATE INDEX IF NOT EXISTS game_rounds_date_idx ON game_rounds(created_at)`);
+  try {
+    database.execSync(`ALTER TABLE game_rounds ADD COLUMN mode TEXT NOT NULL DEFAULT 'quiz'`);
+  } catch (e) {
+    // Column already exists
+  }
 
   // Answer attempts table
   database.execSync(`

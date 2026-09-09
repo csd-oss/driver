@@ -1,11 +1,14 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { getDeviceId } from '../device';
 import { db } from '../index';
 import { gameRounds } from '../schema/gameRounds';
 import { generateId } from '../utils';
 
+export type GameMode = 'quiz' | 'crossing';
+
 export interface GameRoundInput {
   lang: number;
+  mode?: GameMode;
   score: number;
   correctCount: number;
   total: number;
@@ -21,6 +24,7 @@ export async function addGameRound(input: GameRoundInput): Promise<string> {
     id,
     deviceId,
     lang: input.lang,
+    mode: input.mode ?? 'quiz',
     score: Math.max(0, Math.round(input.score)),
     correctCount: input.correctCount,
     total: input.total,
@@ -31,22 +35,22 @@ export async function addGameRound(input: GameRoundInput): Promise<string> {
   return id;
 }
 
-export async function getBestScore(lang: number): Promise<number> {
+export async function getBestScore(lang: number, mode: GameMode = 'quiz'): Promise<number> {
   const rows = await db
     .select({ best: sql<number>`COALESCE(MAX(${gameRounds.score}), 0)` })
     .from(gameRounds)
-    .where(eq(gameRounds.lang, lang));
+    .where(and(eq(gameRounds.lang, lang), eq(gameRounds.mode, mode)));
   return Number(rows[0]?.best ?? 0);
 }
 
-export async function getGameStats(lang: number): Promise<{ rounds: number; best: number }> {
+export async function getGameStats(lang: number, mode: GameMode = 'quiz'): Promise<{ rounds: number; best: number }> {
   const rows = await db
     .select({
       rounds: sql<number>`COUNT(*)`,
       best: sql<number>`COALESCE(MAX(${gameRounds.score}), 0)`,
     })
     .from(gameRounds)
-    .where(eq(gameRounds.lang, lang));
+    .where(and(eq(gameRounds.lang, lang), eq(gameRounds.mode, mode)));
   return { rounds: Number(rows[0]?.rounds ?? 0), best: Number(rows[0]?.best ?? 0) };
 }
 

@@ -11,6 +11,12 @@ appId: com.smartie.driver
       id: "screen.game"
     timeout: 10000
 - tapOn:
+    id: "game.playQuiz"
+- extendedWaitUntil:
+    visible:
+      id: "screen.gameQuiz"
+    timeout: 10000
+- tapOn:
     id: "game.start"
 - extendedWaitUntil:
     visible:
@@ -38,4 +44,4 @@ appId: com.smartie.driver
 - tapOn:
     id: "game.next"
 - assertVisible:
-    id: "screen.game"
+    id: "screen.gameQuiz"

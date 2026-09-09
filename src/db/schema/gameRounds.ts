@@ -5,6 +5,7 @@ export const gameRounds = sqliteTable('game_rounds', {
   id: text('id').primaryKey(), // UUID - sync-ready
   deviceId: text('device_id').notNull(),
   lang: integer('lang').notNull(),
+  mode: text('mode').notNull().default('quiz'), // 'quiz' | 'crossing'
   score: integer('score').notNull(),
   correctCount: integer('correct_count').notNull(),
   total: integer('total').notNull(),
