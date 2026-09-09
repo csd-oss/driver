@@ -1,0 +1,868 @@
+[
+ {
+  "id": "ds-01",
+  "image": "obr3/ds/01.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": null,
+   "E": null,
+   "S": null,
+   "W": null
+  },
+  "mainRoad": null,
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "W",
+    "indicator": "left"
+   },
+   {
+    "id": "red",
+    "kind": "car",
+    "color": "red",
+    "from": "W",
+    "to": "N",
+    "indicator": "left"
+   },
+   {
+    "id": "blue",
+    "kind": "van",
+    "color": "blue",
+    "from": "E",
+    "to": "W"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "blue"
+    ],
+    [
+     "you"
+    ],
+    [
+     "red"
+    ]
+   ],
+   "position": {
+    "you": 2
+   }
+  },
+  "questions": [
+   1813,
+   1814
+  ],
+  "notes": "No signs, right-hand rule. Blue comes from your right and goes straight, so it is first; you turn left after it; red turns left across both of you and goes last."
+ },
+ {
+  "id": "ds-02",
+  "image": "obr3/ds/02.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": null,
+   "E": null,
+   "S": null,
+   "W": null
+  },
+  "mainRoad": null,
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "W",
+    "indicator": "left"
+   },
+   {
+    "id": "green",
+    "kind": "car",
+    "color": "green",
+    "from": "N",
+    "to": "W"
+   },
+   {
+    "id": "blue",
+    "kind": "van",
+    "color": "blue",
+    "from": "E",
+    "to": "W"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "last": [
+    "you"
+   ],
+   "position": {
+    "you": "last"
+   }
+  },
+  "questions": [
+   1816,
+   1815
+  ],
+  "notes": "No signs. You turn left, so you yield to the oncoming green (turning right into the same road) and to blue coming straight from your right. The questions only fix that you are last."
+ },
+ {
+  "id": "ds-03",
+  "image": "obr3/ds/03.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": null,
+   "E": null,
+   "S": null,
+   "W": null
+  },
+  "mainRoad": null,
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "W",
+    "indicator": "left"
+   },
+   {
+    "id": "red",
+    "kind": "car",
+    "color": "red",
+    "from": "W",
+    "to": "N",
+    "indicator": "left"
+   },
+   {
+    "id": "green",
+    "kind": "car",
+    "color": "green",
+    "from": "E",
+    "to": "S",
+    "indicator": "left"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "green"
+    ],
+    [
+     "you"
+    ],
+    [
+     "red"
+    ]
+   ],
+   "first": [
+    "green"
+   ]
+  },
+  "questions": [
+   1818,
+   1817
+  ],
+  "notes": "No signs. Green comes from your right, so it goes before you; red turns left from your left and has you (and green) on its right, so it goes last. Green's arrow curves toward your road (left turn from E to S)."
+ },
+ {
+  "id": "ds-04",
+  "image": "obr3/ds/04.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": null,
+   "E": null,
+   "S": null,
+   "W": null
+  },
+  "mainRoad": null,
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "N"
+   },
+   {
+    "id": "blue",
+    "kind": "car",
+    "color": "blue",
+    "from": "N",
+    "to": "W"
+   },
+   {
+    "id": "red",
+    "kind": "car",
+    "color": "red",
+    "from": "E",
+    "to": "W"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "blue"
+    ],
+    [
+     "red"
+    ],
+    [
+     "you"
+    ]
+   ],
+   "position": {
+    "you": "last"
+   }
+  },
+  "questions": [
+   1819,
+   1820
+  ],
+  "notes": "No signs, right-hand rule. Blue turning right from N is on red's right, so blue first; red comes straight from your right, so red before you; you go last."
+ },
+ {
+  "id": "ds-05",
+  "image": "obr3/ds/05.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": null,
+   "E": null,
+   "S": null,
+   "W": null
+  },
+  "mainRoad": null,
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "N"
+   },
+   {
+    "id": "green",
+    "kind": "car",
+    "color": "green",
+    "from": "W",
+    "to": "E"
+   },
+   {
+    "id": "blue",
+    "kind": "van",
+    "color": "blue",
+    "from": "N",
+    "to": "W"
+   },
+   {
+    "id": "red",
+    "kind": "car",
+    "color": "red",
+    "from": "N",
+    "to": "E",
+    "indicator": "left"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "you"
+    ],
+    [
+     "green"
+    ],
+    [
+     "blue",
+     "red"
+    ]
+   ],
+   "last": [
+    "blue",
+    "red"
+   ]
+  },
+  "questions": [
+   1821,
+   1822
+  ],
+  "notes": "No signs. Green comes from your left, so you go first; green comes from the right of both N vehicles, so green is second; blue (turning right) and red (turning left after the oncoming traffic) do not cross each other and go together last."
+ },
+ {
+  "id": "ds-06",
+  "image": "obr3/ds/06.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": null,
+   "E": null,
+   "S": null,
+   "W": null
+  },
+  "mainRoad": null,
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "W",
+    "indicator": "left"
+   },
+   {
+    "id": "green",
+    "kind": "van",
+    "color": "green",
+    "from": "W",
+    "to": "S",
+    "indicator": "right"
+   },
+   {
+    "id": "blue",
+    "kind": "car",
+    "color": "blue",
+    "from": "N",
+    "to": "E",
+    "indicator": "left"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "blue",
+     "green",
+     "you"
+    ]
+   ]
+  },
+  "questions": [
+   1823
+  ],
+  "notes": "No signs. Green turns right into your road, blue turns left away from you, you turn left into green's road: none of the three paths cross, so all three go at the same time."
+ },
+ {
+  "id": "ds-07",
+  "image": "obr3/ds/07.png",
+  "layout": "roundabout",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "S": "roundabout"
+  },
+  "mainRoad": null,
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "blue",
+    "kind": "car",
+    "color": "blue",
+    "from": "ring",
+    "to": "E"
+   },
+   {
+    "id": "red",
+    "kind": "car",
+    "color": "red",
+    "from": "S",
+    "to": "ring"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "priority": [
+    [
+     "red",
+     "blue"
+    ]
+   ]
+  },
+  "questions": [
+   1863,
+   1898,
+   1899
+  ],
+  "notes": "Roundabout sign without a yield sign: the right-hand rule applies, the entering red car comes from the right of the circulating blue car and has priority."
+ },
+ {
+  "id": "ds-08",
+  "image": "obr3/ds/08.png",
+  "layout": "t",
+  "arms": [
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "E": null,
+   "S": null,
+   "W": null
+  },
+  "mainRoad": null,
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "blue",
+    "kind": "van",
+    "color": "blue",
+    "from": "W",
+    "to": "E"
+   },
+   {
+    "id": "red",
+    "kind": "car",
+    "color": "red",
+    "from": "E",
+    "to": "S",
+    "indicator": "left"
+   },
+   {
+    "id": "green",
+    "kind": "car",
+    "color": "green",
+    "from": "S",
+    "to": "E",
+    "indicator": "right"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "green"
+    ],
+    [
+     "blue"
+    ],
+    [
+     "red"
+    ]
+   ]
+  },
+  "questions": [
+   1864,
+   1865
+  ],
+  "notes": "T-junction without signs, seen from above. Official sequence: red enters first but must wait for the oncoming blue, green (from the stem, turning right, with blue on its left) is second to enter, blue goes, and red completes its left turn last. Crossing order is therefore green, blue, red. The \"second\" question refers to the order of entering the junction (red enters first and waits), so only the crossing order is checked."
+ },
+ {
+  "id": "ds-09",
+  "image": "obr3/ds/09.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": null,
+   "E": null,
+   "S": null,
+   "W": null
+  },
+  "mainRoad": null,
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "red",
+    "kind": "van",
+    "color": "red",
+    "from": "N",
+    "to": "E",
+    "indicator": "left"
+   },
+   {
+    "id": "blue",
+    "kind": "van",
+    "color": "blue",
+    "from": "W",
+    "to": "E"
+   },
+   {
+    "id": "green",
+    "kind": "car",
+    "color": "green",
+    "from": "S",
+    "to": "N"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "green"
+    ],
+    [
+     "blue"
+    ],
+    [
+     "red"
+    ]
+   ],
+   "last": [
+    "red"
+   ]
+  },
+  "questions": [
+   1866,
+   1867
+  ],
+  "notes": "No signs, seen from above. Blue comes from green's left, so green first; red turns left and yields to the oncoming green and to blue coming from its right; blue second, red last."
+ },
+ {
+  "id": "ds-10",
+  "image": "obr3/ds/10.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": "yield",
+   "E": "yield",
+   "S": "main",
+   "W": "main"
+  },
+  "mainRoad": [
+   "S",
+   "W"
+  ],
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "N"
+   },
+   {
+    "id": "red",
+    "kind": "car",
+    "color": "red",
+    "from": "W",
+    "to": "E"
+   },
+   {
+    "id": "blue",
+    "kind": "van",
+    "color": "blue",
+    "from": "N",
+    "to": "E",
+    "indicator": "left"
+   },
+   {
+    "id": "green",
+    "kind": "car",
+    "color": "green",
+    "from": "E",
+    "to": "S",
+    "indicator": "left"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "you"
+    ],
+    [
+     "red"
+    ],
+    [
+     "blue"
+    ],
+    [
+     "green"
+    ]
+   ],
+   "first": [
+    "you"
+   ],
+   "position": {
+    "you": 1
+   }
+  },
+  "questions": [
+   1869,
+   1868
+  ],
+  "notes": "Main road sign on your arm with the shape panel: the thick line comes from the left and bends down, so the main road runs S to W. You and red are on it; you are on red's right, so you go first, red second. Blue (N) and green (E) are on side roads with yield signs (the one for N is visible on the left, the one for E is inferred); green comes from blue's left, so blue third, green last."
+ },
+ {
+  "id": "ds-11",
+  "image": "obr3/ds/11.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": "yield",
+   "E": "yield",
+   "S": "main",
+   "W": "yield"
+  },
+  "mainRoad": [
+   "S",
+   "N"
+  ],
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "W",
+    "indicator": "left"
+   },
+   {
+    "id": "blue",
+    "kind": "car",
+    "color": "blue",
+    "from": "N",
+    "to": "W"
+   },
+   {
+    "id": "green",
+    "kind": "car",
+    "color": "green",
+    "from": "E",
+    "to": "S",
+    "indicator": "left"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "blue"
+    ],
+    [
+     "you"
+    ],
+    [
+     "green"
+    ]
+   ],
+   "position": {
+    "you": 2
+   }
+  },
+  "questions": [
+   1825,
+   1824
+  ],
+  "notes": "Main road sign on your arm, no panel, so the main road runs straight S to N; a yield sign for the N arm is visible on the left and the E and W arms are inferred side roads. You turn left and yield to the oncoming blue turning right into the same road; green on the side road goes last."
+ },
+ {
+  "id": "ds-12",
+  "image": "obr3/ds/12.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": "yield",
+   "E": null,
+   "S": "yield",
+   "W": null
+  },
+  "signAddons": {
+   "S": {
+    "tramPlate": true
+   },
+   "N": {
+    "tramPlate": true
+   }
+  },
+  "mainRoad": null,
+  "tramTracks": [
+   {
+    "from": "W",
+    "to": "E"
+   }
+  ],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "N"
+   },
+   {
+    "id": "blue",
+    "kind": "car",
+    "color": "blue",
+    "from": "N",
+    "to": "W"
+   },
+   {
+    "id": "tram1",
+    "kind": "tram",
+    "color": "tram",
+    "from": "W",
+    "to": "E"
+   },
+   {
+    "id": "tram2",
+    "kind": "tram",
+    "color": "tram",
+    "from": "E",
+    "to": "W"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "first": [
+    "tram1",
+    "tram2"
+   ]
+  },
+  "questions": [
+   1826
+  ],
+  "notes": "Yield sign with the tram panel on your arm: you give way to the trams on the tracks across. Both trams pass each other on their own tracks and go first together; blue, turning right from N across the tracks, waits for them as well. The N arm is given the same yield-with-tram-plate sign as S (not visible in the picture): the tracks run along the main road, which is why both trams go first."
+ },
+ {
+  "id": "ds-13",
+  "image": "obr3/ds/13.png",
+  "layout": "cross",
+  "arms": [
+   "N",
+   "E",
+   "S",
+   "W"
+  ],
+  "signs": {
+   "N": "yield",
+   "E": "main",
+   "S": "yield",
+   "W": "main"
+  },
+  "mainRoad": [
+   "W",
+   "E"
+  ],
+  "tramTracks": [],
+  "control": null,
+  "vehicles": [
+   {
+    "id": "red",
+    "kind": "van",
+    "color": "red",
+    "from": "W",
+    "to": "E"
+   },
+   {
+    "id": "green",
+    "kind": "car",
+    "color": "green",
+    "from": "E",
+    "to": "W"
+   },
+   {
+    "id": "you",
+    "kind": "car",
+    "color": "you",
+    "from": "S",
+    "to": "W",
+    "indicator": "left"
+   }
+  ],
+  "pedestrians": [],
+  "expected": {
+   "order": [
+    [
+     "red",
+     "green"
+    ],
+    [
+     "you"
+    ]
+   ],
+   "last": [
+    "you"
+   ],
+   "position": {
+    "you": "last"
+   }
+  },
+  "questions": [
+   1828,
+   1827
+  ],
+  "notes": "Yield sign on your arm; red and green run straight along the main road in opposite directions and pass at the same time; you turn left after both. The sign on the N arm is only seen edge-on and is assumed to be a yield too."
+ }
+]
