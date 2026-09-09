@@ -247,6 +247,7 @@ export const applyInput = (run, input) => {
         junction.earlyResume = early;
         run.stoppedAt = null;
         junction.resumeAt = null;
+        run.events.push({ type: 'resumed', junction: junction.index, early });
       }
     }
   }
@@ -324,6 +325,7 @@ export const step = (run, now) => {
     if (junction.resumeAt !== null && now >= junction.resumeAt) {
       run.stoppedAt = null;
       junction.resumeAt = null;
+      run.events.push({ type: 'resumed', junction: junction.index, early: false });
     }
   } else {
     let next = run.s + (run.speed * dt) / 1000;
@@ -332,6 +334,7 @@ export const step = (run, now) => {
       run.stoppedAt = next;
       run.braking = false;
       junction.stopped = true;
+      run.events.push({ type: 'stopped', junction: junction.index });
       const needless = junction.blockers.length === 0 || now >= junction.clearAt;
       if (needless) {
         junction.hesitated = true;

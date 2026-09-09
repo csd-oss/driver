@@ -39,8 +39,18 @@ interface Toast {
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 const TOAST_MS = 1500;
 
-const haptic = (ok: boolean) => {
-  Haptics.notificationAsync(ok ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error).catch(() => {});
+// Physical moments of the drive, each with its own pattern. Crashes get a
+// double heavy thud so they are unmistakable even with the phone in a hand.
+const haptic = {
+  crash: () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}), 120);
+  },
+  honk: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}),
+  passed: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}),
+  stopped: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}),
+  resumed: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}),
+  level: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
 };
 
 /**
@@ -133,20 +143,25 @@ export default function CrossingScreen() {
           const junction = run.junctions.find((j: any) => j.index === e.junction);
           highlightRef.current = e.culprit ? [`${e.junction}-${e.culprit}`, 'you'] : ['you'];
           shakeUntilRef.current = tNow + 600;
-          haptic(false);
+          haptic.crash();
           setToast({ kind: 'crash', text: explain(run, junction, e.culprit, e.rule), until: tNow + TOAST_MS + 600 });
           trackEvent(posthog, 'crossing_crash', { language: lang, level: run.level, rule: e.rule });
         } else if (e.type === 'hesitated') {
           setToast({ kind: 'late', text: t('crossing.hesitated', lang), until: tNow + TOAST_MS });
-          haptic(false);
+          haptic.honk();
         } else if (e.type === 'passed') {
           highlightRef.current = [];
           if (!e.hesitated) {
             setToast({ kind: 'ok', text: tf('game.plusPoints', lang, { points: e.points }), until: tNow + 900 });
-            haptic(true);
+            haptic.passed();
           }
         } else if (e.type === 'level') {
           setToast({ kind: 'level', text: tf('crossing.levelUp', lang, { n: e.level }), until: tNow + TOAST_MS });
+          haptic.level();
+        } else if (e.type === 'stopped') {
+          haptic.stopped();
+        } else if (e.type === 'resumed') {
+          haptic.resumed();
         }
       }
       setHud({ level: run.level, lives: run.lives, score: run.score, streak: run.streak, passed: run.passed });
