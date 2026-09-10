@@ -1,4 +1,5 @@
 import { IntersectionScene } from '@/components/game/IntersectionScene';
+import { RecordModal, outcomeClass, outcomeTextClass } from '@/components/game/RecordModal';
 import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
@@ -11,44 +12,65 @@ import { localeForLang } from '@/src/lib/dates';
 import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
-import { useCallback, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
 
-const outcomeClass: Record<string, string> = {
-  clean: 'bg-emerald-100 dark:bg-emerald-900/50',
-  crash: 'bg-rose-100 dark:bg-rose-900/50',
-  spoiled: 'bg-amber-100 dark:bg-amber-900/50',
-};
-const outcomeTextClass: Record<string, string> = {
-  clean: 'text-emerald-700 dark:text-emerald-200',
-  crash: 'text-rose-700 dark:text-rose-200',
-  spoiled: 'text-amber-700 dark:text-amber-200',
-};
+interface Session {
+  runId: string;
+  startedAt: Date;
+  entries: CrossingLogDB.CrossingLogEntry[];
+  crashes: number;
+  mistakes: number;
+  points: number;
+}
 
 /**
  * Drive log: every junction you drove through in the crossing minigame,
- * newest first, with the picture, what you did and why it was right or wrong.
+ * grouped by run (newest first) with the picture, what you did and why it
+ * was right or wrong. Tap a junction for the full-size picture.
  */
 export default function CrossingLogScreen() {
   const posthog = usePostHog();
   const [lang, setLang] = useState(getCachedLanguage);
   const [entries, setEntries] = useState<CrossingLogDB.CrossingLogEntry[] | null>(null);
   const [stats, setStats] = useState({ total: 0, crashes: 0, spoiled: 0 });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [openRecord, setOpenRecord] = useState<any | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       trackScreenView(posthog, 'CrossingLog');
       getLanguage().then(async (l) => {
         setLang(l);
-        const [list, s] = await Promise.all([CrossingLogDB.getRecentCrossingLog(l, 100), CrossingLogDB.getCrossingLogStats(l)]);
+        const [list, s] = await Promise.all([CrossingLogDB.getRecentCrossingLog(l, 200), CrossingLogDB.getCrossingLogStats(l)]);
         setEntries(list);
         setStats(s);
       });
     }, [posthog])
   );
 
+  // Rows come newest first; a run reads best in driving order, so each session's entries are reversed.
+  const sessions = useMemo<Session[]>(() => {
+    if (!entries) return [];
+    const byRun = new Map<string, Session>();
+    for (const e of entries) {
+      let s = byRun.get(e.runId);
+      if (!s) {
+        s = { runId: e.runId, startedAt: e.createdAt, entries: [], crashes: 0, mistakes: 0, points: 0 };
+        byRun.set(e.runId, s);
+      }
+      s.entries.push(e);
+      if (e.createdAt < s.startedAt) s.startedAt = e.createdAt;
+      if (e.outcome === 'crash') s.crashes += 1;
+      if (e.outcome === 'spoiled') s.mistakes += 1;
+      s.points += e.points;
+    }
+    return [...byRun.values()].map((s) => ({ ...s, entries: [...s.entries].reverse() }));
+  }, [entries]);
+
   const locale = localeForLang(lang);
   const dateLabel = (d: Date) => `${d.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} ${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`;
+  const isOpen = (s: Session, i: number) => expanded[s.runId] ?? i === 0;
 
   return (
     <Screen testID="screen.crossingLog" header={<Header title={t('crossing.log.title', lang)} />}>
@@ -65,60 +87,82 @@ export default function CrossingLogScreen() {
             {tf('crossing.log.summary', lang, { n: stats.total, crashes: stats.crashes, spoiled: stats.spoiled })}
           </UIText>
         )}
-        {entries?.map((entry, i) => {
-          const info = explainRecord(entry.record, lang);
-          const newRun = i === 0 || entries[i - 1].runId !== entry.runId;
-          const highlight = entry.record.outcome === 'crash' && entry.record.culprit ? [entry.record.culprit, 'you'] : [];
+        {sessions.map((session, i) => {
+          const open = isOpen(session, i);
           return (
-            <View key={entry.id} className="gap-3">
-              {newRun && (
-                <UIText variant="caption" className="uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mt-2">
-                  {dateLabel(entry.createdAt)}
-                </UIText>
-              )}
-              <Card className="gap-3" testID={`crossing.log.entry.${i}`}>
-                <View className="flex-row gap-3">
-                  <View className="rounded-xl overflow-hidden">
-                    <IntersectionScene scene={entry.record.scene} size={112} showPaths highlight={highlight} />
-                  </View>
-                  <View className="flex-1 gap-1.5">
-                    <View className="flex-row items-center gap-2 flex-wrap">
-                      <View className={`rounded-full px-2 py-0.5 ${outcomeClass[info.outcome]}`}>
-                        <UIText variant="caption" className={`font-semibold ${outcomeTextClass[info.outcome]}`}>
-                          {info.outcomeLabel}
-                        </UIText>
-                      </View>
-                      {info.points > 0 && (
-                        <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                          +{info.points}
-                        </UIText>
-                      )}
-                    </View>
-                    <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                      {t('crossing.log.instruction', lang)}: {info.instruction}
-                    </UIText>
-                    <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                      {t('crossing.log.you', lang)}: {info.yourMove}
-                    </UIText>
-                    <UIText variant="body" className="font-semibold text-slate-800 dark:text-slate-100">
-                      {info.headline}
-                    </UIText>
-                  </View>
+            <View key={session.runId} className="gap-3">
+              <Pressable
+                onPress={() => setExpanded((prev) => ({ ...prev, [session.runId]: !open }))}
+                className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/80 px-4 py-3 flex-row items-center gap-3"
+                accessibilityRole="button"
+                accessibilityState={{ expanded: open }}
+                testID={`crossing.log.session.${i}`}
+              >
+                <View className="flex-1 gap-0.5">
+                  <UIText variant="body" className="font-semibold text-slate-900 dark:text-slate-50">
+                    {t('crossing.log.session', lang)} · {dateLabel(session.startedAt)}
+                  </UIText>
+                  <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                    {tf('crossing.log.sessionSummary', lang, { n: session.entries.length, crashes: session.crashes, spoiled: session.mistakes, points: session.points })}
+                  </UIText>
                 </View>
-                {info.lines.length > 0 && (
-                  <View className="gap-1 border-t border-slate-200/70 dark:border-slate-800/70 pt-2">
-                    {info.lines.map((line, k) => (
-                      <UIText key={k} variant="caption" className="text-slate-700 dark:text-slate-200">
-                        • {line}
+                <UIText variant="subtitle" className="text-slate-400 dark:text-slate-500">{open ? '▾' : '▸'}</UIText>
+              </Pressable>
+              {open &&
+                session.entries.map((entry, k) => {
+                  const info = explainRecord(entry.record, lang);
+                  const highlight = entry.record.outcome === 'crash' && entry.record.culprit ? [entry.record.culprit, 'you'] : [];
+                  return (
+                    <Card key={entry.id} className="gap-3" onPress={() => setOpenRecord(entry.record)} testID={`crossing.log.entry.${i}.${k}`}>
+                      <View className="flex-row gap-3">
+                        <View className="rounded-xl overflow-hidden">
+                          <IntersectionScene scene={entry.record.scene} size={132} showPaths highlight={highlight} />
+                        </View>
+                        <View className="flex-1 gap-1.5">
+                          <View className="flex-row items-center gap-2 flex-wrap">
+                            <UIText variant="caption" className="text-slate-400 dark:text-slate-500">#{k + 1}</UIText>
+                            <View className={`rounded-full px-2 py-0.5 ${outcomeClass[info.outcome]}`}>
+                              <UIText variant="caption" className={`font-semibold ${outcomeTextClass[info.outcome]}`}>
+                                {info.outcomeLabel}
+                              </UIText>
+                            </View>
+                            {info.points > 0 && (
+                              <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                                +{info.points}
+                              </UIText>
+                            )}
+                          </View>
+                          <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                            {t('crossing.log.instruction', lang)}: {info.instruction}
+                          </UIText>
+                          <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+                            {t('crossing.log.you', lang)}: {info.yourMove}
+                          </UIText>
+                          <UIText variant="body" className="font-semibold text-slate-800 dark:text-slate-100">
+                            {info.headline}
+                          </UIText>
+                        </View>
+                      </View>
+                      {info.lines.length > 0 && (
+                        <View className="gap-1 border-t border-slate-200/70 dark:border-slate-800/70 pt-2">
+                          {info.lines.map((line, m) => (
+                            <UIText key={m} variant="caption" className="text-slate-700 dark:text-slate-200">
+                              • {line}
+                            </UIText>
+                          ))}
+                        </View>
+                      )}
+                      <UIText variant="caption" className="text-indigo-600 dark:text-indigo-300">
+                        {t('crossing.log.tapToOpen', lang)}
                       </UIText>
-                    ))}
-                  </View>
-                )}
-              </Card>
+                    </Card>
+                  );
+                })}
             </View>
           );
         })}
       </ScrollView>
+      {openRecord && <RecordModal record={openRecord} lang={lang} onClose={() => setOpenRecord(null)} />}
     </Screen>
   );
 }

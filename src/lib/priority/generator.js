@@ -83,19 +83,25 @@ const buildCrossing = (rng, band) => {
   const signs = {};
   let mainRoad = null;
   if (band.signs && chance(rng, 0.6)) {
-    if (band.bent && chance(rng, 0.4)) {
-      // Bent main road through S and one side arm.
-      const side = pick(rng, arms.filter((a) => a === 'E' || a === 'W'));
-      mainRoad = ['S', side];
-    } else {
-      const straight = arms.includes('N') ? ['S', 'N'] : [pick(rng, arms.filter((a) => a !== 'S')), 'S'];
-      mainRoad = straight;
-    }
+    // The main road runs through two arms. About half the time you are on
+    // it; otherwise you arrive on a side road and face a yield or STOP sign.
+    const others = arms.filter((a) => a !== 'S');
+    const candidates = [];
+    if (arms.includes('N')) candidates.push(['S', 'N']);
+    if (band.bent) for (const side of others.filter((a) => a === 'E' || a === 'W')) candidates.push(['S', side]);
+    const notThroughYou = [];
+    if (arms.includes('E') && arms.includes('W')) notThroughYou.push(['E', 'W']);
+    if (band.bent && arms.includes('N')) for (const side of others.filter((a) => a === 'E' || a === 'W')) notThroughYou.push(['N', side]);
+    mainRoad = notThroughYou.length && chance(rng, 0.5) ? pick(rng, notThroughYou) : pick(rng, candidates);
     for (const a of arms) {
       if (mainRoad.includes(a)) signs[a] = chance(rng, 0.7) ? 'main' : null;
       else signs[a] = chance(rng, 0.7) ? 'yield' : 'stop';
     }
-    if (chance(rng, 0.5)) mainRoad = mainRoad.includes('S') && mainRoad.includes('N') ? null : mainRoad;
+    // A plain straight main road through you sometimes goes unsigned (right-hand rule applies).
+    if (mainRoad.includes('S') && mainRoad.includes('N') && chance(rng, 0.5)) {
+      mainRoad = null;
+      for (const a of arms) signs[a] = null;
+    }
   }
   const tramTracks = band.trams && chance(rng, 0.35) && arms.includes('E') && arms.includes('W') ? [{ from: 'W', to: 'E' }] : [];
 

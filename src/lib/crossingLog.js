@@ -34,16 +34,22 @@ export const explainRecord = (record, lang) => {
   if (record.outcome === 'crash') {
     headline = tf('crossing.log.crashWith', lang, { vehicle: vehicleName(record, record.culprit, lang) });
     if (record.rule) lines.push(tf(`rule.${record.rule}`, lang, { vehicle: vehicleName(record, record.culprit, lang) }));
+  } else if (record.wrongWay && record.laps > 0) {
+    headline = tf('crossing.log.missedExit', lang, { instruction });
   } else if (record.wrongWay) {
     headline = tf('crossing.wrongWay', lang, { instruction });
   } else if (record.ranRed) {
     headline = t('crossing.redLight', lang);
+  } else if (record.ranStop) {
+    headline = t('crossing.ranStop', lang);
   } else if (record.hesitated) {
     headline = t('crossing.hesitated', lang);
   } else if (record.late) {
     headline = t('crossing.late', lang);
   } else if (record.stopped && record.lights === 'cross-first') {
     headline = t('crossing.log.clean.lights', lang);
+  } else if (record.stopped && record.stopSign) {
+    headline = t('crossing.log.clean.stopSign', lang);
   } else if (record.stopped) {
     headline = t('crossing.log.clean.stopped', lang);
   } else {

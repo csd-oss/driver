@@ -3,12 +3,19 @@ import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, vi
 
 // A T-junction with no straight ahead waits for a direction: take the instructed one.
 // A stopped car only moves off on a swipe: do that once the way is clear.
+// In a roundabout, arm the blinker once the next exit is the instructed one.
+const armRing = (run) => {
+  const j = currentJunction(run);
+  if (j.ring && !j.ring.exitTo && !j.ring.armed && j.ring.order[j.ring.next] === j.instruction.to) applyInput(run, 'right');
+};
+
 const followInstructor = (run, events) => {
   const j = currentJunction(run);
   const last = events[events.length - 1];
   if (last && last.type === 'needTurn' && last.junction === j.index) {
     applyInput(run, last.instruction.turn === 'left' ? 'left' : 'right');
   }
+  armRing(run);
   if (run.stoppedAt !== null && !j.needTurn) {
     const ready = j.blockers.length ? run.now >= j.clearAt : true;
     if (ready) applyInput(run, 'go');
@@ -219,6 +226,7 @@ describe('pacing and lights', () => {
     const j = currentJunction(r);
     const last = evs[evs.length - 1];
     if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
+    armRing(r);
     const red = j.scene.control?.type === 'lights' && j.scene.control.crossFirst;
     if ((j.blockers.length || red) && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
     const state = lightState(j, r.now);
@@ -293,6 +301,7 @@ describe('pacing and lights', () => {
         const j = currentJunction(r);
         const last = evs[evs.length - 1];
         if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
+        armRing(r);
         // Brake for cars, ignore lights, and go the moment the cars have cleared.
         if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
         if (r.stoppedAt !== null && !j.needTurn && (!j.blockers.length || r.now >= j.clearAt)) applyInput(r, 'go');
@@ -307,5 +316,212 @@ describe('pacing and lights', () => {
       }
     }
     expect(seen).toBe(true);
+  });
+});
+
+describe('motion and roundabouts', () => {
+  const drive = (run, ms, onTick) => {
+    const events = [];
+    let now = run.now;
+    for (let t = 0; t <= ms; t += 16) {
+      now += 16;
+      const evs = step(run, now);
+      events.push(...evs);
+      if (onTick) onTick(run, now, evs);
+      if (run.over) break;
+    }
+    return events;
+  };
+
+  it('eases the speed: accelerates from rest and brakes to a halt exactly at the line', () => {
+    const run = createRun(makeRng(4), 1);
+    expect(run.v).toBe(0);
+    let peak = 0;
+    let braked = false;
+    let stoppedAt = null;
+    const vs = [];
+    drive(run, 40000, (r) => {
+      const j = currentJunction(r);
+      peak = Math.max(peak, r.v);
+      if (!braked && j.scheduled && j.sWait - r.s < 60) {
+        applyInput(r, 'brake');
+        braked = true;
+      }
+      if (braked && stoppedAt === null) vs.push(r.v);
+      if (r.stoppedAt !== null && stoppedAt === null) stoppedAt = { s: r.stoppedAt, sWait: j.sWait, v: r.v };
+    });
+    expect(peak).toBeGreaterThan(run.speed * 0.95);
+    expect(stoppedAt).toBeTruthy();
+    expect(stoppedAt.s).toBeCloseTo(stoppedAt.sWait, 5);
+    expect(stoppedAt.v).toBe(0);
+    // Braking is gradual: the speed goes down over many frames, never in one jump to zero.
+    const drops = vs.slice(1).map((v, i) => vs[i] - v);
+    expect(Math.max(...drops)).toBeLessThan(run.speed * 0.5);
+    expect(drops.filter((d) => d > 0).length).toBeGreaterThan(10);
+  });
+
+  it('keeps circling a roundabout until the right swipe, then leaves at the next exit with the blinker', () => {
+    let ring = null;
+    for (let seed = 1; seed < 60 && !ring; seed++) {
+      const run = createRun(makeRng(seed), 1);
+      if (run.junctions[0].ring) ring = { run, seed };
+    }
+    expect(ring).toBeTruthy();
+    const { run } = ring;
+    const j = run.junctions[0];
+    // Give way to anyone in the ring, but never signal: the car goes round and round.
+    drive(run, 45000, (r) => {
+      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+      if (r.stoppedAt !== null && r.now >= j.clearAt) applyInput(r, 'go');
+    });
+    expect(j.passed).toBe(false);
+    expect(j.ring.laps).toBeGreaterThanOrEqual(1);
+    expect(run.passed).toBe(0);
+    // Now signal right: the car leaves at the next exit and the road is re-laid along it.
+    applyInput(run, 'right');
+    expect(run.intent).toBe('right');
+    const exitArm = j.ring.order[j.ring.next];
+    const events = drive(run, 20000);
+    expect(j.ring.exitTo).toBe(exitArm);
+    expect(events.some((e) => e.type === 'ringExit' && e.to === exitArm)).toBe(true);
+    const passed = events.find((e) => e.type === 'passed' && e.junction === j.index);
+    expect(passed).toBeTruthy();
+    expect(passed.wrongWay).toBe(true); // a full lap is not what the instructor asked for
+    expect(run.junctions[1].rot).toBe({ N: 0, E: 90, W: 270, S: 180 }[exitArm]);
+  });
+
+  it('leaves the roundabout at the instructed exit when the swipe comes in time', () => {
+    let found = null;
+    for (let seed = 1; seed < 60 && !found; seed++) {
+      const run = createRun(makeRng(seed), 1);
+      if (run.junctions[0].ring) found = run;
+    }
+    const run = found;
+    const j = run.junctions[0];
+    const events = drive(run, 60000, (r, now, evs) => {
+      followInstructor(r, evs);
+      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+      if (r.stoppedAt !== null && r.now >= j.clearAt) applyInput(r, 'go');
+    });
+    const passed = events.find((e) => e.type === 'passed' && e.junction === j.index);
+    expect(passed).toBeTruthy();
+    expect(passed.wrongWay).toBe(false);
+    expect(j.executedTo).toBe(j.instruction.to);
+    expect(j.ring.laps).toBe(0);
+  });
+
+  it('other vehicles never jump: no pose moves more than a few units between frames', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      const run = createRun(makeRng(seed), 3);
+      let prev = new Map();
+      let worst = 0;
+      drive(run, 90000, (r, now, evs) => {
+        followInstructor(r, evs);
+        const j = currentJunction(r);
+        if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+        if (r.stoppedAt !== null && !j.needTurn && (!j.blockers.length || r.now >= j.clearAt)) applyInput(r, 'go');
+        const cur = new Map();
+        for (const p of vehiclePoses(r)) {
+          const key = `${p.junction.index}-${p.vehicle.id}`;
+          cur.set(key, p.pose);
+          const was = prev.get(key);
+          if (was) worst = Math.max(worst, Math.hypot(p.pose.x - was.x, p.pose.y - was.y));
+        }
+        prev = cur;
+      });
+      expect(worst).toBeLessThan(3);
+    }
+  });
+
+  it('a car crossing from the left has cleared your way long before 62% of its path', () => {
+    const { clearFractionFor } = require('../src/lib/priority/conflict');
+    const scene = { layout: 'cross', arms: ['N', 'E', 'S', 'W'], vehicles: [{ id: 'you', from: 'S', to: 'N' }, { id: 'w', from: 'W', to: 'E' }, { id: 'e', from: 'E', to: 'N' }] };
+    const you = scene.vehicles[0];
+    expect(clearFractionFor(scene, scene.vehicles[1], you)).toBeLessThan(0.5);
+    expect(clearFractionFor(scene, scene.vehicles[1], you)).toBeGreaterThan(0.2);
+    // A car from the right turning right only shares the far quadrant with you.
+    expect(clearFractionFor(scene, scene.vehicles[2], you)).toBeLessThanOrEqual(0.62);
+  });
+});
+
+describe('roundabout crash', () => {
+  it('after a crash at the ring entry the car still drives round the ring to the instructed exit', () => {
+    let run = null;
+    for (let seed = 1; seed < 80 && !run; seed++) {
+      const r = createRun(makeRng(seed), 2);
+      if (r.junctions[0].ring && r.junctions[0].blockers.length) run = r;
+    }
+    expect(run).toBeTruthy();
+    const j = run.junctions[0];
+    let now = 0;
+    const events = [];
+    const offRoad = [];
+    for (let i = 0; i < 4000 && run.passed < 1; i++) {
+      now += 16;
+      events.push(...step(run, now)); // never brakes: crashes at the entry
+      const me = youPose(run);
+      // Local position in the roundabout frame while near it: must be on the ring band or an arm.
+      const dx = me.x - j.cx;
+      const dy = me.y - j.cy;
+      const r = Math.hypot(dx, dy);
+      if (r < 40 && !(Math.abs(r - 19) <= 8 || Math.abs(dx) <= 12.5 || Math.abs(dy) <= 12.5)) offRoad.push({ dx, dy, r });
+    }
+    expect(events.some((e) => e.type === 'crash' && e.junction === j.index)).toBe(true);
+    expect(offRoad).toEqual([]);
+    expect(j.ring.exitTo).toBe(j.instruction.to);
+    expect(run.junctions[1].rot).toBe({ N: 0, E: 90, W: 270, S: 180 }[j.instruction.to]);
+  });
+});
+
+describe('STOP sign', () => {
+  const drive = (run, ms, onTick) => {
+    const events = [];
+    let now = run.now;
+    for (let t = 0; t <= ms; t += 16) {
+      now += 16;
+      const evs = step(run, now);
+      events.push(...evs);
+      if (onTick) onTick(run, now, evs);
+      if (run.over || run.passed >= 1) break;
+    }
+    return events;
+  };
+  const withStop = () => {
+    for (let seed = 1; seed < 600; seed++) {
+      const run = createRun(makeRng(seed), 1);
+      const j = run.junctions[0];
+      const sign = j.scene.signs?.S;
+      if ((sign === 'stop' || sign === 'roundabout-stop') && !j.blockers.length && !j.ring && j.scene.arms.includes('N') && j.instruction.turn === 'straight') return run;
+    }
+    return null;
+  };
+
+  it('stopping at a STOP sign with nothing coming is not a needless stop', () => {
+    const run = withStop();
+    expect(run).toBeTruthy();
+    const j = run.junctions[0];
+    let braked = false;
+    const events = drive(run, 60000, (r, now, evs) => {
+      followInstructor(r, evs);
+      if (!braked && j.scheduled && j.sWait - r.s < 50) {
+        applyInput(r, 'brake');
+        braked = true;
+      }
+      if (r.stoppedAt !== null && !j.needTurn && now - j.stoppedAtTime > 300) applyInput(r, 'go');
+    });
+    expect(events.some((e) => e.type === 'hesitated')).toBe(false);
+    const passed = events.find((e) => e.type === 'passed');
+    expect(passed.points).toBeGreaterThan(0);
+    expect(passed.record.stopSign).toBe(true);
+  });
+
+  it('driving through a STOP sign without stopping spoils the junction', () => {
+    const run = withStop();
+    const events = drive(run, 60000, (r, now, evs) => followInstructor(r, evs));
+    expect(events.some((e) => e.type === 'ranStop')).toBe(true);
+    const passed = events.find((e) => e.type === 'passed');
+    expect(passed.ranStop).toBe(true);
+    expect(passed.points).toBe(0);
+    expect(passed.record.outcome).toBe('spoiled');
   });
 });

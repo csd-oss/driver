@@ -21,6 +21,8 @@ interface Props {
   extendArms?: Partial<Record<string, number>>;
   /** Live traffic-light phase per arm (runner); falls back to the scene's static colours. */
   lights?: Record<string, LightPhase> | null;
+  /** Extra length for arms not listed in `extendArms`, so side roads run off screen instead of ending in the grass. */
+  sideExtend?: number;
 }
 
 // Rotation that turns "up" into "towards the junction" for traffic arriving on an arm.
@@ -115,17 +117,37 @@ const Sign = ({ kind, x, y }: { kind: string; x: number; y: number }) => {
   return null;
 };
 
-const RoundaboutSign = ({ x, y }: { x: number; y: number }) => (
-  <G>
-    <Circle cx={x} cy={y} r={4.2} fill="#1d4ed8" stroke="#ffffff" strokeWidth={0.6} />
-    <Path d={`M ${x - 2.2} ${y - 0.6} A 2.4 2.4 0 1 1 ${x + 2.2} ${y - 0.6}`} stroke="#ffffff" strokeWidth={1} fill="none" />
-    <Polygon points={`${x - 2.9},${y - 0.2} ${x - 1.4},${y - 0.2} ${x - 2.15},${y + 1.4}`} fill="#ffffff" />
-    <Polygon points={`${x + 1.4},${y - 0.2} ${x + 2.9},${y - 0.2} ${x + 2.15},${y - 1.8}`} fill="#ffffff" />
-  </G>
-);
+/** Blue "roundabout" disc: three white arrows chasing each other counter-clockwise (as driven). */
+const RoundaboutSign = ({ x, y }: { x: number; y: number }) => {
+  const r = 2.3;
+  const pt = (deg: number) => ({ x: x + r * Math.sin((deg * Math.PI) / 180), y: y - r * Math.cos((deg * Math.PI) / 180) });
+  const arrows = [0, 120, 240].map((start) => {
+    // Arc from `start` going counter-clockwise on screen (decreasing angle) for 75°, arrowhead at the end.
+    const a = pt(start);
+    const b = pt(start - 75);
+    const tipDeg = start - 75;
+    const dir = { x: -Math.cos((tipDeg * Math.PI) / 180), y: -Math.sin((tipDeg * Math.PI) / 180) }; // tangent, ccw
+    const tip = { x: b.x + dir.x * 1.1, y: b.y + dir.y * 1.1 };
+    const left = { x: b.x - dir.y * 0.9, y: b.y + dir.x * 0.9 };
+    const right = { x: b.x + dir.y * 0.9, y: b.y - dir.x * 0.9 };
+    return { d: `M ${a.x} ${a.y} A ${r} ${r} 0 0 0 ${b.x} ${b.y}`, head: `${tip.x},${tip.y} ${left.x},${left.y} ${right.x},${right.y}` };
+  });
+  return (
+    <G>
+      <Circle cx={x} cy={y} r={4.2} fill="#1d4ed8" stroke="#ffffff" strokeWidth={0.6} />
+      {arrows.map((ar, i) => (
+        <G key={i}>
+          <Path d={ar.d} stroke="#ffffff" strokeWidth={0.8} fill="none" />
+          <Polygon points={ar.head} fill="#ffffff" />
+        </G>
+      ))}
+    </G>
+  );
+};
 
 /** Roads, markings, signs, tracks, officer, lights, pedestrians of one junction, in its local frame. */
-export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null }: Props) => {
+export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0 }: Props) => {
+  const ext = (arm: string) => extendArms[arm] ?? sideExtend;
   const grass = dark ? '#1a2e1a' : '#cfe8bf';
   const asphalt = dark ? '#334155' : '#8f96a3';
   const marking = dark ? '#cbd5e1' : '#f8fafc';
@@ -154,7 +176,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null }: 
       {scene.arms.map((arm) => {
         // Kerbs run along the road only; no cap across it, so consecutive
         // junction frames join without a seam.
-        const r = armRect(arm, extendArms[arm] ?? 0);
+        const r = armRect(arm, ext(arm));
         const vertical = arm === 'N' || arm === 'S';
         return vertical ? (
           <Rect key={`kerb-${arm}`} x={r.x - K} y={r.y} width={r.w + 2 * K} height={r.h} fill={kerb} />
@@ -165,7 +187,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null }: 
       {!isRoundabout && <Rect x={EDGE - K} y={EDGE - K} width={ROAD_HALF * 2 + 2 * K} height={ROAD_HALF * 2 + 2 * K} fill={kerb} />}
       {isRoundabout && <Circle cx={CENTER} cy={CENTER} r={RING_R + LANE + 1 + K} fill={kerb} />}
       {scene.arms.map((arm) => {
-        const r = armRect(arm, extendArms[arm] ?? 0);
+        const r = armRect(arm, ext(arm));
         return <Rect key={arm} x={r.x} y={r.y} width={r.w} height={r.h} fill={asphalt} />;
       })}
       {isRoundabout ? (
@@ -177,7 +199,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null }: 
         <Rect x={EDGE} y={EDGE} width={ROAD_HALF * 2} height={ROAD_HALF * 2} fill={asphalt} />
       )}
       {scene.arms.map((arm) => (
-        <Line key={`c-${arm}`} {...centreLine(arm, scene.layout, extendArms[arm] ?? 0)} stroke={marking} strokeWidth={0.7} strokeDasharray="4 3" />
+        <Line key={`c-${arm}`} {...centreLine(arm, scene.layout, ext(arm))} stroke={marking} strokeWidth={0.7} strokeDasharray="4 3" />
       ))}
       {scene.arms.map((arm) => {
         const sign = scene.signs?.[arm] ?? null;

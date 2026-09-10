@@ -109,7 +109,7 @@ export const RING_JOIN_DEG = 32;
 const RING_STEP_DEG = 8;
 
 /** Ring points from angle a counter-clockwise (decreasing) to angle b. */
-const ringArc = (a, b) => {
+export const ringArc = (a, b) => {
   const span = (a - b + 360) % 360;
   const steps = Math.max(2, Math.round(span / RING_STEP_DEG));
   const pts = [];
@@ -127,7 +127,7 @@ const hitVertical = (p, dir, x) => ({ x, y: p.y + ((x - p.x) / dir.x) * dir.y })
  * Entry curve for the S arm: up the approach lane, then a bend onto the ring.
  * Returns points from the approach lane point at RING_R + 4 to the join.
  */
-const entryCurveS = () => {
+export const entryCurveS = () => {
   const joinDeg = ARM_ANGLE.S - RING_JOIN_DEG;
   const join = ringPoint(joinDeg);
   const from = approachPoint('S', RING_R + 4);
@@ -136,7 +136,7 @@ const entryCurveS = () => {
 };
 
 /** Exit curve for a given exit arm angle, computed in the S frame then rotated. */
-const exitCurveFor = (exitArm) => {
+export const exitCurveFor = (exitArm) => {
   // Build the curve as if leaving by the N arm of a frame, then rotate so N maps to exitArm.
   const leaveDeg = ARM_ANGLE.N + RING_JOIN_DEG; // in the N frame, leave 32° before the N axis (ccw)
   const leave = ringPoint(leaveDeg);
@@ -153,6 +153,28 @@ const exitCurveFor = (exitArm) => {
  * exit. `from: 'ring'` vehicles start on the ring a quarter turn before the
  * S entry; `to: 'ring'` vehicles stay on it and stop opposite their entry.
  */
+/** Angle (ring convention) where a vehicle arriving on `from` joins the ring. */
+export const ringJoinDeg = (from) => (entryCurveS().joinDeg + ARM_ROT[from]) % 360;
+/** Angle where a vehicle leaving by `to` starts its exit curve. */
+export const ringLeaveDeg = (to) => (ARM_ANGLE[to] + RING_JOIN_DEG) % 360;
+/** Entry points (approach lane bend onto the ring) for a vehicle arriving on `from`, in scene coordinates. */
+export const ringEntryPoints = (from) => entryCurveS().points.map((p) => rotateAbout(p, ARM_ROT[from]));
+/** Exits in the order a car meets them after joining from `from` (counter-clockwise). */
+export const ringExitOrder = (from) => {
+  const order = [];
+  let deg = ringJoinDeg(from);
+  for (let i = 0; i < 4; i++) {
+    let best = null;
+    for (const arm of ['N', 'E', 'S', 'W']) {
+      const gap = (deg - ringLeaveDeg(arm) + 360) % 360;
+      if (gap > 0.5 && (best === null || gap < best.gap)) best = { arm, gap };
+    }
+    order.push(best.arm);
+    deg = ringLeaveDeg(best.arm);
+  }
+  return order;
+};
+
 export const roundaboutPath = (from, to) => {
   if (from === 'ring') {
     const startDeg = ARM_ANGLE.S + 90; // a quarter turn before the S entry, coming from W

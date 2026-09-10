@@ -8,14 +8,18 @@ interface Props {
   opacity?: number;
   /** Fraction of the path to draw, from the waiting line (default: through the box). */
   span?: number;
+  /** How far along its path the vehicle already is (0..1); the arrow starts there. */
+  progress?: number;
 }
 
 /** Chevron trail with an arrowhead showing where a vehicle intends to go. */
-export const PathArrow = ({ scene, vehicle, opacity = 0.85, span = 0.62 }: Props) => {
+export const PathArrow = ({ scene, vehicle, opacity = 0.85, span = 0.62, progress = 0 }: Props) => {
   const path = vehiclePath(scene, vehicle);
   const pts = path.through;
   const n = Math.max(2, Math.round(pts.length * span));
-  const shown = pts.slice(0, n);
+  const from = Math.min(pts.length - 2, Math.floor(progress * (pts.length - 1)));
+  const shown = pts.slice(from, from + n);
+  if (shown.length < 2 || progress >= 0.9) return null;
   const d = shown.map((p, i) => `${i ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
   const tip = shown[shown.length - 1];
   const prev = shown[shown.length - 2];

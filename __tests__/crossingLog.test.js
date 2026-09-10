@@ -14,10 +14,16 @@ const drive = (run, ms, onTick) => {
 };
 
 // A careful driver: brakes when someone has priority, turns as told, goes when clear.
+const armRing = (r) => {
+  const j = currentJunction(r);
+  if (j.ring && !j.ring.exitTo && !j.ring.armed && j.ring.order[j.ring.next] === j.instruction.to) applyInput(r, 'right');
+};
+
 const careful = (r, now, evs) => {
   const j = currentJunction(r);
   const last = evs[evs.length - 1];
   if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
+  armRing(r);
   const red = j.scene.control?.type === 'lights' && j.scene.control.crossFirst;
   if ((j.blockers.length || red) && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
   const state = lightState(j, r.now);
@@ -49,6 +55,7 @@ describe('crossing drive log', () => {
       const j = currentJunction(r);
       const last = evs[evs.length - 1];
       if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
+      armRing(r);
       if (r.stoppedAt !== null && !j.needTurn) applyInput(r, 'go');
     });
     const crash = events.find((e) => e.type === 'crash');

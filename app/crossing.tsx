@@ -1,4 +1,5 @@
 import { IntersectionScene } from '@/components/game/IntersectionScene';
+import { RecordModal, outcomeClass, outcomeTextClass } from '@/components/game/RecordModal';
 import { WorldScene, type WorldVehicle } from '@/components/game/WorldScene';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -32,7 +33,7 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, ScrollView, View, type LayoutChangeEvent } from 'react-native';
+import { PanResponder, Pressable, ScrollView, View, type LayoutChangeEvent } from 'react-native';
 
 type Phase = 'intro' | 'running' | 'over';
 
@@ -70,17 +71,6 @@ const haptic = {
   level: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
 };
 
-const outcomeClass: Record<string, string> = {
-  clean: 'bg-emerald-100 dark:bg-emerald-900/50',
-  crash: 'bg-rose-100 dark:bg-rose-900/50',
-  spoiled: 'bg-amber-100 dark:bg-amber-900/50',
-};
-const outcomeTextClass: Record<string, string> = {
-  clean: 'text-emerald-700 dark:text-emerald-200',
-  crash: 'text-rose-700 dark:text-rose-200',
-  spoiled: 'text-amber-700 dark:text-amber-200',
-};
-
 /**
  * Crossings, endless mode. You drive; the road scrolls; every junction is
  * generated and every other car obeys the priority engine. Swipe down to
@@ -96,7 +86,8 @@ export default function CrossingScreen() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [best, setBest] = useState(0);
   const [hud, setHud] = useState({ level: 1, lives: LIVES, score: 0, streak: 0, passed: 0 });
-  const [frame, setFrame] = useState<{ junctions: any[]; vehicles: WorldVehicle[]; you: any; heading: number; youVehicle: any; blink: boolean; shake: number; lights: Record<number, any> } | null>(null);
+  const [frame, setFrame] = useState<{ junctions: any[]; vehicles: WorldVehicle[]; you: any; heading: number; youVehicle: any; blink: boolean; shake: number; lights: Record<number, any>; youSignal: 'left' | 'right' | null } | null>(null);
+  const [openRecord, setOpenRecord] = useState<any | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [instruction, setInstruction] = useState<Instruction | null>(null);
   const [coachHint, setCoachHint] = useState<string | null>(null);
@@ -203,11 +194,14 @@ export default function CrossingScreen() {
         } else if (e.type === 'redLight') {
           setToast({ kind: 'wrong', text: t('crossing.redLight', lang), until: tNow + TOAST_MS + 400 });
           haptic.honk();
+        } else if (e.type === 'ranStop') {
+          setToast({ kind: 'wrong', text: t('crossing.ranStop', lang), until: tNow + TOAST_MS + 400 });
+          haptic.honk();
         } else if (e.type === 'passed') {
           highlightRef.current = [];
           setInstruction(null);
           setCoachHint(null);
-          if (!e.hesitated && !e.wrongWay && !e.late && !e.ranRed) {
+          if (!e.hesitated && !e.wrongWay && !e.late && !e.ranRed && !e.ranStop) {
             setToast({ kind: 'ok', text: tf('game.plusPoints', lang, { points: e.points }), until: tNow + 900 });
             haptic.passed();
           }
@@ -226,7 +220,11 @@ export default function CrossingScreen() {
             const junction = run.junctions.find((j: any) => j.index === e.junction);
             const blocker = e.blockers?.[0];
             const vehicle = junction?.scene?.vehicles?.find((v: any) => v.id === blocker);
-            if (e.turn !== 'straight') {
+            if (e.stopSign) {
+              setCoachHint(t('crossing.coach.stopSign', lang));
+            } else if (e.kind === 'roundabout') {
+              setCoachHint(t('crossing.coach.roundabout', lang));
+            } else if (e.turn !== 'straight') {
               setCoachHint(tf('crossing.coach.turn', lang, { dir: t(e.turn === 'left' ? 'crossing.coach.dirLeft' : 'crossing.coach.dirRight', lang) }));
             } else if (vehicle) {
               const name = t(`crossing.vehicle.${vehicle.color}`, lang);
@@ -256,6 +254,10 @@ export default function CrossingScreen() {
       headingRef.current = (headingRef.current + diff * 0.12 + 360) % 360;
       const junction = currentJunction(run);
       const youVehicle = junction.scene.vehicles.find((v: any) => v.id === 'you');
+      // Your indicator: in a roundabout only while you signal to leave; otherwise the turn you have set.
+      const youSignal: 'left' | 'right' | null = junction.ring
+        ? junction.ring.armed && !junction.ring.exitTo ? 'right' : junction.ring.exitTo ? 'right' : null
+        : run.intent === 'left' || run.intent === 'right' ? run.intent : null;
       const shaking = tNow < shakeUntilRef.current ? Math.sin(tNow / 18) * 1.6 : 0;
       const visible = visibleJunctions(run);
       const lights: Record<number, any> = {};
@@ -269,6 +271,7 @@ export default function CrossingScreen() {
         blink: Math.floor(tNow / 350) % 2 === 0,
         shake: shaking,
         lights,
+        youSignal,
       });
       if (run.over && tNow >= run.crashUntil) {
         finishRun();
@@ -379,6 +382,7 @@ export default function CrossingScreen() {
           <UIText variant="body" className="text-slate-800 dark:text-slate-100">⬇️  {t('crossing.legendDown', lang)}</UIText>
           <UIText variant="body" className="text-slate-800 dark:text-slate-100">⬆️  {t('crossing.legendUp', lang)}</UIText>
           <UIText variant="body" className="text-slate-800 dark:text-slate-100">↔️  {t('crossing.legendSide', lang)}</UIText>
+          <UIText variant="body" className="text-slate-800 dark:text-slate-100">🔄  {t('crossing.legendRing', lang)}</UIText>
           <UIText variant="caption" className="text-slate-500 dark:text-slate-400">{t('crossing.legendRules', lang)}</UIText>
         </View>
         {roundsPlayed === 0 && (
@@ -404,9 +408,9 @@ export default function CrossingScreen() {
   const renderRecordRow = (record: any, i: number) => {
     const info = explainRecord(record, lang);
     return (
-      <View key={`${record.index}-${i}`} className="flex-row items-center gap-3 py-2 border-t border-slate-200/70 dark:border-slate-800/70" testID={`crossing.record.${i}`}>
+      <Pressable key={`${record.index}-${i}`} onPress={() => setOpenRecord(record)} className="flex-row items-center gap-3 py-2 border-t border-slate-200/70 dark:border-slate-800/70" testID={`crossing.record.${i}`} accessibilityRole="button">
         <View className="rounded-xl overflow-hidden">
-          <IntersectionScene scene={record.scene} size={56} showPaths />
+          <IntersectionScene scene={record.scene} size={72} showPaths />
         </View>
         <View className="flex-1 gap-0.5">
           <View className="flex-row items-center gap-2">
@@ -425,7 +429,7 @@ export default function CrossingScreen() {
             {info.headline}
           </UIText>
         </View>
-      </View>
+      </Pressable>
     );
   };
 
@@ -523,6 +527,7 @@ export default function CrossingScreen() {
       <View className="flex-1 gap-3 mt-1">
         {phase === 'intro' && renderIntro()}
         {phase === 'over' && renderOver()}
+        {openRecord && <RecordModal record={openRecord} lang={lang} onClose={() => setOpenRecord(null)} />}
         {phase === 'running' && (
           <>
             <View className="flex-row items-center justify-between">
@@ -559,6 +564,7 @@ export default function CrossingScreen() {
                     blinkOn={frame.blink}
                     shake={frame.shake}
                     lights={frame.lights}
+                    youSignal={frame.youSignal}
                   />
                 </View>
               )}

@@ -1987,6 +1987,51 @@ export const STR = {
     2: 'You stopped at the red and went on green.',
     3: 'Megálltál a pirosnál, és zöldre indultál.',
   },
+  'crossing.coach.roundabout': {
+    1: 'V kruhovom objazde krúžiš. Potiahni doprava tesne pred svojím výjazdom.',
+    2: 'In the roundabout you keep circling. Swipe right just before your exit.',
+    3: 'A körforgalomban körbe mész. Húzz jobbra közvetlenül a kijáratod előtt.',
+  },
+  'crossing.legendRing': {
+    1: 'V kruhovom objazde krúžiš, kým nepotiahneš doprava pred výjazdom',
+    2: 'In a roundabout you keep circling until you swipe right before your exit',
+    3: 'A körforgalomban addig körözöl, amíg a kijárat előtt jobbra nem húzol',
+  },
+  'crossing.log.session': {
+    1: 'Jazda',
+    2: 'Run',
+    3: 'Menet',
+  },
+  'crossing.log.sessionSummary': {
+    1: 'Križovatky: {n} · Zrážky: {crashes} · Chyby: {spoiled} · Body: {points}',
+    2: 'Junctions: {n} · Crashes: {crashes} · Mistakes: {spoiled} · Points: {points}',
+    3: 'Kereszteződések: {n} · Ütközések: {crashes} · Hibák: {spoiled} · Pont: {points}',
+  },
+  'crossing.log.tapToOpen': {
+    1: 'Ťukni pre veľký obrázok',
+    2: 'Tap for the full picture',
+    3: 'Koppints a nagy képért',
+  },
+  'crossing.log.missedExit': {
+    1: 'Prešiel si svoj výjazd a išiel dokola. Inštruktor povedal: {instruction}',
+    2: 'You missed your exit and went round again. The instructor said: {instruction}',
+    3: 'Elhagytad a kijáratodat és körbementél. Az oktató azt mondta: {instruction}',
+  },
+  'crossing.ranStop': {
+    1: 'Nezastavil si na značke STOP.',
+    2: 'You did not stop at the STOP sign.',
+    3: 'Nem álltál meg a STOP táblánál.',
+  },
+  'crossing.log.clean.stopSign': {
+    1: 'Zastavil si na STOP a pokračoval, keď bolo voľno.',
+    2: 'You stopped at the STOP sign and went on when it was clear.',
+    3: 'Megálltál a STOP táblánál, és továbbmentél, amikor szabad volt.',
+  },
+  'crossing.coach.stopSign': {
+    1: 'Značka STOP: potiahni nadol a zastav, potom nahor, keď je voľno.',
+    2: 'STOP sign: swipe down to stop, then up once it is clear.',
+    3: 'STOP tábla: húzz lefelé a megálláshoz, majd felfelé, ha szabad az út.',
+  },
   'crossing.coach.intro': {
     1: 'Prvé tri križovatky idú pomalšie a napovedáme ti.',
     2: 'The first three junctions are slower and come with hints.',
