@@ -961,3 +961,23 @@ One row per finished "Who goes first?" round (event-sourced; best score is `MAX(
 
 Game answers are also logged to `answer_attempts` with `mode = 'game'`; the study views and
 streak count that mode alongside `study` and `mistakes`.
+
+## CROSSING DRIVE LOG (`crossing_log`)
+
+One row per junction driven in the crossing minigame. The `record` column is the JSON
+returned by `junctionRecord()` in `src/lib/priority/world.js`: outcome flags, the instruction,
+the direction you took, the priority order, the rules that involved you, and the scene
+(layout, arms, signs, vehicles) so the history screen can draw it again. The log is purged to
+the newest 300 rows per language after each run.
+
+| column | type | notes |
+|---|---|---|
+| id | TEXT PK | UUID |
+| device_id | TEXT | |
+| lang | INTEGER | 1, 2, 3 |
+| run_id | TEXT | groups the junctions of one run |
+| outcome | TEXT | `clean`, `crash` or `spoiled` |
+| points | INTEGER | points earned at that junction |
+| record | TEXT | JSON, see above |
+| created_at | INTEGER | unix seconds |
+| synced_at | INTEGER | nullable |

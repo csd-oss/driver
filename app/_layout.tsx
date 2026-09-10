@@ -127,6 +127,7 @@ export default function RootLayout() {
             <Stack.Screen name="game" options={{ headerShown: false }} />
             <Stack.Screen name="game-quiz" options={{ headerShown: false }} />
             <Stack.Screen name="crossing" options={{ headerShown: false }} />
+            <Stack.Screen name="crossing-log" options={{ headerShown: false }} />
             <Stack.Screen
               name="paywall"
               options={{ headerShown: false, gestureEnabled: false }}

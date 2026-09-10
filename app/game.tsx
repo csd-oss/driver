@@ -60,6 +60,12 @@ export default function GameHubScreen() {
           >
             {t('game.start', lang)}
           </Button>
+          <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+            {t('crossing.hubLogHint', lang)}
+          </UIText>
+          <Button onPress={() => router.push('/crossing-log')} variant="outline" className="w-full" testID="game.crossingLog">
+            {t('crossing.log.open', lang)}
+          </Button>
         </Card>
         <Card className="gap-3" testID="game.modeQuiz">
           <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">

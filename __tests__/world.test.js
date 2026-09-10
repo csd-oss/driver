@@ -1,15 +1,21 @@
 import { makeRng } from '../src/lib/priority/generator';
-import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, LIVES } from '../src/lib/priority/world';
+import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, ALL_RED_MS, LIVES } from '../src/lib/priority/world';
 
 // A T-junction with no straight ahead waits for a direction: take the instructed one.
+// A stopped car only moves off on a swipe: do that once the way is clear.
 const followInstructor = (run, events) => {
+  const j = currentJunction(run);
   const last = events[events.length - 1];
-  if (last && last.type === 'needTurn' && last.junction === currentJunction(run).index) {
+  if (last && last.type === 'needTurn' && last.junction === j.index) {
     applyInput(run, last.instruction.turn === 'left' ? 'left' : 'right');
+  }
+  if (run.stoppedAt !== null && !j.needTurn) {
+    const ready = j.blockers.length ? run.now >= j.clearAt : true;
+    if (ready) applyInput(run, 'go');
   }
 };
 
-const runUntil = (run, predicate, { input = null, maxMs = 30000, dt = 16 } = {}) => {
+const runUntil = (run, predicate, { input = null, maxMs = 60000, dt = 16 } = {}) => {
   let now = run.now;
   const events = [];
   while (now < maxMs) {
@@ -50,6 +56,7 @@ describe('world', () => {
     expect(crash).toBeDefined();
     expect(crash.culprit).toBeTruthy();
     expect(crash.rule).toBeTruthy();
+    expect(crash.record.outcome).toBe('crash');
     expect(run.lives).toBe(LIVES - 1);
   });
 
@@ -68,6 +75,10 @@ describe('world', () => {
     expect(crashes).toHaveLength(0);
     expect(run.lives).toBe(LIVES);
     expect(run.passed).toBeGreaterThanOrEqual(4);
+    for (const e of events.filter((x) => x.type === 'passed')) {
+      expect(e.record.scene.vehicles.some((v) => v.id === 'you')).toBe(true);
+      expect(Array.isArray(e.record.reasons)).toBe(true);
+    }
     const passedEvents = events.filter((e) => e.type === 'passed');
     // A junction where the stop was needless scores nothing and resets the streak.
     for (const h of hesitations) {
@@ -87,7 +98,7 @@ describe('world', () => {
     const you = a.scene.vehicles.find((v) => v.id === 'you');
     const expectedRot = { N: 0, E: 90, W: 270 }[you.to];
     expect(b.rot).toBe(expectedRot);
-    expect(Math.round(Math.hypot(b.cx - a.cx, b.cy - a.cy))).toBe(180);
+    expect(Math.round(Math.hypot(b.cx - a.cx, b.cy - a.cy))).toBe(spacingFor(4));
     // The frames share the road axis: the next centre lies on the exit arm's centre line.
     if (you.to === 'N') expect(b.cx).toBeCloseTo(a.cx);
     if (you.to === 'E') expect(b.cy).toBeCloseTo(a.cy);
@@ -146,6 +157,7 @@ describe('instructor directions', () => {
     run.now = 1000;
     // Never turn, never brake; compare executed movement against the instruction.
     const events = drive(run, 60000, (r, now, evs) => {
+      followInstructor(r, evs);
       const j = currentJunction(r);
       const last = evs[evs.length - 1];
       // At a T-junction with no straight ahead, deliberately take the other turn.
@@ -174,19 +186,126 @@ describe('instructor directions', () => {
   it('turns where the instructor says when the player swipes, re-placing the road', () => {
     const run = createRun(makeRng(31), 5);
     run.now = 1000;
-    let wrong = 0;
     const events = drive(run, 60000, (r, now, evs) => {
+      followInstructor(r, evs);
       const j = currentJunction(r);
       const last = evs[evs.length - 1];
       if (last && last.type === 'instruction' && last.junction === j.index && last.turn !== 'straight') {
         applyInput(r, last.turn === 'left' ? 'left' : 'right');
       }
       if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
-      wrong += evs.filter((e) => e.type === 'wrongWay').length;
     });
     expect(events.filter((e) => e.type === 'wrongWay')).toHaveLength(0);
     expect(events.filter((e) => e.type === 'passed').length).toBeGreaterThan(3);
     // Junctions ahead were rebuilt along the new exit: the run still keeps two ahead.
     expect(run.junctions.filter((j) => j.index > currentJunction(run).index).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('pacing and lights', () => {
+  const drive = (run, ms, onTick) => {
+    const events = [];
+    let now = run.now;
+    for (let t = 0; t <= ms; t += 16) {
+      now += 16;
+      const evs = step(run, now);
+      events.push(...evs);
+      if (onTick) onTick(run, now, evs);
+      if (run.over) break;
+    }
+    return events;
+  };
+  const careful = (r, now, evs) => {
+    const j = currentJunction(r);
+    const last = evs[evs.length - 1];
+    if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
+    const red = j.scene.control?.type === 'lights' && j.scene.control.crossFirst;
+    if ((j.blockers.length || red) && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+    const state = lightState(j, r.now);
+    const green = state ? state.S === 'green' : true;
+    if (r.stoppedAt !== null && !j.needTurn && green && (!j.blockers.length || r.now >= j.clearAt)) applyInput(r, 'go');
+  };
+
+  it('gives the driver open road before the first junction and a fair gap between junctions', () => {
+    const run = createRun(makeRng(21), 1);
+    const first = run.junctions[0];
+    expect(first.sWait / run.speed).toBeGreaterThanOrEqual(9);
+    drive(run, 40000, careful);
+    const [a, b] = run.junctions;
+    expect((b.sWait - a.sWait) / run.speed).toBeGreaterThanOrEqual(7);
+  });
+
+  it('a vehicle with priority is rolling before you arrive, not waiting at its line', () => {
+    const run = createRun(makeRng(11), 3);
+    let checked = false;
+    drive(run, 120000, (r, now, evs) => {
+      careful(r, now, evs);
+      const j = currentJunction(r);
+      if (checked || !j.scheduled || !j.blockers.length || j.scene.control) return;
+      const b = j.blockers[0];
+      const start = j.starts[b];
+      if (start === null || now < start - 800 || now > start - 200) return;
+      const pose = vehiclePoses(r).find((p) => p.vehicle.id === b && p.junction.index === j.index);
+      expect(pose).toBeTruthy();
+      const waitWorld = toWorld(j, j.pathCache[b].through[0]);
+      // Still on its approach, i.e. moving towards the line, and you have not arrived yet.
+      expect(Math.hypot(pose.pose.x - waitWorld.x, pose.pose.y - waitWorld.y)).toBeGreaterThan(2);
+      expect(r.s).toBeLessThan(j.sWait);
+      checked = true;
+    });
+    expect(checked).toBe(true);
+  });
+
+  it('cycles the lights: red for you while the cross traffic goes, green once it has cleared', () => {
+    let found = null;
+    for (let seed = 1; seed < 60 && !found; seed++) {
+      const run = createRun(makeRng(seed), 2);
+      drive(run, 150000, (r, now, evs) => {
+        const j = currentJunction(r);
+        careful(r, now, evs);
+        if (found || !j.scheduled || j.scene.control?.type !== 'lights' || !j.scene.control.crossFirst) return;
+        found = { run: r, j };
+      });
+    }
+    expect(found).toBeTruthy();
+    const { run, j } = found;
+    expect(j.blockers.length).toBeGreaterThan(0);
+    expect(j.resolution.reasons.some((x) => x.who === 'you' && x.rule === 'signal')).toBe(true);
+    const early = lightState(j, j.t0 + 100);
+    expect(early.S).toBe('red');
+    expect(early.E).toBe('green');
+    // When you would reach the line the cross road still has its green and you are on red.
+    const atLine = lightState(j, j.arriveAt);
+    expect(atLine.S).toBe('red');
+    expect(['green', 'yellow']).toContain(atLine.E);
+    const late = lightState(j, j.clearAt + ALL_RED_MS + 100);
+    expect(late.S).toBe('green');
+    expect(late.E).toBe('red');
+    expect(lightState(j, j.clearAt + ALL_RED_MS - 400).S).toBe('redyellow');
+    expect(lightState(j, j.clearAt + 100).S).toBe('redyellow');
+  });
+
+  it('running a red light spoils the junction without a crash when nothing is crossing', () => {
+    let seen = false;
+    for (let seed = 1; seed < 80 && !seen; seed++) {
+      const run = createRun(makeRng(seed), 2);
+      const events = drive(run, 150000, (r, now, evs) => {
+        const j = currentJunction(r);
+        const last = evs[evs.length - 1];
+        if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
+        // Brake for cars, ignore lights, and go the moment the cars have cleared.
+        if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+        if (r.stoppedAt !== null && !j.needTurn && (!j.blockers.length || r.now >= j.clearAt)) applyInput(r, 'go');
+      });
+      const red = events.find((e) => e.type === 'redLight');
+      if (red) {
+        seen = true;
+        const passed = events.find((e) => e.type === 'passed' && e.junction === red.junction);
+        expect(passed.ranRed).toBe(true);
+        expect(passed.points).toBe(0);
+        expect(passed.record.outcome).toBe('spoiled');
+      }
+    }
+    expect(seen).toBe(true);
   });
 });

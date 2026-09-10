@@ -94,10 +94,16 @@ export const scoreCrossing = ({ level, goAt, clearAt, deadline, streak = 0 }) =>
  * waiting line during APPROACH_MS and then waits; afterwards it follows its
  * path for its duration. Returns null once it has left the screen.
  */
-export const poseAt = (scene, vehicle, start, now, pathCache) => {
+export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0) => {
   const key = vehicle.id;
   const path = pathCache[key] || (pathCache[key] = vehiclePath(scene, vehicle));
-  if (start === null || now < start) {
+  if (start !== null && rollInMs > 0) {
+    // Runner: a vehicle with a known start rolls in over its approach so
+    // that it reaches the box without stopping. Not in sight before that.
+    const from = start - rollInMs;
+    if (now < from) return null;
+    if (now < start) return path.approach.length ? pointAlong(path.approach, (now - from) / rollInMs) : pointAlong(path.through, 0.001);
+  } else if (start === null || now < start) {
     if (path.approach.length && now < APPROACH_MS) {
       return pointAlong(path.approach, Math.max(0, now) / APPROACH_MS);
     }

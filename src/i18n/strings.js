@@ -1817,6 +1817,176 @@ export const STR = {
     2: 'right',
     3: 'jobbra',
   },
+  'crossing.late': {
+    1: 'Príliš dlho si stál. Cesta už bola voľná.',
+    2: 'Too slow. The way was already clear.',
+    3: 'Túl sokáig álltál. Az út már szabad volt.',
+  },
+  'crossing.outcome.clean': {
+    1: 'Správne',
+    2: 'Correct',
+    3: 'Helyes',
+  },
+  'crossing.outcome.crash': {
+    1: 'Zrážka',
+    2: 'Crash',
+    3: 'Ütközés',
+  },
+  'crossing.outcome.spoiled': {
+    1: 'Chyba',
+    2: 'Mistake',
+    3: 'Hiba',
+  },
+  'crossing.log.title': {
+    1: 'História jázd',
+    2: 'Drive log',
+    3: 'Vezetési napló',
+  },
+  'crossing.log.open': {
+    1: 'Zobraziť históriu jázd',
+    2: 'Show drive log',
+    3: 'Vezetési napló megtekintése',
+  },
+  'crossing.log.thisRun': {
+    1: 'Križovatky v tejto jazde',
+    2: 'Junctions in this run',
+    3: 'Kereszteződések ebben a menetben',
+  },
+  'crossing.log.empty': {
+    1: 'Zatiaľ žiadne križovatky. Zahraj si a každá sa tu objaví s vysvetlením.',
+    2: 'No junctions yet. Play a run and each one shows up here with an explanation.',
+    3: 'Még nincs kereszteződés. Játssz egy menetet, és mindegyik megjelenik itt magyarázattal.',
+  },
+  'crossing.log.summary': {
+    1: 'Križovatky: {n} · Zrážky: {crashes} · Chyby: {spoiled}',
+    2: 'Junctions: {n} · Crashes: {crashes} · Mistakes: {spoiled}',
+    3: 'Kereszteződések: {n} · Ütközések: {crashes} · Hibák: {spoiled}',
+  },
+  'crossing.log.instruction': {
+    1: 'Inštruktor',
+    2: 'Instructor',
+    3: 'Oktató',
+  },
+  'crossing.log.you': {
+    1: 'Išiel si',
+    2: 'You went',
+    3: 'Így mentél',
+  },
+  'crossing.log.instructionNone': {
+    1: 'bez pokynu (rovno)',
+    2: 'no instruction (straight on)',
+    3: 'nincs utasítás (egyenesen)',
+  },
+  'crossing.log.youWent.straight': {
+    1: 'rovno',
+    2: 'straight on',
+    3: 'egyenesen',
+  },
+  'crossing.log.youWent.left': {
+    1: 'vľavo',
+    2: 'left',
+    3: 'balra',
+  },
+  'crossing.log.youWent.right': {
+    1: 'vpravo',
+    2: 'right',
+    3: 'jobbra',
+  },
+  'crossing.log.youWent.uturn': {
+    1: 'späť',
+    2: 'back',
+    3: 'vissza',
+  },
+  'crossing.log.crashWith': {
+    1: 'Zrážka: {vehicle}.',
+    2: 'Crash with {vehicle}.',
+    3: 'Ütközés: {vehicle}.',
+  },
+  'crossing.log.clean.stopped': {
+    1: 'Dal si prednosť a včas si sa rozbehol.',
+    2: 'You gave way and moved off in time.',
+    3: 'Elsőbbséget adtál, és időben elindultál.',
+  },
+  'crossing.log.clean.went': {
+    1: 'Mal si prednosť a pokračoval si.',
+    2: 'You had priority and kept going.',
+    3: 'Elsőbbséged volt, és továbbhaladtál.',
+  },
+  'crossing.log.free': {
+    1: 'Nikto ti nekrížil cestu.',
+    2: 'Nobody crossed your path.',
+    3: 'Senki sem keresztezte az utadat.',
+  },
+  'crossing.log.yielded': {
+    1: '{vehicle} ti dávalo prednosť: {why}.',
+    2: '{vehicle} had to give way to you: {why}.',
+    3: '{vehicle} elsőbbséget adott neked: {why}.',
+  },
+  'crossing.log.theirs.right-hand': {
+    1: 'prichádzal si sprava',
+    2: 'you came from its right',
+    3: 'jobbról jöttél',
+  },
+  'crossing.log.theirs.sign': {
+    1: 'ty si bol na hlavnej ceste',
+    2: 'you were on the main road',
+    3: 'te a főúton voltál',
+  },
+  'crossing.log.theirs.left-turn': {
+    1: 'odbočovalo vľavo cez tvoj smer',
+    2: 'it was turning left across you',
+    3: 'balra kanyarodott az utadon át',
+  },
+  'crossing.log.theirs.roundabout': {
+    1: 'ty si už bol v kruhovom objazde',
+    2: 'you were already in the roundabout',
+    3: 'te már a körforgalomban voltál',
+  },
+  'crossing.log.theirs.queue': {
+    1: 'išlo za tebou',
+    2: 'it was behind you',
+    3: 'mögötted haladt',
+  },
+  'crossing.log.theirs.signal': {
+    1: 'signál alebo policajt dal voľno tebe',
+    2: 'the signal or the officer gave you the go',
+    3: 'a jelzés vagy a rendőr neked adott szabad utat',
+  },
+  'crossing.log.theirs.entry': {
+    1: 'vchádzalo z miesta mimo cesty',
+    2: 'it entered from off the road',
+    3: 'nem útról hajtott be',
+  },
+  'crossing.log.theirs.other': {
+    1: 'podľa pravidiel prednosti',
+    2: 'by the priority rules',
+    3: 'az elsőbbségi szabályok szerint',
+  },
+  'crossing.log.pedestrians': {
+    1: 'chodci',
+    2: 'the pedestrians',
+    3: 'a gyalogosok',
+  },
+  'crossing.log.someone': {
+    1: 'iné vozidlo',
+    2: 'another vehicle',
+    3: 'egy másik jármű',
+  },
+  'crossing.hubLogHint': {
+    1: 'Každá križovatka sa ukladá s vysvetlením, prečo si mal alebo nemal prednosť.',
+    2: 'Every junction is saved with why you did or did not have priority.',
+    3: 'Minden kereszteződést elmentünk azzal, hogy miért volt vagy nem volt elsőbbséged.',
+  },
+  'crossing.redLight': {
+    1: 'Prešiel si na červenú.',
+    2: 'You ran a red light.',
+    3: 'Áthajtottál a piroson.',
+  },
+  'crossing.log.clean.lights': {
+    1: 'Zastavil si na červenú a rozbehol sa na zelenú.',
+    2: 'You stopped at the red and went on green.',
+    3: 'Megálltál a pirosnál, és zöldre indultál.',
+  },
   'crossing.coach.intro': {
     1: 'Prvé tri križovatky idú pomalšie a napovedáme ti.',
     2: 'The first three junctions are slower and come with hints.',

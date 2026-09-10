@@ -7,3 +7,4 @@ export * from './mockExams';
 export * from './settings';
 export * from './studySessions';
 
+export * from './crossingLog';

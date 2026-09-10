@@ -12,12 +12,53 @@ import {
 } from '@/src/lib/priority/layout';
 import type { SceneLike } from './types';
 
+export type LightPhase = 'red' | 'redyellow' | 'green' | 'yellow';
+
 interface Props {
   scene: SceneLike;
   dark: boolean;
   /** Extra road length beyond the 100 x 100 frame per arm (endless road). */
   extendArms?: Partial<Record<string, number>>;
+  /** Live traffic-light phase per arm (runner); falls back to the scene's static colours. */
+  lights?: Record<string, LightPhase> | null;
 }
+
+// Rotation that turns "up" into "towards the junction" for traffic arriving on an arm.
+const ARM_ROT: Record<string, number> = { S: 0, W: 90, N: 180, E: 270 };
+
+/** Painted give-way triangle or STOP text in the approach lane, so the sign's road is obvious from above. */
+const LaneMarking = ({ arm, layout, kind, colour }: { arm: string; layout: string; kind: 'yield' | 'stop'; colour: string }) => {
+  const d = (layout === 'roundabout' ? RING_R + LANE + 1 : ROAD_HALF + 1) + 6;
+  const p = approachPoint(arm, d);
+  return (
+    <G transform={`translate(${p.x} ${p.y}) rotate(${ARM_ROT[arm]})`}>
+      {kind === 'yield' ? (
+        <Polygon points="-2.6,2.4 2.6,2.4 0,-3" fill="none" stroke={colour} strokeWidth={0.9} strokeLinejoin="round" />
+      ) : (
+        <SvgText x={0} y={1.2} fontSize={3.4} fontWeight="700" fill={colour} textAnchor="middle">STOP</SvgText>
+      )}
+    </G>
+  );
+};
+
+/** Three-lamp traffic light head beside the lane, lit for the given phase. */
+const LightHead = ({ arm, layout, phase }: { arm: string; layout: string; phase: LightPhase }) => {
+  const p = signPoint(arm, layout);
+  const on = (lamp: 'red' | 'yellow' | 'green') =>
+    (lamp === 'red' && (phase === 'red' || phase === 'redyellow')) ||
+    (lamp === 'yellow' && (phase === 'yellow' || phase === 'redyellow')) ||
+    (lamp === 'green' && phase === 'green');
+  const lampFill = (lamp: 'red' | 'yellow' | 'green') =>
+    on(lamp) ? { red: '#ef4444', yellow: '#facc15', green: '#22c55e' }[lamp] : { red: '#5b1a1a', yellow: '#5a4a10', green: '#14421f' }[lamp];
+  return (
+    <G transform={`translate(${p.x} ${p.y}) rotate(${ARM_ROT[arm]})`}>
+      <Rect x={-2.4} y={-5.6} width={4.8} height={11.2} rx={1.2} fill="#111827" stroke="#f8fafc" strokeWidth={0.4} />
+      <Circle cx={0} cy={-3.4} r={1.5} fill={lampFill('red')} />
+      <Circle cx={0} cy={0} r={1.5} fill={lampFill('yellow')} />
+      <Circle cx={0} cy={3.4} r={1.5} fill={lampFill('green')} />
+    </G>
+  );
+};
 
 const armRect = (arm: string, extend: number) => {
   switch (arm) {
@@ -84,7 +125,7 @@ const RoundaboutSign = ({ x, y }: { x: number; y: number }) => (
 );
 
 /** Roads, markings, signs, tracks, officer, lights, pedestrians of one junction, in its local frame. */
-export const JunctionStatic = ({ scene, dark, extendArms = {} }: Props) => {
+export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null }: Props) => {
   const grass = dark ? '#1a2e1a' : '#cfe8bf';
   const asphalt = dark ? '#334155' : '#8f96a3';
   const marking = dark ? '#cbd5e1' : '#f8fafc';
@@ -143,8 +184,19 @@ export const JunctionStatic = ({ scene, dark, extendArms = {} }: Props) => {
         const isStop = sign === 'stop' || sign === 'roundabout-stop';
         const isYield = sign === 'yield' || sign === 'roundabout-yield' || (isRoundabout && sign === 'roundabout');
         if (!isStop && !isYield) return null;
-        return <Line key={`s-${arm}`} {...approachLine(arm, scene.layout)} stroke={marking} strokeWidth={isStop ? 1.4 : 1} strokeDasharray={isYield ? '1.5 1.2' : undefined} />;
+        return (
+          <G key={`s-${arm}`}>
+            <Line {...approachLine(arm, scene.layout)} stroke={marking} strokeWidth={isStop ? 1.4 : 1} strokeDasharray={isYield ? '1.5 1.2' : undefined} />
+            <LaneMarking arm={arm} layout={scene.layout} kind={isStop ? 'stop' : 'yield'} colour={marking} />
+          </G>
+        );
       })}
+      {scene.control?.type === 'lights' &&
+        scene.arms.map((arm) => {
+          // A stop line for every arm with a light; the lane belongs to that light.
+          if (!scene.control?.arms?.[arm] && !lights?.[arm]) return null;
+          return <Line key={`ll-${arm}`} {...approachLine(arm, scene.layout)} stroke={marking} strokeWidth={1.4} />;
+        })}
       {(scene.tramTracks ?? []).map((t, i) => {
         const horizontal = (t.from === 'W' && t.to === 'E') || (t.from === 'E' && t.to === 'W');
         return horizontal ? (
@@ -190,10 +242,11 @@ export const JunctionStatic = ({ scene, dark, extendArms = {} }: Props) => {
       )}
       {scene.control?.type === 'lights' &&
         scene.arms.map((arm) => {
+          const live = lights?.[arm];
           const colour = scene.control?.arms?.[arm];
-          if (!colour) return null;
-          const p = signPoint(arm, scene.layout);
-          return <Circle key={`light-${arm}`} cx={p.x} cy={p.y} r={2.6} fill={colour === 'red' ? '#ef4444' : '#22c55e'} stroke="#111827" strokeWidth={0.8} />;
+          if (!live && !colour) return null;
+          const phase: LightPhase = live ?? (colour === 'red' ? 'red' : 'green');
+          return <LightHead key={`light-${arm}`} arm={arm} layout={scene.layout} phase={phase} />;
         })}
       {(scene.pedestrians ?? []).map((p, i) => {
         const a = approachPoint(p.crossing, ROAD_HALF + 2.5);

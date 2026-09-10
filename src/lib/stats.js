@@ -6,6 +6,7 @@ import * as AttemptsDB from '../db/queries/attempts';
 import * as StudySessionDB from '../db/queries/studySessions';
 import * as ExamResultsDB from '../db/queries/examResults';
 import * as GameRoundsDB from '../db/queries/gameRounds';
+import * as CrossingLogDB from '../db/queries/crossingLog';
 import { WEIGHTS, scoreComponents } from './readiness';
 
 /**
@@ -285,8 +286,9 @@ export const resetStats = async (lang = null) => {
   // Delete real exam results
   await ExamResultsDB.deleteExamResults(lang);
 
-  // Delete game rounds
+  // Delete game rounds and the crossing drive log
   await GameRoundsDB.deleteGameRounds(lang);
+  await CrossingLogDB.deleteCrossingLog(lang);
   
   return true;
 };

@@ -190,6 +190,24 @@ function createTables(): void {
     // Column already exists
   }
 
+  // Crossing drive log: one row per junction driven, with the scene and the
+  // priority reasons as JSON so the history screen can explain each one.
+  database.execSync(`
+    CREATE TABLE IF NOT EXISTS crossing_log (
+      id TEXT PRIMARY KEY,
+      device_id TEXT NOT NULL,
+      lang INTEGER NOT NULL,
+      run_id TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      points INTEGER NOT NULL,
+      record TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      synced_at INTEGER
+    )
+  `);
+  database.execSync(`CREATE INDEX IF NOT EXISTS crossing_log_lang_idx ON crossing_log(lang)`);
+  database.execSync(`CREATE INDEX IF NOT EXISTS crossing_log_date_idx ON crossing_log(created_at)`);
+
   // Answer attempts table
   database.execSync(`
     CREATE TABLE IF NOT EXISTS answer_attempts (

@@ -92,40 +92,88 @@ const ringPoint = (deg) => ({
   y: CENTER - RING_R * Math.cos((deg * Math.PI) / 180),
 });
 const ARM_ANGLE = { N: 0, E: 90, S: 180, W: 270 };
+// Rotation (clockwise on screen) that maps the S arm onto each arm.
+const ARM_ROT = { S: 0, W: 90, N: 180, E: 270 };
+const rotateAbout = (p, deg) => {
+  const c = Math.cos((deg * Math.PI) / 180);
+  const sn = Math.sin((deg * Math.PI) / 180);
+  const dx = p.x - CENTER;
+  const dy = p.y - CENTER;
+  return { x: CENTER + dx * c - dy * sn, y: CENTER + dx * sn + dy * c };
+};
+
+// A car joins the ring this many degrees past its arm's axis (counter-clockwise)
+// and leaves it this many degrees before the exit arm's axis, so both the entry
+// and the exit are gentle curves instead of kinks.
+export const RING_JOIN_DEG = 32;
+const RING_STEP_DEG = 8;
+
+/** Ring points from angle a counter-clockwise (decreasing) to angle b. */
+const ringArc = (a, b) => {
+  const span = (a - b + 360) % 360;
+  const steps = Math.max(2, Math.round(span / RING_STEP_DEG));
+  const pts = [];
+  for (let i = 0; i <= steps; i++) pts.push(ringPoint(a - (span * i) / steps));
+  return pts;
+};
+
+// Tangent direction on the ring at `deg`, going counter-clockwise.
+const ringTangent = (deg) => ({ x: -Math.cos((deg * Math.PI) / 180), y: -Math.sin((deg * Math.PI) / 180) });
+
+/** Where a line from `p` along `dir` crosses the vertical x = `x`. */
+const hitVertical = (p, dir, x) => ({ x, y: p.y + ((x - p.x) / dir.x) * dir.y });
+
+/**
+ * Entry curve for the S arm: up the approach lane, then a bend onto the ring.
+ * Returns points from the approach lane point at RING_R + 4 to the join.
+ */
+const entryCurveS = () => {
+  const joinDeg = ARM_ANGLE.S - RING_JOIN_DEG;
+  const join = ringPoint(joinDeg);
+  const from = approachPoint('S', RING_R + 4);
+  const control = hitVertical(join, ringTangent(joinDeg), from.x);
+  return { joinDeg, points: bezier(from, control, join, 6) };
+};
+
+/** Exit curve for a given exit arm angle, computed in the S frame then rotated. */
+const exitCurveFor = (exitArm) => {
+  // Build the curve as if leaving by the N arm of a frame, then rotate so N maps to exitArm.
+  const leaveDeg = ARM_ANGLE.N + RING_JOIN_DEG; // in the N frame, leave 32° before the N axis (ccw)
+  const leave = ringPoint(leaveDeg);
+  const to = exitPoint('N', RING_R + 4);
+  const control = hitVertical(leave, ringTangent(leaveDeg), to.x);
+  const local = [...bezier(leave, control, to, 6), ...line(to, exitPoint('N', CENTER), 5).slice(1)];
+  const rot = (ARM_ROT[exitArm] - ARM_ROT.N + 360) % 360;
+  return { leaveDeg: (ARM_ANGLE[exitArm] + RING_JOIN_DEG) % 360, points: local.map((p) => rotateAbout(p, rot)) };
+};
 
 /**
  * Counter-clockwise (as seen from above) roundabout path. Entering vehicles
- * come up their arm, join the ring, go round to the exit arm. `from: 'ring'`
- * vehicles start on the ring a quarter turn before the S entry.
+ * come up their arm, bend onto the ring, go round, and bend off at their
+ * exit. `from: 'ring'` vehicles start on the ring a quarter turn before the
+ * S entry; `to: 'ring'` vehicles stay on it and stop opposite their entry.
  */
 export const roundaboutPath = (from, to) => {
-  const ccw = (a, b) => {
-    // angles decrease going counter-clockwise on screen (N 0 -> W 270 -> S 180 -> E 90)
-    const pts = [];
-    let deg = a;
-    const steps = Math.max(2, Math.round(((a - b + 360) % 360) / 10));
-    for (let i = 0; i <= steps; i++) {
-      pts.push(ringPoint(deg));
-      deg -= ((a - b + 360) % 360) / steps;
-    }
-    return pts;
-  };
   if (from === 'ring') {
     const startDeg = ARM_ANGLE.S + 90; // a quarter turn before the S entry, coming from W
-    const exitDeg = ARM_ANGLE[to];
-    const ring = ccw(startDeg, exitDeg);
-    const end = exitPoint(to, CENTER);
-    const out = line(ring[ring.length - 1], end, 6).slice(1);
-    return { approach: [], wait: ring[0], through: [...ring, ...out] };
+    const exit = exitCurveFor(to);
+    const ring = ringArc(startDeg, exit.leaveDeg);
+    return { approach: [], wait: ring[0], through: [...ring, ...exit.points.slice(1)] };
   }
+  const rot = ARM_ROT[from];
   const start = approachPoint(from, CENTER);
   const wait = approachPoint(from, RING_R + WAIT);
-  const joinDeg = ARM_ANGLE[from];
-  const join = ringPoint(joinDeg);
-  const exitDeg = to === 'ring' ? (joinDeg - 180 + 360) % 360 : ARM_ANGLE[to];
-  const ring = ccw(joinDeg, exitDeg);
-  const tail = to === 'ring' ? [] : line(ring[ring.length - 1], exitPoint(to, CENTER), 6).slice(1);
-  return { approach: line(start, wait, 6), wait, through: [wait, ...line(wait, join, 3).slice(1), ...ring.slice(1), ...tail] };
+  const entry = entryCurveS();
+  const entryPts = entry.points.map((p) => rotateAbout(p, rot));
+  const joinDeg = (entry.joinDeg + rot) % 360;
+  if (to === 'ring') {
+    const exitDeg = (ARM_ANGLE[from] - 180 + 360) % 360;
+    const ring = ringArc(joinDeg, exitDeg);
+    return { approach: line(start, wait, 6), wait, through: [wait, ...entryPts, ...ring.slice(1)] };
+  }
+  const exit = exitCurveFor(to);
+  const ring = ringArc(joinDeg, exit.leaveDeg);
+  return { approach: line(start, wait, 6), wait, through: [wait, ...entryPts, ...ring.slice(1), ...exit.points.slice(1)] };
 };
 
 export const vehiclePath = (scene, vehicle) =>

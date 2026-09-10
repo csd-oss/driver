@@ -47,14 +47,39 @@ const bandFor = (level) => ({
   signs: true,
   t: true,
   bent: true,
-  trams: level >= 2,
-  roundabout: true,
+  trams: level >= 3,
+  lights: level >= 2,
+  roundabout: level >= 2 ? 0.3 : 0.2,
 });
+
+/**
+ * A crossroads with traffic lights. The scene shows the phase in which you
+ * go (your arms green); `crossFirst` says whether the cross traffic had its
+ * green before you (you arrive at red) or gets it after you.
+ */
+const buildLights = (rng, band) => {
+  const arms = [...ARMS];
+  const crossFirst = chance(rng, 0.6);
+  const control = { type: 'lights', arms: { S: 'green', N: 'green', E: 'red', W: 'red' }, crossFirst };
+  const vehicles = [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: pick(rng, destinations('S', arms, band.left)) }];
+  const colours = shuffle(rng, COLOURS);
+  // At least one car on the cross road, so the lights visibly do something.
+  const crossFrom = pick(rng, ['E', 'W']);
+  vehicles.push({ id: colours[0], kind: chance(rng, 0.25) ? 'van' : 'car', color: colours[0], from: crossFrom, to: pick(rng, destinations(crossFrom, arms, band.left)) });
+  const extra = Math.min(band.others, 3) - 1;
+  const spare = shuffle(rng, ['N', crossFrom === 'E' ? 'W' : 'E']);
+  for (let i = 0; i < extra; i++) {
+    const from = spare[i];
+    vehicles.push({ id: colours[i + 1], kind: chance(rng, 0.25) ? 'van' : 'car', color: colours[i + 1], from, to: pick(rng, destinations(from, arms, band.left)) });
+  }
+  return { layout: 'cross', arms, signs: {}, mainRoad: null, tramTracks: [], control, vehicles, pedestrians: [] };
+};
 
 const buildCrossing = (rng, band) => {
   const isT = band.t && chance(rng, 0.3);
   // A T-junction always keeps S; drop one of N, E, W.
-  const arms = isT ? ARMS.filter((a) => a !== pick(rng, ['N', 'E', 'W'])) : [...ARMS];
+  const dropped = isT ? pick(rng, ['N', 'E', 'W']) : null;
+  const arms = ARMS.filter((a) => a !== dropped);
   const signs = {};
   let mainRoad = null;
   if (band.signs && chance(rng, 0.6)) {
@@ -102,7 +127,8 @@ const buildRoundabout = (rng) => {
 
 export const generateScene = (rng, level = 1) => {
   const band = bandFor(level);
-  const scene = band.roundabout && chance(rng, 0.3) ? buildRoundabout(rng) : buildCrossing(rng, band);
+  const roll = rng();
+  const scene = roll < band.roundabout ? buildRoundabout(rng) : band.lights && roll < band.roundabout + 0.2 ? buildLights(rng, band) : buildCrossing(rng, band);
   const result = resolve(scene);
   if (result.deadlock || result.blocked.length) return null;
   const youGroup = result.order.findIndex((g) => g.includes('you'));
