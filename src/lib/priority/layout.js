@@ -128,6 +128,11 @@ const rotateAbout = (p, deg) => {
 export const RING_JOIN_DEG = 32;
 const RING_STEP_DEG = 4;
 
+// Where a vehicle that is already on the ring stands when the scene does not
+// say: just before the S entry, so a car that has to give way is seen waiting
+// right at the entry it blocks rather than a quarter turn away.
+export const RING_DEFAULT_START = (ARM_ANGLE.S + 55) % 360;
+
 /** Ring points from angle a counter-clockwise (decreasing) to angle b. */
 export const ringArc = (a, b) => {
   const span = (a - b + 360) % 360;
@@ -170,8 +175,9 @@ export const exitCurveFor = (exitArm) => {
 /**
  * Counter-clockwise (as seen from above) roundabout path. Entering vehicles
  * come up their arm, bend onto the ring, go round, and bend off at their
- * exit. `from: 'ring'` vehicles start on the ring a quarter turn before the
- * S entry; `to: 'ring'` vehicles stay on it and stop opposite their entry.
+ * exit. `from: 'ring'` vehicles start on the ring at `vehicle.ringAt` (an
+ * absolute ring angle, RING_DEFAULT_START when the vehicle does not say);
+ * `to: 'ring'` vehicles stay on it and stop opposite their entry.
  */
 /** Angle (ring convention) where a vehicle arriving on `from` joins the ring. */
 export const ringJoinDeg = (from) => (entryCurveS().joinDeg + ARM_ROT[from]) % 360;
@@ -195,9 +201,10 @@ export const ringExitOrder = (from) => {
   return order;
 };
 
-export const roundaboutPath = (from, to) => {
+export const roundaboutPath = (from, to, vehicle) => {
   if (from === 'ring') {
-    const startDeg = ARM_ANGLE.S + 90; // a quarter turn before the S entry, coming from W
+    const at = vehicle && Number.isFinite(vehicle.ringAt) ? vehicle.ringAt : RING_DEFAULT_START;
+    const startDeg = ((at % 360) + 360) % 360;
     const exit = exitCurveFor(to);
     const ring = ringArc(startDeg, exit.leaveDeg);
     return { approach: [], wait: ring[0], through: [...ring, ...exit.points.slice(1)] };
@@ -219,7 +226,7 @@ export const roundaboutPath = (from, to) => {
 };
 
 export const vehiclePath = (scene, vehicle) =>
-  scene.layout === 'roundabout' ? roundaboutPath(vehicle.from, vehicle.to) : crossingPath(vehicle.from, vehicle.to, scene, vehicle);
+  scene.layout === 'roundabout' ? roundaboutPath(vehicle.from, vehicle.to, vehicle) : crossingPath(vehicle.from, vehicle.to, scene, vehicle);
 
 const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
 

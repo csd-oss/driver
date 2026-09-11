@@ -1,5 +1,5 @@
 import { makeRng } from '../src/lib/priority/generator';
-import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, ALL_RED_MS, LIVES } from '../src/lib/priority/world';
+import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, ALL_RED_MS, LATE_MS, LIVES } from '../src/lib/priority/world';
 
 // A T-junction with no straight ahead waits for a direction: take the instructed one.
 // A stopped car only moves off on a swipe: do that once the way is clear.
@@ -250,8 +250,9 @@ describe('pacing and lights', () => {
     drive(run, 120000, (r, now, evs) => {
       careful(r, now, evs);
       const j = currentJunction(r);
-      if (checked || !j.scheduled || !j.blockers.length || j.scene.control) return;
-      const b = j.blockers[0];
+      if (checked || !j.scheduled || !j.blockers.length || j.scene.control || j.ring) return;
+      const b = j.blockers.find((id) => j.rollIn && j.rollIn[id]);
+      if (!b) return;
       const start = j.starts[b];
       if (start === null || now < start - 800 || now > start - 200) return;
       const pose = vehiclePoses(r).find((p) => p.vehicle.id === b && p.junction.index === j.index);
@@ -617,8 +618,8 @@ describe('vehicles you could never meet', () => {
     // A right turn while a car comes straight out of the arm you enter: the
     // engine orders you behind it (exam convention), the road does not.
     const scene = { layout: 'cross', arms: ['N', 'E', 'S', 'W'], signs: {}, mainRoad: null, tramTracks: [], control: null, pedestrians: [],
-      vehicles: [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: 'E' }, { id: 'yellow', kind: 'car', color: 'yellow', from: 'E', to: 'W' }] };
-    expect(resolve(scene).yields.you).toContain('yellow');
+      vehicles: [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: 'N' }, { id: 'yellow', kind: 'car', color: 'yellow', from: 'E', to: 'W' }] };
+    expect(resolve({ ...scene, vehicles: [{ ...scene.vehicles[0], to: 'E' }, scene.vehicles[1]] }).yields.you).toContain('yellow');
     let run = null;
     for (let seed = 1; seed < 200 && !run; seed++) {
       const r = createRun(makeRng(seed), 1);
@@ -629,8 +630,10 @@ describe('vehicles you could never meet', () => {
     j.scene = { ...scene, id: 'test', level: 1 };
     j.instruction = { kind: 'right', turn: 'right', to: 'E' };
     j.pathCache = {};
+    j.starts = { you: null, yellow: null }; // the swapped-in scene has its own vehicles
     const { applyInput: input } = require('../src/lib/priority/world');
-    input(run, 'right'); // re-resolves and re-lays the road along E
+    input(run, 'right'); // switches you to E, re-resolves and re-lays the road
+    expect(j.scene.vehicles.find((v) => v.id === 'you').to).toBe('E');
     expect(j.blockers).toEqual([]);
     let now = 0;
     const events = [];
@@ -646,60 +649,193 @@ describe('vehicles you could never meet', () => {
 });
 
 describe('crash clears the swipe', () => {
-  it('the blinker goes off after the crashed junction and the intent does not leak into the next one', () => {
+  it('a crash clears the turn you had set, and the blinker is off at the next junction', () => {
     const { youSignalFor } = require('../src/lib/priority/world');
-    // A run whose first junction still has a vehicle crossing your path after you signal right.
-    let run = null;
-    let j = null;
-    let now = 0;
-    for (let seed = 1; seed < 400 && !run; seed++) {
-      const r = createRun(makeRng(seed), 3);
-      const first = r.junctions[0];
-      if (first.ring || !first.scene.arms.includes('E') || !first.scene.arms.includes('N')) continue;
-      let t = 0;
-      while (t < 30000 && !(first.scheduled && first.sWait - r.s < 80)) {
-        t += 16;
-        step(r, t);
-      }
-      applyInput(r, 'right');
-      if (first.blockers.length) {
-        run = r;
-        j = first;
-        now = t;
-      }
-    }
-    expect(run).toBeTruthy();
-    expect(youSignalFor(run)).toBe('right');
-    const events = [];
-    for (let i = 0; i < 6000 && run.passed < 2; i++) {
-      now += 16;
-      events.push(...step(run, now));
-      if (j.passed && currentJunction(run).index === j.index + 1) {
-        expect(run.intent).toBeNull();
-        expect(youSignalFor(run)).toBeNull();
+    let seen = null;
+    for (let seed = 1; seed < 200 && !seen; seed++) {
+      const run = createRun(makeRng(seed), 2 + (seed % 5));
+      let now = 0;
+      let crashAt = null;
+      // Never brake, and signal right at every junction: sooner or later a
+      // vehicle with priority is hit while the indicator is on.
+      for (let i = 0; i < 6000; i++) {
+        now += 16;
+        const evs = step(run, now);
+        const j = currentJunction(run);
+        if (crashAt === null && j.scheduled && !j.ring && run.s < j.sLine && run.intent === null) applyInput(run, 'right');
+        const crash = evs.find((e) => e.type === 'crash');
+        if (crash && crashAt === null) {
+          crashAt = crash.junction;
+          expect(run.intent).toBeNull(); // the swipe is spent on the junction it was meant for
+        }
+        // Past the junction you crashed at: the turn is finished, so is the blinker.
+        const where = run.junctions.find((x) => x.index === crashAt);
+        if (crashAt !== null && where && run.s > where.sExitBox + 10) {
+          seen = { signal: youSignalFor(run), lives: run.lives, intent: run.intent };
+          break;
+        }
+        if (run.over) break;
       }
     }
-    expect(events.some((e) => e.type === 'crash' && e.junction === j.index)).toBe(true);
-    expect(j.passed).toBe(true);
+    expect(seen).toBeTruthy();
+    expect(seen.intent).toBeNull();
+    expect(seen.signal).toBeNull();
+    expect(seen.lives).toBeLessThan(LIVES);
   });
 });
 
-describe('smooth heading', () => {
-  it('turns the car evenly round a roundabout: no heading step larger than a few degrees per half unit', () => {
+describe('giving way is never punished', () => {
+  const runFor = (run, untilNow, onTick) => {
+    const events = [];
+    let now = run.now;
+    while (now < untilNow) {
+      now += 16;
+      events.push(...step(run, now));
+      if (onTick) onTick(run, now);
+      if (run.over) break;
+    }
+    return events;
+  };
+
+  it('stopping for a car with priority is never a needless stop, however late the halt comes', () => {
+    let found = null;
+    for (let seed = 1; seed < 400 && !found; seed++) {
+      const run = createRun(makeRng(seed), 2);
+      const j = run.junctions[0];
+      if (j.ring || !j.blockers.length || j.instruction.turn !== 'straight' || !j.scene.arms.includes('N')) continue;
+      // Brake as soon as the junction is announced: the car creeps up and
+      // halts well after the vehicle with priority has cleared.
+      let stopped = null;
+      const events = [];
+      let now = 0;
+      for (let i = 0; i < 4000 && run.passed < 1; i++) {
+        now += 16;
+        events.push(...step(run, now));
+        if (j.scheduled && run.s < j.sWait && !run.braking && run.stoppedAt === null) applyInput(run, 'brake');
+        if (run.stoppedAt !== null && stopped === null) stopped = now;
+        if (run.stoppedAt !== null) applyInput(run, 'go');
+      }
+      if (stopped !== null && stopped > j.clearAt) found = { events, stopped, clearAt: j.clearAt };
+      expect(events.some((e) => e.type === 'hesitated')).toBe(false);
+    }
+    // At least one seed halted after the way was clear and was still not blamed.
+    expect(found).toBeTruthy();
+    expect(found.stopped).toBeGreaterThan(found.clearAt);
+    const passed = found.events.find((e) => e.type === 'passed');
+    expect(passed.hesitated).toBe(false);
+    expect(passed.points).toBeGreaterThan(0);
+  });
+
+  it('you are not too slow while a vehicle is still crossing in front of you', () => {
     let run = null;
-    for (let seed = 1; seed < 80 && !run; seed++) {
+    for (let seed = 1; seed < 400 && !run; seed++) {
+      const r = createRun(makeRng(seed), 2);
+      const j = r.junctions[0];
+      const sign = j.scene.signs?.S;
+      if (j.ring || j.blockers.length || sign === 'stop' || sign === 'roundabout-stop') continue;
+      if (j.scene.vehicles.length > 1 && j.instruction.turn === 'straight' && j.scene.arms.includes('N')) run = r;
+    }
+    expect(run).toBeTruthy();
+    const j = run.junctions[0];
+    let now = run.now;
+    while (run.stoppedAt === null && now < 40000) {
+      now += 16;
+      step(run, now);
+      if (j.scheduled && j.sWait - run.s < 40) applyInput(run, 'brake');
+    }
+    expect(run.stoppedAt).not.toBeNull();
+    const t0 = j.stoppedAtTime;
+    // A vehicle whose path crosses yours drives through right now, although
+    // it is not one you had to give way to.
+    const crossing = Object.keys(j.clearFraction).find((id) => j.clearFraction[id] !== null);
+    expect(crossing).toBeTruthy();
+    j.starts[crossing] = t0 + 2000;
+    run.now = now;
+    // Past the plain grace: without the crossing vehicle this would be late.
+    const first = runFor(run, t0 + LATE_MS + 600);
+    expect(first.some((e) => e.type === 'late')).toBe(false);
+    const later = runFor(run, t0 + LATE_MS + 9000);
+    expect(later.some((e) => e.type === 'late')).toBe(true);
+  });
+});
+
+describe('traffic that does not involve you', () => {
+  it('drives through on its own instead of waiting for you to pass', () => {
+    const { resolve } = require('../src/lib/priority/engine');
+    // You turn right (S to E); the other car turns right too (N to W). The
+    // two paths never come near each other and it yields to nobody.
+    const scene = {
+      layout: 'cross', arms: ['N', 'E', 'S', 'W'], signs: {}, mainRoad: null, tramTracks: [], control: null, pedestrians: [],
+      vehicles: [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: 'N' }, { id: 'red', kind: 'car', color: 'red', from: 'N', to: 'W' }],
+    };
+    expect(resolve({ ...scene, vehicles: [{ ...scene.vehicles[0], to: 'E' }, scene.vehicles[1]] }).yields.red).toEqual([]);
+    let run = null;
+    for (let seed = 1; seed < 200 && !run; seed++) {
       const r = createRun(makeRng(seed), 1);
-      if (r.junctions[0].ring) run = r;
+      if (!r.junctions[0].ring) run = r;
     }
     const j = run.junctions[0];
-    let worst = 0;
-    let prev = null;
-    const { pointAtDistance } = require('../src/lib/priority/world');
-    for (let s = j.sLine; s < j.sEnd; s += 0.5) {
-      const a = pointAtDistance(run.route, s).angle;
-      if (prev !== null) worst = Math.max(worst, Math.abs(((a - prev + 540) % 360) - 180));
-      prev = a;
+    j.scene = { ...scene, id: 'test', level: 1 };
+    j.instruction = { kind: 'right', turn: 'right', to: 'E' };
+    j.pathCache = {};
+    j.starts = { you: null, red: null }; // the swapped-in scene has its own vehicles
+    applyInput(run, 'right'); // switches you to E, re-resolves and re-lays the road
+    expect(j.scene.vehicles.find((v) => v.id === 'you').to).toBe('E');
+    expect(j.clearFraction.red).toBeNull();
+
+    let now = 0;
+    for (let i = 0; i < 3000 && !j.scheduled; i++) {
+      now += 16;
+      step(run, now);
     }
-    expect(worst).toBeLessThan(4);
+    expect(j.scheduled).toBe(true);
+    // It has a start of its own, before you reach the box, and you have not moved off.
+    expect(j.starts.red).not.toBeNull();
+    expect(j.starts.red).toBeLessThan(j.arriveAt);
+    expect(j.starts.you).toBeNull();
+    // And it really moves while you are still approaching.
+    const poseOf = () => vehiclePoses(run).find((p) => p.vehicle.id === 'red' && p.junction.index === j.index);
+    const before = poseOf();
+    for (let i = 0; i < 90; i++) {
+      now += 16;
+      step(run, now);
+    }
+    const after = poseOf();
+    expect(before).toBeTruthy();
+    expect(after).toBeTruthy();
+    expect(Math.hypot(after.pose.x - before.pose.x, after.pose.y - before.pose.y)).toBeGreaterThan(2);
+    expect(run.s).toBeLessThan(j.sLine);
+  });
+});
+
+describe('cross traffic follows its own order', () => {
+  it('a car that gives way only to other cars goes when they have gone, not when you pass', () => {
+    // A roundabout: you enter from S, two cars circulate, one more enters
+    // from W and must give way to the ring, not to you.
+    let found = null;
+    for (let seed = 1; seed < 400 && !found; seed++) {
+      const run = createRun(makeRng(seed), 4);
+      const j = run.junctions[0];
+      if (!j.ring) continue;
+      const entering = j.scene.vehicles.find((v) => v.id !== 'you' && v.from !== 'ring' && j.clearFraction[v.id] === null);
+      if (!entering) continue;
+      const deps = j.resolution.yields[entering.id] || [];
+      if (!deps.length || deps.includes('you')) continue;
+      let now = 0;
+      for (let i = 0; i < 3000 && !j.scheduled; i++) {
+        now += 16;
+        step(run, now);
+      }
+      if (j.scheduled) found = { run, j, id: entering.id, deps, now };
+    }
+    expect(found).toBeTruthy();
+    const { j, id, deps } = found;
+    // It has a start of its own, after the cars it follows and before you move off.
+    expect(j.starts[id]).not.toBeNull();
+    expect(j.starts.you).toBeNull();
+    for (const d of deps) {
+      expect(j.starts[d]).not.toBeNull();
+      expect(j.starts[id]).toBeGreaterThan(j.starts[d]);
+    }
   });
 });

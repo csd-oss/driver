@@ -1,5 +1,6 @@
 import { resolve } from './engine';
 import { ARMS, turnOf } from './geometry';
+import { RING_DEFAULT_START, ringLeaveDeg } from './layout';
 
 /**
  * Procedural intersections for the game. `generateScene(rng, level)` returns
@@ -38,11 +39,23 @@ const destinations = (from, arms, allowLeft) =>
   arms.filter((to) => to !== from && (allowLeft || turnOf(from, to) !== 'left'));
 
 /**
+ * One source arm per other vehicle, cycling the free arms: when there are
+ * more vehicles than arms the extras share an arm and queue behind the first
+ * (see queue.js) instead of being dropped.
+ */
+const sourceArms = (rng, freeArms, count) => {
+  const order = shuffle(rng, freeArms);
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(order[i % order.length]);
+  return out;
+};
+
+/**
  * Everything is in play from the first junction; what rises with the level
  * is traffic density (and, in world.js, speed). Runner-style, not unlocks.
  */
 const bandFor = (level) => ({
-  others: level <= 2 ? 1 + (level - 1) : level <= 6 ? 2 : 3,
+  others: level <= 2 ? 2 : level <= 5 ? 3 : 4,
   left: true,
   signs: true,
   t: true,
@@ -66,12 +79,10 @@ const buildLights = (rng, band) => {
   // At least one car on the cross road, so the lights visibly do something.
   const crossFrom = pick(rng, ['E', 'W']);
   vehicles.push({ id: colours[0], kind: chance(rng, 0.25) ? 'van' : 'car', color: colours[0], from: crossFrom, to: pick(rng, destinations(crossFrom, arms, band.left)) });
-  const extra = Math.min(band.others, 3) - 1;
-  const spare = shuffle(rng, ['N', crossFrom === 'E' ? 'W' : 'E']);
-  for (let i = 0; i < extra; i++) {
-    const from = spare[i];
+  const spare = sourceArms(rng, ['N', crossFrom === 'E' ? 'W' : 'E', crossFrom], Math.max(0, band.others - 1));
+  spare.forEach((from, i) => {
     vehicles.push({ id: colours[i + 1], kind: chance(rng, 0.25) ? 'van' : 'car', color: colours[i + 1], from, to: pick(rng, destinations(from, arms, band.left)) });
-  }
+  });
   return { layout: 'cross', arms, signs: {}, mainRoad: null, tramTracks: [], control, vehicles, pedestrians: [] };
 };
 
@@ -107,13 +118,11 @@ const buildCrossing = (rng, band) => {
   const tramTracks = band.trams && chance(rng, 0.35) && arms.includes('E') && arms.includes('W') ? [{ from: 'W', to: 'E' }] : [];
 
   const vehicles = [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: pick(rng, destinations('S', arms, band.left)) }];
-  const freeArms = shuffle(rng, arms.filter((a) => a !== 'S'));
   const colours = shuffle(rng, COLOURS);
-  const count = Math.min(band.others, freeArms.length);
-  for (let i = 0; i < count; i++) {
-    const from = freeArms[i];
+  const froms = sourceArms(rng, arms.filter((a) => a !== 'S'), band.others);
+  froms.forEach((from, i) => {
     vehicles.push({ id: colours[i], kind: chance(rng, 0.25) ? 'van' : 'car', color: colours[i], from, to: pick(rng, destinations(from, arms, band.left)) });
-  }
+  });
   if (tramTracks.length && chance(rng, 0.8)) {
     const dir = chance(rng, 0.5) ? ['W', 'E'] : ['E', 'W'];
     vehicles.push({ id: 'tram1', kind: 'tram', color: 'tram', from: dir[0], to: dir[1] });
@@ -121,21 +130,58 @@ const buildCrossing = (rng, band) => {
   return { layout: isT ? 't' : 'cross', arms, signs, mainRoad, tramTracks, control: null, vehicles, pedestrians: [] };
 };
 
-const buildRoundabout = (rng) => {
-  const sign = pick(rng, ['roundabout', 'roundabout-yield', 'roundabout-stop']);
-  const exits = ['N', 'E', 'W'];
-  const colour = pick(rng, COLOURS);
-  const vehicles = [
-    { id: 'you', kind: 'car', color: 'you', from: 'S', to: pick(rng, exits) },
-    { id: colour, kind: 'car', color: colour, from: 'ring', to: pick(rng, exits) },
-  ];
-  return { layout: 'roundabout', arms: [...ARMS], signs: { S: sign }, mainRoad: null, tramTracks: [], control: null, vehicles, pedestrians: [] };
+const RING_MAX = 3;                                 // cars already on the ring, at most
+export const RING_MIN_GAP_DEG = 45;                 // never closer than this to each other
+const RING_GAP_DEG = RING_MIN_GAP_DEG + 10;         // nominal gap, plus up to RING_JITTER_DEG
+const RING_JITTER_DEG = 20;
+const RING_SPAN_DEG = 200;                          // how far round the first one drives before it leaves
+
+/** Exit arm for a car standing at ring angle `deg`, the one whose leave point is about `span` ahead. */
+const ringExitFor = (deg, span) => {
+  let best = null;
+  for (const arm of ARMS) {
+    const off = Math.abs(((deg - ringLeaveDeg(arm) + 360) % 360) - span);
+    if (!best || off < best.off) best = { arm, off };
+  }
+  return best.arm;
+};
+
+const buildRoundabout = (rng, band) => {
+  // Every entry to a roundabout carries the same regime, so one sign goes on
+  // every arm. A bare roundabout sign means circulating traffic gives way to
+  // you (right-hand rule), which is rare on the road.
+  const roll = rng();
+  const sign = roll < 0.7 ? 'roundabout-yield' : roll < 0.85 ? 'roundabout-stop' : 'roundabout';
+  const arms = [...ARMS];
+  const signs = Object.fromEntries(arms.map((a) => [a, sign]));
+  const exits = arms.filter((a) => a !== 'S');
+  const colours = shuffle(rng, COLOURS);
+  const vehicles = [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: pick(rng, exits) }];
+  // Some of the traffic is already circulating, the rest is entering; there
+  // is always at least one car on the ring.
+  const onRing = Math.max(1, Math.min(band.others, RING_MAX, 1 + Math.floor(rng() * Math.ceil(band.others / 2))));
+  // The cars on the ring roll towards your entry as a platoon, the first one
+  // just before it. Each car behind it leaves one exit earlier (ARMS in order
+  // is the reverse of the way round the ring), so the gaps hold all the way.
+  let deg = (RING_DEFAULT_START + Math.floor(rng() * RING_JITTER_DEG) - RING_JITTER_DEG / 2 + 360) % 360;
+  let exit = ARMS.indexOf(ringExitFor(deg, RING_SPAN_DEG));
+  for (let i = 0; i < onRing; i++) {
+    vehicles.push({ id: colours[i], kind: chance(rng, 0.2) ? 'van' : 'car', color: colours[i], from: 'ring', ringAt: deg, to: ARMS[exit] });
+    deg = (deg + RING_GAP_DEG + Math.floor(rng() * RING_JITTER_DEG)) % 360;
+    exit = (exit + 1) % ARMS.length;
+  }
+  const entering = sourceArms(rng, exits, Math.min(band.others - onRing, exits.length));
+  entering.forEach((from, i) => {
+    const colour = colours[onRing + i];
+    vehicles.push({ id: colour, kind: chance(rng, 0.2) ? 'van' : 'car', color: colour, from, to: pick(rng, arms.filter((a) => a !== from)) });
+  });
+  return { layout: 'roundabout', arms, signs, mainRoad: null, tramTracks: [], control: null, vehicles, pedestrians: [] };
 };
 
 export const generateScene = (rng, level = 1) => {
   const band = bandFor(level);
   const roll = rng();
-  const scene = roll < band.roundabout ? buildRoundabout(rng) : band.lights && roll < band.roundabout + 0.2 ? buildLights(rng, band) : buildCrossing(rng, band);
+  const scene = roll < band.roundabout ? buildRoundabout(rng, band) : band.lights && roll < band.roundabout + 0.2 ? buildLights(rng, band) : buildCrossing(rng, band);
   const result = resolve(scene);
   if (result.deadlock || result.blocked.length) return null;
   const youGroup = result.order.findIndex((g) => g.includes('you'));

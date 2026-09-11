@@ -42,7 +42,8 @@ export const ALL_RED_MS = 700;          // both sides red between the cross traf
 export const LIGHT_CHANGE_MS = 800;    // red+yellow before green; yellow before red
 export const LIGHT_YELLOW_LEAD_MS = 1500; // the side losing green goes yellow this long before the other side's green
 export const EARLY_BONUS_MS = 700;     // moving off within this after the way clears earns the bonus
-export const LATE_MS = 2600;           // waiting longer than this after the way clears is a late penalty
+export const LATE_MS = 4000;           // waiting longer than this after the way clears is a late penalty
+export const STOP_GRACE_MS = 1500;     // a STOP sign asks for a real halt, so it buys extra time
 export const CRASH_PAUSE_MS = 1400;
 export const JUNCTIONS_PER_LEVEL = 4;
 export const LIVES = 3;
@@ -226,6 +227,7 @@ const advanceRing = (run, junction) => {
  */
 const clearMsOf = (junction, id) => {
   const vehicle = junction.scene.vehicles.find((v) => v.id === id);
+  if (!vehicle) return 0;
   const fraction = junction.clearFraction[id] ?? CLEAR_FRACTION;
   const eased = !(junction.rollIn && junction.rollIn[id]);
   return clearTimeMs(junction.scene, vehicle, fraction, eased, junction.queueBack ? junction.queueBack[id] : 0, junction.pathCache);
@@ -283,14 +285,21 @@ const applyResolution = (junction) => {
   // right-turn convention, a main-road car turning away); on the road that
   // is nothing to give way to, so they are not blockers here.
   const byId = Object.fromEntries(scene.vehicles.map((v) => [v.id, v]));
-  junction.clearFraction = {};
-  junction.blockers = (resolution.yields.you || []).filter((id) => {
-    if (!byId[id]) return false;
-    const fraction = clearFractionFor(scene, byId[id], byId.you);
-    if (fraction === null) return false;
-    junction.clearFraction[id] = fraction;
-    return true;
-  });
+  // How far along its path each vehicle has to get before it is out of your
+  // way; null for one whose path never meets yours.
+  junction.clearFraction = Object.fromEntries(
+    scene.vehicles.filter((v) => v.id !== 'you').map((v) => [v.id, clearFractionFor(scene, v, byId.you)])
+  );
+  junction.blockers = (resolution.yields.you || []).filter((id) => byId[id] && junction.clearFraction[id] !== null);
+  // Who will roll in rather than wait at a line: the vehicles with priority
+  // over you, and the traffic that has nothing to do with you. They are not
+  // drawn until the junction is scheduled, so they never appear to jump.
+  junction.willRollIn = new Set([
+    ...junction.blockers,
+    ...scene.vehicles
+      .filter((v) => v.id !== 'you' && junction.clearFraction[v.id] === null && !(resolution.yields[v.id] || []).length)
+      .map((v) => v.id),
+  ]); // the rest wait at their line, so they are drawn there all along
   // Vehicles sharing an arm queue behind each other in the order they go.
   junction.queueBack = Object.fromEntries(scene.vehicles.map((v) => [v.id, queueBackFor(scene, resolution.order, v.id)]));
 };
@@ -439,6 +448,25 @@ const schedule = (run, junction) => {
     const start = junction.starts[id];
     if (start === null) continue;
     clearAtReal = Math.max(clearAtReal, start + clearMsOf(junction, id));
+  }
+  // Traffic that has nothing to do with you drives through on its own: as
+  // soon as whatever it must give way to has gone, whether or not you have
+  // reached the junction. Only a vehicle that has to wait for you keeps
+  // waiting at its line. Several passes, so a queue of them resolves in
+  // order (a car behind the cars it follows).
+  for (let pass = 0; pass < 4; pass++) {
+    for (const v of scene.vehicles) {
+      if (v.id === 'you' || junction.starts[v.id] != null) continue;
+      if (junction.clearFraction[v.id] !== null) continue;
+      const deps = resolution.yields[v.id] || [];
+      if (deps.includes('you') || deps.some((d) => junction.starts[d] == null)) continue;
+      let at = run.now + ROLL_IN_MS;
+      for (const d of deps) at = Math.max(at, junction.starts[d] + clearMsOf(junction, d) + 300);
+      junction.starts[v.id] = at;
+      // One that goes straight away rolls in; one that has to wait its turn
+      // stands at its line until then, as it would in traffic.
+      junction.rollIn[v.id] = at <= run.now + ROLL_IN_MS + 400 ? ROLL_IN_MS : 0;
+    }
   }
   junction.arriveAt = arriveAt;
   junction.clearAt = junction.blockers.length ? clearAtReal : run.now;
@@ -636,11 +664,29 @@ const redFor = (junction, now) => {
   return mine === 'red' || mine === 'redyellow';
 };
 
-/** When you may move off: the last blocker gone, your light green, or the moment you stopped. */
+/**
+ * When the junction itself is clear: the moment the last vehicle whose path
+ * meets yours is out of the way, whoever had priority. You cannot be too
+ * slow while somebody is still in front of you, even a car that should have
+ * given way to you and went anyway.
+ */
+const wayClearAt = (junction) => {
+  let latest = -Infinity;
+  for (const id of Object.keys(junction.clearFraction)) {
+    if (junction.clearFraction[id] === null) continue;
+    const start = junction.starts[id];
+    if (start === null) continue;
+    latest = Math.max(latest, start + clearMsOf(junction, id));
+  }
+  return latest;
+};
+
+/** When you may move off: the way clear, your light green, or the moment you stopped. */
 const readyAtOf = (junction) => {
   const plan = lightPlan(junction);
   let ready = junction.blockers.length ? junction.clearAt : junction.stoppedAtTime;
-  if (plan && plan.yourGreenAt !== null) ready = Math.max(ready ?? 0, plan.yourGreenAt);
+  ready = Math.max(ready ?? 0, wayClearAt(junction));
+  if (plan && plan.yourGreenAt !== null) ready = Math.max(ready, plan.yourGreenAt);
   return ready;
 };
 
@@ -698,7 +744,7 @@ export const junctionRecord = (run, junction, outcome) => {
       mainRoad: junction.scene.mainRoad,
       tramTracks: junction.scene.tramTracks,
       control: recordControl(junction.scene),
-      vehicles: junction.scene.vehicles.map((v) => ({ id: v.id, kind: v.kind, color: v.color, from: v.from, to: v.to })),
+      vehicles: junction.scene.vehicles.map((v) => ({ id: v.id, kind: v.kind, color: v.color, from: v.from, to: v.to, ...(v.ringAt === undefined ? {} : { ringAt: v.ringAt }) })),
       pedestrians: junction.scene.pedestrians,
     },
   };
@@ -794,7 +840,8 @@ export const step = (run, now) => {
     // Stopped at the line: only a swipe moves the car off again. Waiting
     // long after the way is clear counts as holding up traffic, once.
     const readyAt = readyAtOf(junction);
-    if (!junction.needTurn && !junction.late && now > readyAt + LATE_MS) {
+    const grace = LATE_MS + (stopSignFor(junction) ? STOP_GRACE_MS : 0);
+    if (!junction.needTurn && !junction.late && now > readyAt + grace) {
       junction.late = true;
       run.streak = 0;
       run.events.push({ type: 'late', junction: junction.index });
@@ -838,7 +885,12 @@ export const step = (run, now) => {
       run.braking = false;
       junction.stopped = true;
       run.events.push({ type: 'stopped', junction: junction.index });
-      const needless = (junction.blockers.length === 0 || now >= junction.clearAt) && !redFor(junction, now) && !stopSignFor(junction);
+      // Giving way is needless only when there was nothing to give way to:
+      // no vehicle with priority over you, no red light, no STOP sign and
+      // nobody actually crossing in front of you. Stopping a moment later
+      // than strictly needed is driving, not a mistake; dawdling from the
+      // line is caught by the late penalty instead.
+      const needless = junction.blockers.length === 0 && !redFor(junction, now) && !stopSignFor(junction) && now >= wayClearAt(junction);
       if (needless) {
         junction.hesitated = true;
         run.events.push({ type: 'hesitated', junction: junction.index });
@@ -896,9 +948,9 @@ export const vehiclePoses = (run) => {
   for (const junction of visibleJunctions(run)) {
     for (const v of junction.scene.vehicles) {
       if (v.id === 'you') continue;
-      // A vehicle with priority over you rolls in shortly before it crosses;
-      // until the junction is scheduled it is not in sight at all.
-      if (!junction.scheduled && junction.blockers.includes(v.id)) continue;
+      // A vehicle that rolls in is not in sight until the junction is
+      // scheduled; the ones that wait at a line are drawn there from the start.
+      if (!junction.scheduled && junction.willRollIn.has(v.id)) continue;
       // poseAt works on a scene-relative clock: both the start and "now"
       // must be measured from the moment the junction was scheduled.
       const absolute = junction.scheduled ? junction.starts[v.id] : null;

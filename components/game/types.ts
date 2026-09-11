@@ -4,6 +4,8 @@ export interface SceneVehicle {
   color: string;
   from: string;
   to: string;
+  /** Vehicles already on a roundabout ring: the ring angle they start from. */
+  ringAt?: number;
 }
 
 export interface SceneLike {
