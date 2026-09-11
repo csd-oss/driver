@@ -276,7 +276,7 @@ describe('pacing and lights', () => {
       });
     }
     expect(found).toBeTruthy();
-    const { run, j } = found;
+    const { j } = found;
     expect(j.blockers.length).toBeGreaterThan(0);
     expect(j.resolution.reasons.some((x) => x.who === 'you' && x.rule === 'signal')).toBe(true);
     const early = lightState(j, j.t0 + 100);
@@ -647,5 +647,44 @@ describe('rule-only blockers', () => {
     expect(passed.cutIn).toBe(cut.to);
     expect(passed.points).toBe(0);
     expect(passed.record.outcome).toBe('spoiled');
+  });
+});
+
+describe('crash clears the swipe', () => {
+  it('the blinker goes off after the crashed junction and the intent does not leak into the next one', () => {
+    const { youSignalFor } = require('../src/lib/priority/world');
+    // A run whose first junction still has a vehicle crossing your path after you signal right.
+    let run = null;
+    let j = null;
+    let now = 0;
+    for (let seed = 1; seed < 400 && !run; seed++) {
+      const r = createRun(makeRng(seed), 3);
+      const first = r.junctions[0];
+      if (first.ring || !first.scene.arms.includes('E') || !first.scene.arms.includes('N')) continue;
+      let t = 0;
+      while (t < 30000 && !(first.scheduled && first.sWait - r.s < 80)) {
+        t += 16;
+        step(r, t);
+      }
+      applyInput(r, 'right');
+      if (first.blockers.some((id) => first.conflicts[id])) {
+        run = r;
+        j = first;
+        now = t;
+      }
+    }
+    expect(run).toBeTruthy();
+    expect(youSignalFor(run)).toBe('right');
+    const events = [];
+    for (let i = 0; i < 6000 && run.passed < 2; i++) {
+      now += 16;
+      events.push(...step(run, now));
+      if (j.passed && currentJunction(run).index === j.index + 1) {
+        expect(run.intent).toBeNull();
+        expect(youSignalFor(run)).toBeNull();
+      }
+    }
+    expect(events.some((e) => e.type === 'crash' && e.junction === j.index)).toBe(true);
+    expect(j.passed).toBe(true);
   });
 });

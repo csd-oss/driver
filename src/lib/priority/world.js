@@ -534,6 +534,14 @@ export const applyInput = (run, input) => {
  * signal out of a roundabout, up to the end of the exit bend.
  */
 export const youSignalFor = (run) => {
+  // After a crash you still drive through that junction's turn.
+  const crashed = run.junctions.find((j) => j.crashed && !j.passed && run.s < j.sExitBox);
+  if (crashed) {
+    if (crashed.ring) return run.s < crashed.sEnd - (CENTER - RING_R) ? 'right' : null;
+    const you = crashed.scene.vehicles.find((v) => v.id === 'you');
+    const turn = turnOf('S', crashed.executedTo || you.to);
+    return turn === 'left' || turn === 'right' ? turn : null;
+  }
   const junction = currentJunction(run);
   if (junction.ring) {
     if (junction.ring.exitTo) return run.s < junction.sEnd - (CENTER - RING_R) ? 'right' : null;
@@ -620,8 +628,6 @@ const stillCrossing = (junction, now) =>
     return start !== null && now < start + clearMsOf(junction, id) && junction.conflicts[id];
   });
 
-const culpritOf = (junction, now) => latestOf(junction, stillCrossing(junction, now));
-
 /** The scene's lights as they were when you had to decide: red for you when the cross traffic went first. */
 const recordControl = (scene) => {
   const control = scene.control;
@@ -703,6 +709,8 @@ const crash = (run, junction, culprit) => {
   run.crashUntil = run.now + CRASH_PAUSE_MS;
   run.stoppedAt = null;
   run.braking = false;
+  run.brakeLights = true;
+  run.intent = null; // the swipe was for this junction; it must not linger into the next
   run.v = 0;
   const reason = junction.resolution.reasons.find((r) => r.who === 'you' && r.to === culprit);
   junction.crashRule = reason ? reason.rule : null;
