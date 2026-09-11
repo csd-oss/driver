@@ -126,7 +126,7 @@ const rotateAbout = (p, deg) => {
 // and leaves it this many degrees before the exit arm's axis, so both the entry
 // and the exit are gentle curves instead of kinks.
 export const RING_JOIN_DEG = 32;
-const RING_STEP_DEG = 8;
+const RING_STEP_DEG = 4;
 
 /** Ring points from angle a counter-clockwise (decreasing) to angle b. */
 export const ringArc = (a, b) => {
@@ -223,23 +223,41 @@ export const vehiclePath = (scene, vehicle) =>
 
 const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
 
-/** Point and heading at fraction `t` (0..1) along a polyline. */
+const positionAlong = (points, target) => {
+  let left = target;
+  for (let i = 1; i < points.length; i++) {
+    const seg = dist(points[i - 1], points[i]);
+    if (left <= seg || i === points.length - 1) {
+      const f = seg === 0 ? 0 : Math.min(1, left / seg);
+      return lerp(points[i - 1], points[i], f);
+    }
+    left -= seg;
+  }
+  return { ...points[points.length - 1] };
+};
+
+const HEADING_REACH = 1.5; // heading is read over this much path either side of the point
+
+/**
+ * Point and heading at fraction `t` (0..1) along a polyline. The heading
+ * is taken over a short stretch around the point, so a curve sampled as
+ * chords still turns the vehicle evenly.
+ */
 export const pointAlong = (points, t) => {
   if (points.length === 1) return { ...points[0], angle: 0 };
   const total = points.reduce((sum, p, i) => (i ? sum + dist(points[i - 1], p) : 0), 0);
-  let target = Math.max(0, Math.min(1, t)) * total;
-  for (let i = 1; i < points.length; i++) {
-    const seg = dist(points[i - 1], points[i]);
-    if (target <= seg || i === points.length - 1) {
-      const f = seg === 0 ? 0 : Math.min(1, target / seg);
-      const p = lerp(points[i - 1], points[i], f);
-      const angle = (Math.atan2(points[i].x - points[i - 1].x, -(points[i].y - points[i - 1].y)) * 180) / Math.PI;
-      return { x: p.x, y: p.y, angle: (angle + 360) % 360 };
-    }
-    target -= seg;
+  const target = Math.max(0, Math.min(1, t)) * total;
+  const p = positionAlong(points, target);
+  const back = positionAlong(points, Math.max(0, target - HEADING_REACH));
+  const ahead = positionAlong(points, Math.min(total, target + HEADING_REACH));
+  const dx = ahead.x - back.x;
+  const dy = ahead.y - back.y;
+  if (dx === 0 && dy === 0) {
+    const a = points[0];
+    const b = points[1];
+    return { x: p.x, y: p.y, angle: ((Math.atan2(b.x - a.x, -(b.y - a.y)) * 180) / Math.PI + 360) % 360 };
   }
-  const last = points[points.length - 1];
-  return { ...last, angle: 0 };
+  return { x: p.x, y: p.y, angle: ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360 };
 };
 
 /** Where a sign for traffic arriving on `arm` stands: right of the road, before the box. */

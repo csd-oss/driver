@@ -107,8 +107,8 @@ const measure = (points) => {
   return { points, cum, length: cum[cum.length - 1] };
 };
 
-/** Point and heading (degrees clockwise from up) at distance `s` along a measured polyline. */
-export const pointAtDistance = (measured, s) => {
+/** Position at distance `s` along a measured polyline. */
+const positionAt = (measured, s) => {
   const { points, cum } = measured;
   const target = Math.max(0, Math.min(measured.length, s));
   for (let i = 1; i < points.length; i++) {
@@ -117,12 +117,29 @@ export const pointAtDistance = (measured, s) => {
       const f = seg === 0 ? 0 : (target - cum[i - 1]) / seg;
       const a = points[i - 1];
       const b = points[i];
-      const angle = (Math.atan2(b.x - a.x, -(b.y - a.y)) * 180) / Math.PI;
-      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, angle: (angle + 360) % 360 };
+      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
     }
   }
-  const last = points[points.length - 1];
-  return { ...last, angle: 0 };
+  return { ...points[points.length - 1] };
+};
+
+const HEADING_REACH = 1.5; // heading is read over this much road either side, so bends turn the car smoothly
+
+/**
+ * Point and heading (degrees clockwise from up) at distance `s` along a
+ * measured polyline. The heading comes from a short stretch of road around
+ * the point rather than the current segment alone, so a curve sampled as
+ * short chords still turns the car evenly.
+ */
+export const pointAtDistance = (measured, s) => {
+  const p = positionAt(measured, s);
+  const back = positionAt(measured, Math.max(0, s - HEADING_REACH));
+  const ahead = positionAt(measured, Math.min(measured.length, s + HEADING_REACH));
+  const dx = ahead.x - back.x;
+  const dy = ahead.y - back.y;
+  if (dx === 0 && dy === 0) return { ...p, angle: 0 };
+  const angle = (Math.atan2(dx, -dy) * 180) / Math.PI;
+  return { ...p, angle: (angle + 360) % 360 };
 };
 
 /**

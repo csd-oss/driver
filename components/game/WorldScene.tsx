@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useColorScheme } from 'react-native';
 import Svg, { G, Rect } from 'react-native-svg';
 import { CENTER } from '@/src/lib/priority/layout';
@@ -56,6 +57,28 @@ interface Props {
 // Side roads run this far past the junction frame, off the screen in practice.
 const SIDE_ROAD = 70;
 
+interface FrameProps {
+  scene: any;
+  index: number;
+  gapBefore: number;
+  gapAfter: number;
+  youTo: string | null;
+  dark: boolean;
+  lights: Record<string, LightPhase> | null;
+}
+
+// The static drawing of one junction does not change from frame to frame
+// (only the camera above it does), so it is rebuilt only when these
+// primitive props change. That keeps a turning camera smooth.
+const JunctionFrame = memo(({ scene, index, gapBefore, gapAfter, youTo, dark, lights }: FrameProps) => {
+  // The first junction owns its whole lead road; later ones meet halfway.
+  const before = index === 0 ? gapBefore + 2 : gapBefore / 2 + 2;
+  const extendArms: Record<string, number> = { S: before };
+  if (youTo) extendArms[youTo] = gapAfter / 2 + 2;
+  return <JunctionStatic scene={scene} dark={dark} extendArms={extendArms} lights={lights} sideExtend={SIDE_ROAD} ownArm="S" />;
+});
+JunctionFrame.displayName = 'JunctionFrame';
+
 export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle, heading, highlight = [], blinkOn = true, shake = 0, lights = {}, youSignal, youBraking = false }: Props) => {
   const dark = useColorScheme() === 'dark';
   const grass = dark ? '#1a2e1a' : '#cfe8bf';
@@ -78,13 +101,9 @@ export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle
       <G transform={camera}>
         {junctions.map((j) => {
           const youAt = j.scene.vehicles.find((v: SceneVehicle) => v.id === 'you');
-          // The first junction owns its whole lead road; later ones meet halfway.
-          const before = j.index === 0 ? (j.gapBefore ?? 0) + 2 : (j.gapBefore ?? 80) / 2 + 2;
-          const extendArms: Record<string, number> = { S: before };
-          if (youAt) extendArms[youAt.to] = (j.gapAfter ?? 80) / 2 + 2;
           return (
             <G key={j.index} transform={`translate(${j.cx} ${j.cy}) rotate(${j.rot}) translate(${-CENTER} ${-CENTER})`}>
-              <JunctionStatic scene={j.scene} dark={dark} extendArms={extendArms} lights={lights[j.index] ?? null} sideExtend={SIDE_ROAD} ownArm="S" />
+              <JunctionFrame scene={j.scene} index={j.index} gapBefore={j.gapBefore ?? 80} gapAfter={j.gapAfter ?? 80} youTo={youAt ? youAt.to : null} dark={dark} lights={lights[j.index] ?? null} />
               {/* A vehicle that is on screen shows the part of its path still ahead of it, from where it is. */}
               {!j.passed &&
                 vehicles

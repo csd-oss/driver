@@ -683,3 +683,23 @@ describe('crash clears the swipe', () => {
     expect(j.passed).toBe(true);
   });
 });
+
+describe('smooth heading', () => {
+  it('turns the car evenly round a roundabout: no heading step larger than a few degrees per half unit', () => {
+    let run = null;
+    for (let seed = 1; seed < 80 && !run; seed++) {
+      const r = createRun(makeRng(seed), 1);
+      if (r.junctions[0].ring) run = r;
+    }
+    const j = run.junctions[0];
+    let worst = 0;
+    let prev = null;
+    const { pointAtDistance } = require('../src/lib/priority/world');
+    for (let s = j.sLine; s < j.sEnd; s += 0.5) {
+      const a = pointAtDistance(run.route, s).angle;
+      if (prev !== null) worst = Math.max(worst, Math.abs(((a - prev + 540) % 360) - 180));
+      prev = a;
+    }
+    expect(worst).toBeLessThan(4);
+  });
+});
