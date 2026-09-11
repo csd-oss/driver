@@ -25,7 +25,7 @@ const careful = (r, now, evs) => {
   if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
   armRing(r);
   const red = j.scene.control?.type === 'lights' && j.scene.control.crossFirst;
-  if ((j.blockers.length || red) && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+  if ((j.blockers.length || red) && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
   const state = lightState(j, r.now);
   const green = state ? state.S === 'green' : true;
   if (r.stoppedAt !== null && !j.needTurn && green && (!j.blockers.length || r.now >= j.clearAt)) applyInput(r, 'go');

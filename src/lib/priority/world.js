@@ -1,12 +1,13 @@
 import { resolve } from './engine';
 import { generatePlayable } from './generator';
-import { leftOf, rightOf, oppositeOf } from './geometry';
+import { leftOf, rightOf, oppositeOf, turnOf } from './geometry';
 import { clearFractionFor } from './conflict';
 import {
   EXIT_HEADING, CENTER, RING_R, ROAD_HALF, SIZE, WAIT, vehiclePath, approachPoint,
   ringArc, ringEntryPoints, ringExitOrder, ringJoinDeg, ringLeaveDeg, exitCurveFor,
 } from './layout';
-import { durationOf, GROUP_GAP_MS, poseAt } from './timeline';
+import { queueBackFor } from './queue';
+import { durationOf, GROUP_GAP_MS, CLEAR_FRACTION, poseAt } from './timeline';
 
 /**
  * Endless road for the Crossings runner.
@@ -48,8 +49,10 @@ export const LIVES = 3;
 export const COACH_JUNCTIONS = 3;     // slower junctions on a first run
 export const COACH_SPEED = 0.6;
 export const ACCEL = 14;               // units/s² when moving off or speeding up
-export const DECEL = 18;               // comfortable braking, the car reaches the line at walking pace
+export const DECEL = 18;               // the final braking curve into the line
+export const SOFT_DECEL = 10;          // the immediate slow-down when you swipe to stop
 export const HARD_DECEL = 60;          // a late swipe brakes this hard
+export const CREEP = 0.5;              // after the swipe the car rolls on at this share of cruise speed until the line is near
 
 export const speedFor = (level, coachActive = false) =>
   Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_STEP) * (coachActive ? COACH_SPEED : 1);
@@ -74,8 +77,11 @@ const instructionFor = (rng, scene, to) => {
   if (scene.layout === 'roundabout') return { kind: 'roundabout', turn, to };
   const onMain = scene.mainRoad && scene.mainRoad.includes('S') && scene.mainRoad.includes(to);
   if (onMain && rng() < 0.6) return { kind: 'main', turn, to };
-  // Straight on is the default and goes unsaid; the instructor only speaks for a turn.
-  if (turn === 'straight') return { kind: 'none', turn, to };
+  // Straight on is the default and goes unsaid; the instructor only speaks
+  // for a turn, or when the main road you are on bends away and "straight"
+  // means leaving it (as an examiner would).
+  const mainBendsAway = scene.mainRoad && scene.mainRoad.includes('S') && !scene.mainRoad.includes(to);
+  if (turn === 'straight') return { kind: mainBendsAway ? 'straight' : 'none', turn, to };
   return { kind: turn, turn, to };
 };
 
@@ -196,14 +202,37 @@ const advanceRing = (run, junction) => {
   rebuildRoute(run);
 };
 
-/** Milliseconds after its start when a vehicle has cleared your way at this junction. */
+/**
+ * Milliseconds after its start when a vehicle has cleared your way at this
+ * junction. Vehicles whose path never meets yours (priority by rule only,
+ * e.g. the exam's right-turn convention) use the flat fraction and are
+ * remembered in `junction.conflicts` as false: you can cut in on them, but
+ * never hit them.
+ */
 const clearMsOf = (junction, id) => {
   if (junction.clearMs[id] === undefined) {
     const byId = Object.fromEntries(junction.scene.vehicles.map((v) => [v.id, v]));
-    const you = byId.you;
-    junction.clearMs[id] = durationOf(byId[id]) * clearFractionFor(junction.scene, byId[id], you);
+    const fraction = clearFractionFor(junction.scene, byId[id], byId.you);
+    junction.conflicts[id] = fraction !== null;
+    junction.clearMs[id] = durationOf(byId[id]) * (fraction === null ? CLEAR_FRACTION : fraction);
   }
   return junction.clearMs[id];
+};
+
+/** The blocker among `ids` that clears your way last, or null. */
+const latestOf = (junction, ids) => {
+  let culprit = null;
+  let latest = -1;
+  for (const id of ids) {
+    const start = junction.starts[id];
+    if (start === null) continue;
+    const clears = start + clearMsOf(junction, id);
+    if (clears > latest) {
+      latest = clears;
+      culprit = id;
+    }
+  }
+  return culprit;
 };
 
 /** Vehicles on the arms whose light is red in the scene (the cross phase). */
@@ -239,6 +268,9 @@ const applyResolution = (junction) => {
   junction.youGroup = group >= 0 ? group : resolution.order.length;
   junction.blockers = (resolution.yields.you || []).filter((id) => scene.vehicles.some((v) => v.id === id));
   junction.clearMs = {};
+  junction.conflicts = {};
+  // Vehicles sharing an arm queue behind each other in the order they go.
+  junction.queueBack = Object.fromEntries(scene.vehicles.map((v) => [v.id, queueBackFor(scene, resolution.order, v.id)]));
 };
 
 const createJunction = (rng, level, prev) => {
@@ -260,6 +292,7 @@ const createJunction = (rng, level, prev) => {
   junction.late = false;
   junction.ranRed = false;
   junction.ranStop = false;
+  junction.cutIn = null;
   junction.stoppedAtTime = null;
   junction.resumedAt = null;
   applyResolution(junction);
@@ -305,6 +338,7 @@ export const createRun = (rng, level = 1) => {
     route: measure([approachPoint('S', CENTER + LEAD_ROAD), approachPoint('S', ROAD_HALF + WAIT)]), // placeholder
     s: 0,               // your distance along the route
     v: 0,               // current speed (units/s); eases towards `speed`
+    brakeLights: false,
     speed: speedFor(level, false),
     coach: false,
     intent: null,
@@ -429,6 +463,25 @@ const setYourMovement = (run, junction, to, keepStarts = false) => {
   return true;
 };
 
+/**
+ * Move off from the line. Never a crash by itself: the car needs a moment
+ * to reach the box, and the box is where a still-crossing vehicle is hit.
+ * Crossing the stop line on red is the red-light offence, though.
+ */
+const moveOff = (run, junction) => {
+  if (redFor(junction, run.now) && !junction.ranRed) {
+    junction.ranRed = true;
+    run.streak = 0;
+    run.events.push({ type: 'redLight', junction: junction.index });
+  }
+  const readyAt = readyAtOf(junction);
+  const early = run.now <= readyAt + EARLY_BONUS_MS;
+  junction.earlyResume = early && !junction.hesitated;
+  junction.resumedAt = run.now;
+  run.stoppedAt = null;
+  run.events.push({ type: 'resumed', junction: junction.index, early });
+};
+
 /** Player input: 'brake' | 'go' | 'left' | 'right' | null. */
 export const applyInput = (run, input) => {
   if (run.over || run.now < run.crashUntil) return;
@@ -438,10 +491,13 @@ export const applyInput = (run, input) => {
       // Roundabout: right arms the blinker for the next exit, left keeps you circling.
       if (junction.ring.exitTo) return;
       const armed = input === 'right';
-      if (junction.ring.armed === armed) return;
-      junction.ring.armed = armed;
-      run.intent = armed ? 'right' : null;
-      run.events.push({ type: 'intent', junction: junction.index, intent: run.intent, to: armed ? junction.ring.order[junction.ring.next] : null });
+      if (junction.ring.armed !== armed) {
+        junction.ring.armed = armed;
+        run.intent = armed ? 'right' : null;
+        run.events.push({ type: 'intent', junction: junction.index, intent: run.intent, to: armed ? junction.ring.order[junction.ring.next] : null });
+      }
+      // Signalling from the line also means: go.
+      if (armed && run.stoppedAt !== null) moveOff(run, junction);
       return;
     }
     if (run.s >= junction.sLine || junction.starts.you !== null) return;
@@ -454,6 +510,8 @@ export const applyInput = (run, input) => {
     // A car waiting for a direction moves off again, even when the chosen
     // arm is the one the frame already assumed.
     if (junction.needTurn) junction.needTurn = false;
+    // Choosing a direction while standing at the line also means: go.
+    if (run.stoppedAt !== null && next !== null) moveOff(run, junction);
     return;
   }
   if (input === 'brake') {
@@ -465,22 +523,28 @@ export const applyInput = (run, input) => {
     }
     if (run.stoppedAt !== null) {
       if (junction.needTurn) return; // choose a direction first
-      // Moving off is never a crash by itself: the car needs a moment to
-      // reach the box, and the box is where a still-crossing vehicle is hit.
-      // Crossing the stop line on red is the red-light offence, though.
-      if (redFor(junction, run.now) && !junction.ranRed) {
-        junction.ranRed = true;
-        run.streak = 0;
-        run.events.push({ type: 'redLight', junction: junction.index });
-      }
-      const readyAt = readyAtOf(junction);
-      const early = run.now <= readyAt + EARLY_BONUS_MS;
-      junction.earlyResume = early && !junction.hesitated;
-      junction.resumedAt = run.now;
-      run.stoppedAt = null;
-      run.events.push({ type: 'resumed', junction: junction.index, early });
+      moveOff(run, junction);
     }
   }
+};
+
+/**
+ * Your indicator right now: the turn you have set while approaching, the
+ * turn you are making inside the box, or the right blinker while you
+ * signal out of a roundabout, up to the end of the exit bend.
+ */
+export const youSignalFor = (run) => {
+  const junction = currentJunction(run);
+  if (junction.ring) {
+    if (junction.ring.exitTo) return run.s < junction.sEnd - (CENTER - RING_R) ? 'right' : null;
+    return junction.ring.armed ? 'right' : null;
+  }
+  if (run.s >= junction.sLine) {
+    const you = junction.scene.vehicles.find((v) => v.id === 'you');
+    const turn = turnOf('S', junction.executedTo || you.to);
+    return turn === 'left' || turn === 'right' ? turn : null;
+  }
+  return run.intent === 'left' || run.intent === 'right' ? run.intent : null;
 };
 
 /**
@@ -549,20 +613,14 @@ const readyAtOf = (junction) => {
   return ready;
 };
 
-const culpritOf = (junction) => {
-  let culprit = null;
-  let latest = -1;
-  for (const id of junction.blockers) {
+/** Blockers whose path really crosses yours and who are still on it at `now`. */
+const stillCrossing = (junction, now) =>
+  junction.blockers.filter((id) => {
     const start = junction.starts[id];
-    if (start === null) continue;
-    const clears = start + clearMsOf(junction, id);
-    if (clears > latest) {
-      latest = clears;
-      culprit = id;
-    }
-  }
-  return culprit;
-};
+    return start !== null && now < start + clearMsOf(junction, id) && junction.conflicts[id];
+  });
+
+const culpritOf = (junction, now) => latestOf(junction, stillCrossing(junction, now));
 
 /** The scene's lights as they were when you had to decide: red for you when the cross traffic went first. */
 const recordControl = (scene) => {
@@ -592,6 +650,7 @@ export const junctionRecord = (run, junction, outcome) => {
     late: Boolean(junction.late),
     ranRed: Boolean(junction.ranRed),
     ranStop: Boolean(junction.ranStop),
+    cutIn: junction.cutIn || null,
     stopSign: stopSignFor(junction),
     lights: junction.scene.control?.type === 'lights' ? (junction.scene.control.crossFirst ? 'cross-first' : 'you-first') : null,
     laps: junction.ring ? junction.ring.laps : 0,
@@ -658,7 +717,7 @@ const passJunction = (run, junction) => {
   const base = 100 + (run.level - 1) * 15;
   const bonus = junction.earlyResume ? 60 : 0;
   const multiplier = Math.min(2, 1 + 0.1 * run.streak);
-  const spoiled = junction.hesitated || wrongWay || junction.late || junction.ranRed || junction.ranStop;
+  const spoiled = junction.hesitated || wrongWay || junction.late || junction.ranRed || junction.ranStop || Boolean(junction.cutIn);
   const points = spoiled ? 0 : Math.round((base + bonus) * multiplier);
   junction.wrongWay = wrongWay;
   junction.points = points;
@@ -666,7 +725,7 @@ const passJunction = (run, junction) => {
   run.streak = spoiled ? 0 : run.streak + 1;
   if (wrongWay) run.events.push({ type: 'wrongWay', junction: junction.index, instruction: junction.instruction, executed: junction.executedTo });
   run.events.push({
-    type: 'passed', junction: junction.index, points, hesitated: junction.hesitated, wrongWay, late: junction.late, ranRed: junction.ranRed, ranStop: junction.ranStop,
+    type: 'passed', junction: junction.index, points, hesitated: junction.hesitated, wrongWay, late: junction.late, ranRed: junction.ranRed, ranStop: junction.ranStop, cutIn: junction.cutIn,
     early: Boolean(junction.earlyResume), record: junctionRecord(run, junction, spoiled ? 'spoiled' : 'clean'),
   });
   if (run.passed % JUNCTIONS_PER_LEVEL === 0) {
@@ -718,8 +777,17 @@ export const step = (run, now) => {
     const noStraight = !junction.ring && !junction.scene.arms.includes(straight) && run.intent === null && !junction.needTurn;
     const mustStop = beforeLine && (run.braking || noStraight);
     let target = run.speed;
-    if (mustStop) target = Math.min(target, Math.sqrt(2 * DECEL * Math.max(0, junction.sWait - run.s)));
-    run.v = target < run.v ? Math.max(target, run.v - (HARD_DECEL * dt) / 1000) : Math.min(target, run.v + (ACCEL * dt) / 1000);
+    let rate = ACCEL;
+    if (mustStop) {
+      // React at once: slow to a creep, then follow the curve into the line.
+      const curve = Math.sqrt(2 * DECEL * Math.max(0, junction.sWait - run.s));
+      target = Math.min(target, Math.max(4, run.speed * CREEP), curve);
+      rate = run.v > curve ? HARD_DECEL : SOFT_DECEL;
+    } else if (target < run.v) {
+      rate = SOFT_DECEL;
+    }
+    run.brakeLights = mustStop;
+    run.v = target < run.v ? Math.max(target, run.v - (rate * dt) / 1000) : Math.min(target, run.v + (ACCEL * dt) / 1000);
     let next = run.s + (run.v * dt) / 1000;
     const atLine = mustStop && (next >= junction.sWait || junction.sWait - next < 0.3);
     if (atLine && noStraight && !run.braking) {
@@ -750,12 +818,25 @@ export const step = (run, now) => {
     if (junction.ring && !junction.ring.exitTo && run.s >= junction.sLine && run.s + 1.5 >= junction.sEnd) advanceRing(run, junction);
   }
 
-  // Entering the box while a blocker is still crossing is a crash.
+  // Entering the box while a blocker is still crossing your path is a crash.
+  // A blocker you had to wait for by rule alone (its path never meets yours)
+  // cannot be hit: entering before it has cleared is cutting in, a mistake.
   if (run.s >= junction.sLine && !junction.crashed && !junction.passed) {
     if (junction.blockers.length && now < junction.clearAt) {
-      run.s = junction.sLine;
-      crash(run, junction, culpritOf(junction));
-      return run.events.splice(0);
+      const crossing = stillCrossing(junction, now);
+      if (crossing.length) {
+        run.s = junction.sLine;
+        crash(run, junction, latestOf(junction, crossing));
+        return run.events.splice(0);
+      }
+      if (junction.starts.you === null && !junction.cutIn) {
+        const to = latestOf(junction, junction.blockers.filter((id) => junction.starts[id] !== null && now < junction.starts[id] + clearMsOf(junction, id)));
+        if (to) {
+          junction.cutIn = to;
+          run.streak = 0;
+          run.events.push({ type: 'cutIn', junction: junction.index, to, rule: (junction.resolution.reasons.find((r) => r.who === 'you' && r.to === to) || {}).rule || null });
+        }
+      }
     }
     if (junction.starts.you === null) {
       junction.starts.you = now;
@@ -802,7 +883,7 @@ export const vehiclePoses = (run) => {
       const absolute = junction.scheduled ? junction.starts[v.id] : null;
       const start = absolute === null ? null : absolute - junction.t0;
       const local = junction.scheduled ? run.now - junction.t0 : 0;
-      const pose = poseAt(junction.scene, v, start, local, junction.pathCache, junction.rollIn ? junction.rollIn[v.id] : 0);
+      const pose = poseAt(junction.scene, v, start, local, junction.pathCache, junction.rollIn ? junction.rollIn[v.id] : 0, junction.queueBack ? junction.queueBack[v.id] : 0);
       if (!pose) continue;
       const w = toWorld(junction, pose);
       const progress = start === null || local < start ? 0 : Math.min(1, (local - start) / durationOf(v));

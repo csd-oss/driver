@@ -43,7 +43,7 @@ describe('world', () => {
       input: (r) => {
         const j = currentJunction(r);
         // Brake exactly when the engine says someone has priority over us.
-        if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+        if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
         expect(r.s).toBeGreaterThanOrEqual(last);
         last = r.s;
       },
@@ -71,10 +71,10 @@ describe('world', () => {
     const run = createRun(makeRng(5), 1);
     // Brake at every junction regardless.
     const events = runUntil(run, (r) => r.passed >= 4 || r.over, {
-      maxMs: 60000,
+      maxMs: 90000,
       input: (r) => {
         const j = currentJunction(r);
-        if (j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+        if (j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
       },
     });
     const hesitations = events.filter((e) => e.type === 'hesitated');
@@ -173,11 +173,11 @@ describe('instructor directions', () => {
         applyInput(r, wanted);
         if (r.stoppedAt !== null) applyInput(r, last.instruction.turn);
       }
-      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
     });
     const instructions = events.filter((e) => e.type === 'instruction');
     expect(instructions.length).toBeGreaterThan(0);
-    for (const i of instructions) expect(['none', 'left', 'right', 'main', 'roundabout']).toContain(i.kind);
+    for (const i of instructions) expect(['none', 'straight', 'left', 'right', 'main', 'roundabout']).toContain(i.kind);
     // Straight on is never announced.
     for (const i of instructions) if (i.kind === 'none') expect(i.turn).toBe('straight');
     const passed = events.filter((e) => e.type === 'passed');
@@ -200,7 +200,7 @@ describe('instructor directions', () => {
       if (last && last.type === 'instruction' && last.junction === j.index && last.turn !== 'straight') {
         applyInput(r, last.turn === 'left' ? 'left' : 'right');
       }
-      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
     });
     expect(events.filter((e) => e.type === 'wrongWay')).toHaveLength(0);
     expect(events.filter((e) => e.type === 'passed').length).toBeGreaterThan(3);
@@ -228,7 +228,7 @@ describe('pacing and lights', () => {
     if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
     armRing(r);
     const red = j.scene.control?.type === 'lights' && j.scene.control.crossFirst;
-    if ((j.blockers.length || red) && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+    if ((j.blockers.length || red) && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
     const state = lightState(j, r.now);
     const green = state ? state.S === 'green' : true;
     if (r.stoppedAt !== null && !j.needTurn && green && (!j.blockers.length || r.now >= j.clearAt)) applyInput(r, 'go');
@@ -303,7 +303,7 @@ describe('pacing and lights', () => {
         if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
         armRing(r);
         // Brake for cars, ignore lights, and go the moment the cars have cleared.
-        if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+        if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
         if (r.stoppedAt !== null && !j.needTurn && (!j.blockers.length || r.now >= j.clearAt)) applyInput(r, 'go');
       });
       const red = events.find((e) => e.type === 'redLight');
@@ -371,7 +371,7 @@ describe('motion and roundabouts', () => {
     const j = run.junctions[0];
     // Give way to anyone in the ring, but never signal: the car goes round and round.
     drive(run, 45000, (r) => {
-      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
       if (r.stoppedAt !== null && r.now >= j.clearAt) applyInput(r, 'go');
     });
     expect(j.passed).toBe(false);
@@ -400,7 +400,7 @@ describe('motion and roundabouts', () => {
     const j = run.junctions[0];
     const events = drive(run, 60000, (r, now, evs) => {
       followInstructor(r, evs);
-      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+      if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
       if (r.stoppedAt !== null && r.now >= j.clearAt) applyInput(r, 'go');
     });
     const passed = events.find((e) => e.type === 'passed' && e.junction === j.index);
@@ -418,7 +418,7 @@ describe('motion and roundabouts', () => {
       drive(run, 90000, (r, now, evs) => {
         followInstructor(r, evs);
         const j = currentJunction(r);
-        if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+        if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
         if (r.stoppedAt !== null && !j.needTurn && (!j.blockers.length || r.now >= j.clearAt)) applyInput(r, 'go');
         const cur = new Map();
         for (const p of vehiclePoses(r)) {
@@ -521,6 +521,130 @@ describe('STOP sign', () => {
     expect(events.some((e) => e.type === 'ranStop')).toBe(true);
     const passed = events.find((e) => e.type === 'passed');
     expect(passed.ranStop).toBe(true);
+    expect(passed.points).toBe(0);
+    expect(passed.record.outcome).toBe('spoiled');
+  });
+});
+
+describe('brake reaction, turn-means-go, blinker', () => {
+  const { youSignalFor } = require('../src/lib/priority/world');
+  const drive = (run, ms, onTick) => {
+    const events = [];
+    let now = run.now;
+    for (let t = 0; t <= ms; t += 16) {
+      now += 16;
+      const evs = step(run, now);
+      events.push(...evs);
+      if (onTick) onTick(run, now, evs);
+      if (run.over) break;
+    }
+    return events;
+  };
+
+  it('slows down right after the swipe, lights the brake lights, and still stops exactly at the line', () => {
+    const run = createRun(makeRng(4), 1);
+    let swipedAt = null;
+    let vAtSwipe = 0;
+    let vAfter = null;
+    let lightsOn = false;
+    let stop = null;
+    drive(run, 40000, (r, now) => {
+      const j = currentJunction(r);
+      if (swipedAt === null && r.v >= r.speed * 0.98 && j.sWait - r.s > 120) {
+        applyInput(r, 'brake');
+        swipedAt = now;
+        vAtSwipe = r.v;
+      }
+      if (swipedAt !== null && vAfter === null && now >= swipedAt + 300) vAfter = r.v;
+      if (swipedAt !== null && r.brakeLights) lightsOn = true;
+      if (r.stoppedAt !== null && stop === null) stop = { s: r.stoppedAt, sWait: j.sWait, v: r.v };
+    });
+    expect(swipedAt).not.toBeNull();
+    expect(vAfter).toBeLessThan(vAtSwipe - 1.5); // visibly slower within 300 ms
+    expect(lightsOn).toBe(true);
+    expect(stop).toBeTruthy();
+    expect(stop.s).toBeCloseTo(stop.sWait, 5);
+  });
+
+  it('a direction swipe while standing at the line moves the car off', () => {
+    let run = null;
+    for (let seed = 1; seed < 200 && !run; seed++) {
+      const r = createRun(makeRng(seed), 1);
+      const j = r.junctions[0];
+      if (!j.ring && !j.scene.arms.includes('N') && !j.blockers.length) run = r;
+    }
+    expect(run).toBeTruthy();
+    const j = run.junctions[0];
+    drive(run, 30000, (r) => {
+      if (r.stoppedAt !== null) return;
+    });
+    // Without a direction the car waits at the line.
+    expect(run.stoppedAt).not.toBeNull();
+    expect(j.needTurn).toBe(true);
+    const dir = j.instruction.turn === 'left' ? 'left' : 'right';
+    applyInput(run, dir);
+    expect(run.stoppedAt).toBeNull();
+    expect(youSignalFor(run)).toBe(dir);
+    const events = drive(run, 20000);
+    expect(events.some((e) => e.type === 'passed' && e.junction === j.index)).toBe(true);
+    expect(events.some((e) => e.type === 'resumed')).toBe(true);
+  });
+
+  it('the blinker is on from the swipe through the turn and off once the box is left', () => {
+    let run = null;
+    for (let seed = 1; seed < 200 && !run; seed++) {
+      const r = createRun(makeRng(seed), 1);
+      const j = r.junctions[0];
+      if (!j.ring && j.scene.arms.includes('N') && j.scene.arms.includes('E') && !j.blockers.length) run = r;
+    }
+    const j = run.junctions[0];
+    const seen = { before: false, inBox: false, afterOff: false };
+    drive(run, 40000, (r) => {
+      if (r.s < j.sWait - 40 && r.s > 20 && r.intent === null) applyInput(r, 'right');
+      const sig = youSignalFor(r);
+      if (r.s < j.sLine && r.intent === 'right' && sig === 'right') seen.before = true;
+      if (r.s >= j.sLine && r.s < j.sExitBox && sig === 'right') seen.inBox = true;
+      if (j.passed && currentJunction(r).index === j.index + 1 && sig === null) seen.afterOff = true;
+    });
+    expect(seen).toEqual({ before: true, inBox: true, afterOff: true });
+  });
+});
+
+describe('rule-only blockers', () => {
+  const drive = (run, ms, onTick) => {
+    const events = [];
+    let now = run.now;
+    for (let t = 0; t <= ms; t += 16) {
+      now += 16;
+      const evs = step(run, now);
+      events.push(...evs);
+      if (onTick) onTick(run, now, evs);
+      if (run.over || run.passed >= 1) break;
+    }
+    return events;
+  };
+
+  it('a blocker whose path never meets yours can be cut in on, but never hit', () => {
+    // Find a first junction where every blocker is priority-by-rule only.
+    let run = null;
+    for (let seed = 1; seed < 400 && !run; seed++) {
+      const r = createRun(makeRng(seed), 2);
+      const j = r.junctions[0];
+      if (j.ring || !j.blockers.length || !j.scene.arms.includes('N')) continue;
+      const { clearFractionFor } = require('../src/lib/priority/conflict');
+      const you = j.scene.vehicles.find((v) => v.id === 'you');
+      const byId = Object.fromEntries(j.scene.vehicles.map((v) => [v.id, v]));
+      if (j.blockers.every((id) => clearFractionFor(j.scene, byId[id], you) === null) && j.instruction.turn === 'straight') run = r;
+    }
+    expect(run).toBeTruthy();
+    const events = drive(run, 60000, (r, now, evs) => followInstructor(r, evs)); // never brakes
+    expect(events.some((e) => e.type === 'crash')).toBe(false);
+    expect(run.lives).toBe(LIVES);
+    const cut = events.find((e) => e.type === 'cutIn');
+    expect(cut).toBeTruthy();
+    expect(cut.rule).toBeTruthy();
+    const passed = events.find((e) => e.type === 'passed');
+    expect(passed.cutIn).toBe(cut.to);
     expect(passed.points).toBe(0);
     expect(passed.record.outcome).toBe('spoiled');
   });

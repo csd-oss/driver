@@ -1,4 +1,5 @@
 import { vehiclePath, pointAlong } from './layout';
+import { queuePoint } from './queue';
 
 /**
  * Timing for one crossing: when each vehicle starts, when it is safe for
@@ -89,27 +90,40 @@ export const scoreCrossing = ({ level, goAt, clearAt, deadline, streak = 0 }) =>
   return Math.round((base + bonus) * multiplier);
 };
 
+const lengthOf = (points) =>
+  points.reduce((sum, p, i) => (i ? sum + Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y) : 0), 0);
+
 /**
  * Pose of a vehicle at time `now`. Before its start it rolls up to the
  * waiting line during APPROACH_MS and then waits; afterwards it follows its
  * path for its duration. Returns null once it has left the screen.
+ *
+ * `queueBack` (scene units, from queueBackFor) puts a vehicle that shares its
+ * arm with one ahead that far behind the line; when it starts it first creeps
+ * up to the line at its normal speed.
  */
-export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0) => {
+export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queueBack = 0) => {
   const key = vehicle.id;
   const path = pathCache[key] || (pathCache[key] = vehiclePath(scene, vehicle));
+  const back = path.approach.length ? Math.max(0, queueBack) : 0;
+  const queued = back > 0 ? queuePoint(scene, vehicle, back) : null;
+  // Approach shortened to the queued spot, and the creep from there to the line.
+  const approach = back > 0 ? [path.approach[0], queued] : path.approach;
+  const gapMs = back > 0 ? (back / lengthOf(path.through)) * durationOf(vehicle) : 0;
   if (start !== null && rollInMs > 0) {
     // Runner: a vehicle with a known start rolls in over its approach so
     // that it reaches the box without stopping. Not in sight before that.
     const from = start - rollInMs;
     if (now < from) return null;
-    if (now < start) return path.approach.length ? pointAlong(path.approach, (now - from) / rollInMs) : pointAlong(path.through, 0.001);
+    if (now < start) return approach.length ? pointAlong(approach, (now - from) / rollInMs) : pointAlong(path.through, 0.001);
   } else if (start === null || now < start) {
-    if (path.approach.length && now < APPROACH_MS) {
-      return pointAlong(path.approach, Math.max(0, now) / APPROACH_MS);
+    if (approach.length && now < APPROACH_MS) {
+      return pointAlong(approach, Math.max(0, now) / APPROACH_MS);
     }
-    return pointAlong(path.through, 0.001);
+    return back > 0 ? pointAlong(approach, 1) : pointAlong(path.through, 0.001);
   }
-  const t = (now - start) / durationOf(vehicle);
+  if (back > 0 && now - start < gapMs) return pointAlong([queued, path.wait], (now - start) / gapMs);
+  const t = (now - start - gapMs) / durationOf(vehicle);
   if (t >= 1.05) return null;
-  return pointAlong(path.through, Math.min(1, t));
+  return pointAlong(path.through, Math.min(1, Math.max(0, t)));
 };

@@ -1587,11 +1587,6 @@ export const STR = {
     2: 'Crash!',
     3: 'Ütközés!',
   },
-  'crossing.late': {
-    1: 'Neskoro',
-    2: 'Too late',
-    3: 'Túl késő',
-  },
   'crossing.lateBody': {
     1: 'Mal si prednosť. Nezdržuj premávku za sebou.',
     2: 'You had priority. Do not hold up the traffic behind you.',
@@ -2031,6 +2026,11 @@ export const STR = {
     1: 'Značka STOP: potiahni nadol a zastav, potom nahor, keď je voľno.',
     2: 'STOP sign: swipe down to stop, then up once it is clear.',
     3: 'STOP tábla: húzz lefelé a megálláshoz, majd felfelé, ha szabad az út.',
+  },
+  'crossing.cutIn': {
+    1: 'Nedal si prednosť: {vehicle} malo prednosť.',
+    2: 'You did not give way: {vehicle} had priority.',
+    3: 'Nem adtál elsőbbséget: {vehicle} elsőbbséget élvezett.',
   },
   'crossing.coach.intro': {
     1: 'Prvé tri križovatky idú pomalšie a napovedáme ti.',

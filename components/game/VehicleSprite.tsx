@@ -11,6 +11,8 @@ interface Props {
   blinkOn?: boolean;
   /** Which indicator is on; when given it replaces the turn derived from from/to. */
   signal?: 'left' | 'right' | null;
+  /** Brake lights on (braking or standing). */
+  brakeLights?: boolean;
 }
 
 const darken = (hex: string, f = 0.72) => {
@@ -22,7 +24,7 @@ const darken = (hex: string, f = 0.72) => {
 };
 
 /** One vehicle, drawn pointing up in its own frame and rotated to its heading. */
-export const VehicleSprite = ({ v, pose, glow, dim, blinkOn, signal }: Props) => {
+export const VehicleSprite = ({ v, pose, glow, dim, blinkOn, signal, brakeLights = false }: Props) => {
   const fill = VEHICLE_FILL[v.color] ?? '#64748b';
   const roof = darken(fill, 0.8);
   const isTram = v.kind === 'tram';
@@ -65,8 +67,14 @@ export const VehicleSprite = ({ v, pose, glow, dim, blinkOn, signal }: Props) =>
           {/* headlights and tail lights */}
           <Rect x={-w / 2 + 0.5} y={-h / 2 + 0.2} width={1.3} height={0.7} rx={0.3} fill="#fef9c3" />
           <Rect x={w / 2 - 1.8} y={-h / 2 + 0.2} width={1.3} height={0.7} rx={0.3} fill="#fef9c3" />
-          <Rect x={-w / 2 + 0.5} y={h / 2 - 0.9} width={1.3} height={0.6} rx={0.3} fill="#fca5a5" />
-          <Rect x={w / 2 - 1.8} y={h / 2 - 0.9} width={1.3} height={0.6} rx={0.3} fill="#fca5a5" />
+          <Rect x={-w / 2 + 0.5} y={h / 2 - 0.9} width={1.3} height={0.6} rx={0.3} fill={brakeLights ? '#ef4444' : '#fca5a5'} />
+          <Rect x={w / 2 - 1.8} y={h / 2 - 0.9} width={1.3} height={0.6} rx={0.3} fill={brakeLights ? '#ef4444' : '#fca5a5'} />
+          {brakeLights && (
+            <>
+              <Rect x={-w / 2 + 0.1} y={h / 2 - 1.3} width={2.1} height={1.4} rx={0.6} fill="#ef4444" opacity={0.45} />
+              <Rect x={w / 2 - 2.2} y={h / 2 - 1.3} width={2.1} height={1.4} rx={0.6} fill="#ef4444" opacity={0.45} />
+            </>
+          )}
         </>
       )}
       {blinkX !== null && blinkOn && (

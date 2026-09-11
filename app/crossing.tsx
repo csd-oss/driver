@@ -26,6 +26,7 @@ import {
   vehiclePoses,
   visibleJunctions,
   youPose,
+  youSignalFor,
 } from '@/src/lib/priority/world';
 import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
 import { useFocusEffect } from '@react-navigation/native';
@@ -86,7 +87,7 @@ export default function CrossingScreen() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [best, setBest] = useState(0);
   const [hud, setHud] = useState({ level: 1, lives: LIVES, score: 0, streak: 0, passed: 0 });
-  const [frame, setFrame] = useState<{ junctions: any[]; vehicles: WorldVehicle[]; you: any; heading: number; youVehicle: any; blink: boolean; shake: number; lights: Record<number, any>; youSignal: 'left' | 'right' | null } | null>(null);
+  const [frame, setFrame] = useState<{ junctions: any[]; vehicles: WorldVehicle[]; you: any; heading: number; youVehicle: any; blink: boolean; shake: number; lights: Record<number, any>; youSignal: 'left' | 'right' | null; youBraking: boolean } | null>(null);
   const [openRecord, setOpenRecord] = useState<any | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [instruction, setInstruction] = useState<Instruction | null>(null);
@@ -197,11 +198,17 @@ export default function CrossingScreen() {
         } else if (e.type === 'ranStop') {
           setToast({ kind: 'wrong', text: t('crossing.ranStop', lang), until: tNow + TOAST_MS + 400 });
           haptic.honk();
+        } else if (e.type === 'cutIn') {
+          const junction = run.junctions.find((j: any) => j.index === e.junction);
+          const vehicle = junction?.scene?.vehicles?.find((v: any) => v.id === e.to);
+          const name = vehicle ? t(`crossing.vehicle.${vehicle.color}`, lang) : '';
+          setToast({ kind: 'wrong', text: tf('crossing.cutIn', lang, { vehicle: name }), until: tNow + TOAST_MS + 400 });
+          haptic.honk();
         } else if (e.type === 'passed') {
           highlightRef.current = [];
           setInstruction(null);
           setCoachHint(null);
-          if (!e.hesitated && !e.wrongWay && !e.late && !e.ranRed && !e.ranStop) {
+          if (!e.hesitated && !e.wrongWay && !e.late && !e.ranRed && !e.ranStop && !e.cutIn) {
             setToast({ kind: 'ok', text: tf('game.plusPoints', lang, { points: e.points }), until: tNow + 900 });
             haptic.passed();
           }
@@ -254,10 +261,7 @@ export default function CrossingScreen() {
       headingRef.current = (headingRef.current + diff * 0.12 + 360) % 360;
       const junction = currentJunction(run);
       const youVehicle = junction.scene.vehicles.find((v: any) => v.id === 'you');
-      // Your indicator: in a roundabout only while you signal to leave; otherwise the turn you have set.
-      const youSignal: 'left' | 'right' | null = junction.ring
-        ? junction.ring.armed && !junction.ring.exitTo ? 'right' : junction.ring.exitTo ? 'right' : null
-        : run.intent === 'left' || run.intent === 'right' ? run.intent : null;
+      const youSignal = youSignalFor(run) as 'left' | 'right' | null;
       const shaking = tNow < shakeUntilRef.current ? Math.sin(tNow / 18) * 1.6 : 0;
       const visible = visibleJunctions(run);
       const lights: Record<number, any> = {};
@@ -272,6 +276,7 @@ export default function CrossingScreen() {
         shake: shaking,
         lights,
         youSignal,
+        youBraking: Boolean(run.brakeLights || run.stoppedAt !== null),
       });
       if (run.over && tNow >= run.crashUntil) {
         finishRun();
@@ -565,6 +570,7 @@ export default function CrossingScreen() {
                     shake={frame.shake}
                     lights={frame.lights}
                     youSignal={frame.youSignal}
+                    youBraking={frame.youBraking}
                   />
                 </View>
               )}

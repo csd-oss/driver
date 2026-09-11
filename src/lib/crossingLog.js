@@ -38,6 +38,8 @@ export const explainRecord = (record, lang) => {
     headline = tf('crossing.log.missedExit', lang, { instruction });
   } else if (record.wrongWay) {
     headline = tf('crossing.wrongWay', lang, { instruction });
+  } else if (record.cutIn) {
+    headline = tf('crossing.cutIn', lang, { vehicle: vehicleName(record, record.cutIn, lang) });
   } else if (record.ranRed) {
     headline = t('crossing.redLight', lang);
   } else if (record.ranStop) {
