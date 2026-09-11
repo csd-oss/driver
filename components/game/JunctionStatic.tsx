@@ -23,6 +23,8 @@ interface Props {
   lights?: Record<string, LightPhase> | null;
   /** Extra length for arms not listed in `extendArms`, so side roads run off screen instead of ending in the grass. */
   sideExtend?: number;
+  /** The arm you arrive on: only its signs face you, the other arms show grey sign backs (their shape still tells what they are). */
+  ownArm?: string;
 }
 
 // Rotation that turns "up" into "towards the junction" for traffic arriving on an arm.
@@ -88,6 +90,26 @@ const approachLine = (arm: string, layout: string) => {
   return { x1: a.x, y1: a.y - LANE, x2: a.x, y2: a.y + LANE };
 };
 
+const BACK = '#9ca3af';
+const BACK_EDGE = '#4b5563';
+
+/** The grey back of a sign, as seen from the other arms: the shape is all you get. */
+const SignBack = ({ kind, x, y }: { kind: string; x: number; y: number }) => {
+  const s = 4.2;
+  if (kind === 'yield' || kind === 'roundabout-yield') {
+    return <Polygon points={`${x - s},${y - s * 0.8} ${x + s},${y - s * 0.8} ${x},${y + s}`} fill={BACK} stroke={BACK_EDGE} strokeWidth={0.5} strokeLinejoin="round" />;
+  }
+  if (kind === 'stop' || kind === 'roundabout-stop') {
+    const pts = Array.from({ length: 8 }, (_, i) => {
+      const a = (Math.PI / 4) * i + Math.PI / 8;
+      return `${x + s * Math.cos(a)},${y + s * Math.sin(a)}`;
+    }).join(' ');
+    return <Polygon points={pts} fill={BACK} stroke={BACK_EDGE} strokeWidth={0.5} />;
+  }
+  if (kind === 'roundabout') return <Circle cx={x} cy={y} r={s} fill={BACK} stroke={BACK_EDGE} strokeWidth={0.5} />;
+  return <Polygon points={`${x},${y - s} ${x + s},${y} ${x},${y + s} ${x - s},${y}`} fill={BACK} stroke={BACK_EDGE} strokeWidth={0.5} />;
+};
+
 const Sign = ({ kind, x, y }: { kind: string; x: number; y: number }) => {
   const s = 4.2;
   if (kind === 'yield') {
@@ -146,7 +168,7 @@ const RoundaboutSign = ({ x, y }: { x: number; y: number }) => {
 };
 
 /** Roads, markings, signs, tracks, officer, lights, pedestrians of one junction, in its local frame. */
-export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0 }: Props) => {
+export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0, ownArm }: Props) => {
   const ext = (arm: string) => extendArms[arm] ?? sideExtend;
   const grass = dark ? '#1a2e1a' : '#cfe8bf';
   const asphalt = dark ? '#334155' : '#8f96a3';
@@ -237,6 +259,17 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
         const sign = scene.signs?.[arm] ?? null;
         if (!sign) return null;
         const p = signPoint(arm, scene.layout);
+        if (ownArm && arm !== ownArm) {
+          if (sign === 'roundabout-yield' || sign === 'roundabout-stop') {
+            return (
+              <G key={`sign-${arm}`}>
+                <SignBack kind={sign} x={p.x} y={p.y - 5} />
+                <SignBack kind="roundabout" x={p.x} y={p.y + 4} />
+              </G>
+            );
+          }
+          return <SignBack key={`sign-${arm}`} kind={sign} x={p.x} y={p.y} />;
+        }
         if (sign === 'roundabout') return <RoundaboutSign key={`sign-${arm}`} x={p.x} y={p.y} />;
         if (sign === 'roundabout-yield' || sign === 'roundabout-stop') {
           return (

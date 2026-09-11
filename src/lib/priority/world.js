@@ -49,10 +49,10 @@ export const LIVES = 3;
 export const COACH_JUNCTIONS = 3;     // slower junctions on a first run
 export const COACH_SPEED = 0.6;
 export const ACCEL = 14;               // units/s² when moving off or speeding up
-export const DECEL = 18;               // the final braking curve into the line
-export const SOFT_DECEL = 10;          // the immediate slow-down when you swipe to stop
-export const HARD_DECEL = 60;          // a late swipe brakes this hard
-export const CREEP = 0.5;              // after the swipe the car rolls on at this share of cruise speed until the line is near
+export const DECEL = 12;               // the final braking curve into the line
+export const SOFT_DECEL = 6;           // the immediate, gentle slow-down when you swipe to stop
+export const HARD_DECEL = 40;          // a late swipe brakes this hard
+export const CREEP = 0.6;              // after the swipe the car rolls on at this share of cruise speed until the line is near
 
 export const speedFor = (level, coachActive = false) =>
   Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_STEP) * (coachActive ? COACH_SPEED : 1);
@@ -895,7 +895,7 @@ export const vehiclePoses = (run) => {
       if (!pose) continue;
       const w = toWorld(junction, pose);
       const progress = start === null || local < start ? 0 : Math.min(1, (local - start) / durationOf(v));
-      out.push({ junction, vehicle: v, pose: { x: w.x, y: w.y, angle: (pose.angle + junction.rot) % 360 }, progress });
+      out.push({ junction, vehicle: v, pose: { x: w.x, y: w.y, angle: (pose.angle + junction.rot) % 360 }, progress, local: { x: pose.x, y: pose.y } });
     }
   }
   return out;

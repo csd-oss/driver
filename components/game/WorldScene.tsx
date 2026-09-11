@@ -25,6 +25,8 @@ export interface WorldVehicle {
   pose: VehiclePose;
   /** 0..1 along its path through the junction; 0 while approaching. */
   progress?: number;
+  /** Position in the junction's own frame. */
+  local?: { x: number; y: number };
 }
 
 interface Props {
@@ -61,6 +63,15 @@ export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle
   const ZOOM_W = 78;
   const viewH = (ZOOM_W * height) / width;
   const camera = `translate(${ZOOM_W / 2 + shake} ${viewH * 0.78}) rotate(${-heading}) translate(${-you.x} ${-you.y})`;
+  // Is a world point on screen? Same transform as the camera, with a small margin.
+  const rad = (-heading * Math.PI) / 180;
+  const inView = (p: VehiclePose) => {
+    const dx = p.x - you.x;
+    const dy = p.y - you.y;
+    const vx = ZOOM_W / 2 + dx * Math.cos(rad) - dy * Math.sin(rad);
+    const vy = viewH * 0.78 + dx * Math.sin(rad) + dy * Math.cos(rad);
+    return vx > -4 && vx < ZOOM_W + 4 && vy > -4 && vy < viewH + 4;
+  };
   return (
     <Svg width={width} height={height} viewBox={`0 0 ${ZOOM_W} ${viewH}`}>
       <Rect x={0} y={0} width={ZOOM_W} height={viewH} fill={grass} />
@@ -73,13 +84,13 @@ export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle
           if (youAt) extendArms[youAt.to] = (j.gapAfter ?? 80) / 2 + 2;
           return (
             <G key={j.index} transform={`translate(${j.cx} ${j.cy}) rotate(${j.rot}) translate(${-CENTER} ${-CENTER})`}>
-              <JunctionStatic scene={j.scene} dark={dark} extendArms={extendArms} lights={lights[j.index] ?? null} sideExtend={SIDE_ROAD} />
-              {/* Each visible vehicle shows the part of its path still ahead of it. */}
+              <JunctionStatic scene={j.scene} dark={dark} extendArms={extendArms} lights={lights[j.index] ?? null} sideExtend={SIDE_ROAD} ownArm="S" />
+              {/* A vehicle that is on screen shows the part of its path still ahead of it, from where it is. */}
               {!j.passed &&
                 vehicles
-                  .filter((p) => p.junction.index === j.index)
+                  .filter((p) => p.junction.index === j.index && inView(p.pose))
                   .map((p) => (
-                    <PathArrow key={`arrow-${j.index}-${p.vehicle.id}`} scene={j.scene} vehicle={p.vehicle} opacity={0.7} span={0.5} progress={p.progress ?? 0} />
+                    <PathArrow key={`arrow-${j.index}-${p.vehicle.id}`} scene={j.scene} vehicle={p.vehicle} opacity={0.7} span={0.5} progress={p.progress ?? 0} from={p.local} />
                   ))}
             </G>
           );
