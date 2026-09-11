@@ -68,17 +68,22 @@ describe('crossing drive log', () => {
   });
 
   it('a needless stop is a spoiled junction with the hesitation as headline', () => {
-    const run = createRun(makeRng(2), 1);
-    let stoppedOnce = false;
-    const events = drive(run, 60000, (r, now, evs) => {
-      const j = currentJunction(r);
-      careful(r, now, evs);
-      if (!stoppedOnce && !j.blockers.length && j.scheduled && r.s < j.sLine && r.stoppedAt === null && !r.braking) {
-        applyInput(r, 'brake');
-        stoppedOnce = true;
-      }
-    });
-    const spoiled = events.find((e) => e.type === 'passed' && e.hesitated);
+    let spoiled = null;
+    for (let seed = 1; seed < 40 && !spoiled; seed++) {
+      const run = createRun(makeRng(seed), 1);
+      let stoppedOnce = false;
+      const events = drive(run, 60000, (r, now, evs) => {
+        const j = currentJunction(r);
+        careful(r, now, evs);
+        const sign = j.scene.signs?.S;
+        const mustStop = sign === 'stop' || sign === 'roundabout-stop';
+        if (!stoppedOnce && !mustStop && !j.ring && !j.blockers.length && j.scheduled && j.sWait - r.s < 60 && r.s < j.sLine && r.stoppedAt === null && !r.braking) {
+          applyInput(r, 'brake');
+          stoppedOnce = true;
+        }
+      });
+      spoiled = events.find((e) => e.type === 'passed' && e.hesitated && !e.wrongWay) || null;
+    }
     expect(spoiled).toBeTruthy();
     expect(spoiled.record.outcome).toBe('spoiled');
     expect(explainRecord(spoiled.record, 2).headline).toBe('Needless stop. You had priority.');

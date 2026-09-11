@@ -3,11 +3,11 @@ import { generatePlayable } from './generator';
 import { leftOf, rightOf, oppositeOf, turnOf } from './geometry';
 import { clearFractionFor } from './conflict';
 import {
-  EXIT_HEADING, CENTER, RING_R, ROAD_HALF, SIZE, WAIT, vehiclePath, approachPoint,
+  EXIT_HEADING, CENTER, RING_R, ROAD_HALF, SIZE, WAIT, vehiclePath, approachPoint, boxHalf,
   ringArc, ringEntryPoints, ringExitOrder, ringJoinDeg, ringLeaveDeg, exitCurveFor,
 } from './layout';
 import { queueBackFor } from './queue';
-import { durationOf, GROUP_GAP_MS, CLEAR_FRACTION, poseAt } from './timeline';
+import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt } from './timeline';
 
 /**
  * Endless road for the Crossings runner.
@@ -204,19 +204,14 @@ const advanceRing = (run, junction) => {
 
 /**
  * Milliseconds after its start when a vehicle has cleared your way at this
- * junction. Vehicles whose path never meets yours (priority by rule only,
- * e.g. the exam's right-turn convention) use the flat fraction and are
- * remembered in `junction.conflicts` as false: you can cut in on them, but
- * never hit them.
+ * junction. A vehicle that waited (no roll-in) accelerates from rest, so it
+ * takes longer to get there than one rolling through at cruising speed.
  */
 const clearMsOf = (junction, id) => {
-  if (junction.clearMs[id] === undefined) {
-    const byId = Object.fromEntries(junction.scene.vehicles.map((v) => [v.id, v]));
-    const fraction = clearFractionFor(junction.scene, byId[id], byId.you);
-    junction.conflicts[id] = fraction !== null;
-    junction.clearMs[id] = durationOf(byId[id]) * (fraction === null ? CLEAR_FRACTION : fraction);
-  }
-  return junction.clearMs[id];
+  const vehicle = junction.scene.vehicles.find((v) => v.id === id);
+  const fraction = junction.clearFraction[id] ?? CLEAR_FRACTION;
+  const eased = !(junction.rollIn && junction.rollIn[id]);
+  return clearTimeMs(junction.scene, vehicle, fraction, eased, junction.queueBack ? junction.queueBack[id] : 0, junction.pathCache);
 };
 
 /** The blocker among `ids` that clears your way last, or null. */
@@ -266,9 +261,19 @@ const applyResolution = (junction) => {
   // guarantees the instructed one). Then you simply go last and everyone
   // with priority over you is sent off first.
   junction.youGroup = group >= 0 ? group : resolution.order.length;
-  junction.blockers = (resolution.yields.you || []).filter((id) => scene.vehicles.some((v) => v.id === id));
-  junction.clearMs = {};
-  junction.conflicts = {};
+  // You only ever wait for a vehicle whose path really crosses yours. The
+  // engine also orders you behind vehicles you could never meet (the exam's
+  // right-turn convention, a main-road car turning away); on the road that
+  // is nothing to give way to, so they are not blockers here.
+  const byId = Object.fromEntries(scene.vehicles.map((v) => [v.id, v]));
+  junction.clearFraction = {};
+  junction.blockers = (resolution.yields.you || []).filter((id) => {
+    if (!byId[id]) return false;
+    const fraction = clearFractionFor(scene, byId[id], byId.you);
+    if (fraction === null) return false;
+    junction.clearFraction[id] = fraction;
+    return true;
+  });
   // Vehicles sharing an arm queue behind each other in the order they go.
   junction.queueBack = Object.fromEntries(scene.vehicles.map((v) => [v.id, queueBackFor(scene, resolution.order, v.id)]));
 };
@@ -292,7 +297,6 @@ const createJunction = (rng, level, prev) => {
   junction.late = false;
   junction.ranRed = false;
   junction.ranStop = false;
-  junction.cutIn = null;
   junction.stoppedAtTime = null;
   junction.resumedAt = null;
   applyResolution(junction);
@@ -319,7 +323,7 @@ const markJunction = (run, junction, routeOffset) => {
   // whole ring counts as this junction and you never "pass" it while circling.
   junction.sExitBox = junction.ring
     ? (junction.ring.exitTo ? junction.sEnd - (CENTER - RING_R - 6) : Infinity)
-    : routeOffset + (WAIT + 1) + ROAD_HALF * 2;
+    : routeOffset + (WAIT + 1) + boxHalf(junction.scene, 'S') * 2;
   return junction;
 };
 
@@ -335,7 +339,7 @@ export const createRun = (rng, level = 1) => {
     streak: 0,
     passed: 0,
     junctions: [],
-    route: measure([approachPoint('S', CENTER + LEAD_ROAD), approachPoint('S', ROAD_HALF + WAIT)]), // placeholder
+    route: measure([approachPoint('S', CENTER + LEAD_ROAD), approachPoint('S', ROAD_HALF + WAIT)]), // placeholder, replaced by rebuildRoute
     s: 0,               // your distance along the route
     v: 0,               // current speed (units/s); eases towards `speed`
     brakeLights: false,
@@ -358,7 +362,8 @@ export const createRun = (rng, level = 1) => {
 
 /** Recompute the route polyline from all junctions and mark their distances. */
 const rebuildRoute = (run) => {
-  const points = [approachPoint('S', CENTER + LEAD_ROAD)]; // open road before the first junction
+  const first = run.junctions[0];
+  const points = [approachPoint('S', CENTER + LEAD_ROAD, first.scene, first.scene.vehicles.find((v) => v.id === 'you'))]; // open road before the first junction
   let offset = 0;
   run.junctions.forEach((junction, i) => {
     const through = junction.through;
@@ -398,9 +403,14 @@ const schedule = (run, junction) => {
   const arriveAt = run.now + ((junction.sWait - run.s) / run.speed) * 1000;
   const clearAt = arriveAt + decisionMarginFor(run.level) * (scene.control?.type === 'lights' ? LIGHTS_MARGIN_FACTOR : 1);
   const groups = resolution.order;
+  // Vehicles scheduled to cross before you roll in just before they do;
+  // anything that waits at its line first (followers, and a blocker left
+  // out by a deadlock) stays put, no jumping back.
+  junction.rollIn = Object.fromEntries(scene.vehicles.map((v) => [v.id, 0]));
   // Last blocking group clears at clearAt; earlier groups one gap earlier each.
   let groupStart = clearAt;
   for (let k = junction.youGroup - 1; k >= 0; k--) {
+    for (const id of groups[k]) junction.rollIn[id] = ROLL_IN_MS;
     let longest = 0;
     for (const id of groups[k]) longest = Math.max(longest, clearMsOf(junction, id));
     const start = Math.max(run.now, groupStart - longest);
@@ -413,10 +423,6 @@ const schedule = (run, junction) => {
     if (start === null) continue;
     clearAtReal = Math.max(clearAtReal, start + clearMsOf(junction, id));
   }
-  // Vehicles scheduled to cross before you roll in just before they do;
-  // anything that waits at its line first (followers, and a blocker left
-  // out by a deadlock) stays put, no jumping back.
-  junction.rollIn = Object.fromEntries(scene.vehicles.map((v) => [v.id, junction.starts[v.id] !== null ? ROLL_IN_MS : 0]));
   junction.arriveAt = arriveAt;
   junction.clearAt = junction.blockers.length ? clearAtReal : run.now;
   junction.t0 = run.now;
@@ -621,11 +627,11 @@ const readyAtOf = (junction) => {
   return ready;
 };
 
-/** Blockers whose path really crosses yours and who are still on it at `now`. */
+/** Blockers still on your path at `now`. */
 const stillCrossing = (junction, now) =>
   junction.blockers.filter((id) => {
     const start = junction.starts[id];
-    return start !== null && now < start + clearMsOf(junction, id) && junction.conflicts[id];
+    return start !== null && now < start + clearMsOf(junction, id);
   });
 
 /** The scene's lights as they were when you had to decide: red for you when the cross traffic went first. */
@@ -644,7 +650,8 @@ const recordControl = (scene) => {
  */
 export const junctionRecord = (run, junction, outcome) => {
   const you = junction.scene.vehicles.find((v) => v.id === 'you');
-  const reasons = junction.resolution.reasons.filter((r) => r.who === 'you' || r.to === 'you');
+  // Only vehicles you really had to wait for count as reasons against you.
+  const reasons = junction.resolution.reasons.filter((r) => (r.who === 'you' && junction.blockers.includes(r.to)) || r.to === 'you');
   return {
     index: junction.index,
     level: run.level,
@@ -656,7 +663,6 @@ export const junctionRecord = (run, junction, outcome) => {
     late: Boolean(junction.late),
     ranRed: Boolean(junction.ranRed),
     ranStop: Boolean(junction.ranStop),
-    cutIn: junction.cutIn || null,
     stopSign: stopSignFor(junction),
     lights: junction.scene.control?.type === 'lights' ? (junction.scene.control.crossFirst ? 'cross-first' : 'you-first') : null,
     laps: junction.ring ? junction.ring.laps : 0,
@@ -725,7 +731,7 @@ const passJunction = (run, junction) => {
   const base = 100 + (run.level - 1) * 15;
   const bonus = junction.earlyResume ? 60 : 0;
   const multiplier = Math.min(2, 1 + 0.1 * run.streak);
-  const spoiled = junction.hesitated || wrongWay || junction.late || junction.ranRed || junction.ranStop || Boolean(junction.cutIn);
+  const spoiled = junction.hesitated || wrongWay || junction.late || junction.ranRed || junction.ranStop;
   const points = spoiled ? 0 : Math.round((base + bonus) * multiplier);
   junction.wrongWay = wrongWay;
   junction.points = points;
@@ -733,7 +739,7 @@ const passJunction = (run, junction) => {
   run.streak = spoiled ? 0 : run.streak + 1;
   if (wrongWay) run.events.push({ type: 'wrongWay', junction: junction.index, instruction: junction.instruction, executed: junction.executedTo });
   run.events.push({
-    type: 'passed', junction: junction.index, points, hesitated: junction.hesitated, wrongWay, late: junction.late, ranRed: junction.ranRed, ranStop: junction.ranStop, cutIn: junction.cutIn,
+    type: 'passed', junction: junction.index, points, hesitated: junction.hesitated, wrongWay, late: junction.late, ranRed: junction.ranRed, ranStop: junction.ranStop,
     early: Boolean(junction.earlyResume), record: junctionRecord(run, junction, spoiled ? 'spoiled' : 'clean'),
   });
   if (run.passed % JUNCTIONS_PER_LEVEL === 0) {
@@ -827,8 +833,6 @@ export const step = (run, now) => {
   }
 
   // Entering the box while a blocker is still crossing your path is a crash.
-  // A blocker you had to wait for by rule alone (its path never meets yours)
-  // cannot be hit: entering before it has cleared is cutting in, a mistake.
   if (run.s >= junction.sLine && !junction.crashed && !junction.passed) {
     if (junction.blockers.length && now < junction.clearAt) {
       const crossing = stillCrossing(junction, now);
@@ -836,14 +840,6 @@ export const step = (run, now) => {
         run.s = junction.sLine;
         crash(run, junction, latestOf(junction, crossing));
         return run.events.splice(0);
-      }
-      if (junction.starts.you === null && !junction.cutIn) {
-        const to = latestOf(junction, junction.blockers.filter((id) => junction.starts[id] !== null && now < junction.starts[id] + clearMsOf(junction, id)));
-        if (to) {
-          junction.cutIn = to;
-          run.streak = 0;
-          run.events.push({ type: 'cutIn', junction: junction.index, to, rule: (junction.resolution.reasons.find((r) => r.who === 'you' && r.to === to) || {}).rule || null });
-        }
       }
     }
     if (junction.starts.you === null) {
@@ -894,8 +890,7 @@ export const vehiclePoses = (run) => {
       const pose = poseAt(junction.scene, v, start, local, junction.pathCache, junction.rollIn ? junction.rollIn[v.id] : 0, junction.queueBack ? junction.queueBack[v.id] : 0);
       if (!pose) continue;
       const w = toWorld(junction, pose);
-      const progress = start === null || local < start ? 0 : Math.min(1, (local - start) / durationOf(v));
-      out.push({ junction, vehicle: v, pose: { x: w.x, y: w.y, angle: (pose.angle + junction.rot) % 360 }, progress, local: { x: pose.x, y: pose.y } });
+      out.push({ junction, vehicle: v, pose: { x: w.x, y: w.y, angle: (pose.angle + junction.rot) % 360 }, progress: pose.progress, local: { x: pose.x, y: pose.y } });
     }
   }
   return out;

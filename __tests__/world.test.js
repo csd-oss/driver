@@ -129,6 +129,7 @@ describe('vehicle motion', () => {
       followInstructor(run, events);
       const j = currentJunction(run);
       if (!j.scheduled || !j.blockers.length) continue;
+      if (!j.stopped && run.s < j.sLine && j.sWait - run.s < 70 && run.stoppedAt === null && !run.braking) applyInput(run, 'brake');
       const blocker = j.blockers[0];
       const before = vehiclePoses(run).find((p) => p.vehicle.id === blocker && p.junction.index === j.index);
       if (!before) continue;
@@ -610,43 +611,37 @@ describe('brake reaction, turn-means-go, blinker', () => {
   });
 });
 
-describe('rule-only blockers', () => {
-  const drive = (run, ms, onTick) => {
-    const events = [];
-    let now = run.now;
-    for (let t = 0; t <= ms; t += 16) {
-      now += 16;
-      const evs = step(run, now);
-      events.push(...evs);
-      if (onTick) onTick(run, now, evs);
-      if (run.over || run.passed >= 1) break;
-    }
-    return events;
-  };
-
-  it('a blocker whose path never meets yours can be cut in on, but never hit', () => {
-    // Find a first junction where every blocker is priority-by-rule only.
+describe('vehicles you could never meet', () => {
+  it('are not blockers: no crash, no penalty, and they are not among the reasons', () => {
+    const { resolve } = require('../src/lib/priority/engine');
+    // A right turn while a car comes straight out of the arm you enter: the
+    // engine orders you behind it (exam convention), the road does not.
+    const scene = { layout: 'cross', arms: ['N', 'E', 'S', 'W'], signs: {}, mainRoad: null, tramTracks: [], control: null, pedestrians: [],
+      vehicles: [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: 'E' }, { id: 'yellow', kind: 'car', color: 'yellow', from: 'E', to: 'W' }] };
+    expect(resolve(scene).yields.you).toContain('yellow');
     let run = null;
-    for (let seed = 1; seed < 400 && !run; seed++) {
-      const r = createRun(makeRng(seed), 2);
-      const j = r.junctions[0];
-      if (j.ring || !j.blockers.length || !j.scene.arms.includes('N')) continue;
-      const { clearFractionFor } = require('../src/lib/priority/conflict');
-      const you = j.scene.vehicles.find((v) => v.id === 'you');
-      const byId = Object.fromEntries(j.scene.vehicles.map((v) => [v.id, v]));
-      if (j.blockers.every((id) => clearFractionFor(j.scene, byId[id], you) === null) && j.instruction.turn === 'straight') run = r;
+    for (let seed = 1; seed < 200 && !run; seed++) {
+      const r = createRun(makeRng(seed), 1);
+      if (!r.junctions[0].ring) run = r;
     }
-    expect(run).toBeTruthy();
-    const events = drive(run, 60000, (r, now, evs) => followInstructor(r, evs)); // never brakes
+    // Swap in the scene above as the first junction.
+    const j = run.junctions[0];
+    j.scene = { ...scene, id: 'test', level: 1 };
+    j.instruction = { kind: 'right', turn: 'right', to: 'E' };
+    j.pathCache = {};
+    const { applyInput: input } = require('../src/lib/priority/world');
+    input(run, 'right'); // re-resolves and re-lays the road along E
+    expect(j.blockers).toEqual([]);
+    let now = 0;
+    const events = [];
+    for (let i = 0; i < 4000 && run.passed < 1; i++) {
+      now += 16;
+      events.push(...step(run, now));
+    }
     expect(events.some((e) => e.type === 'crash')).toBe(false);
-    expect(run.lives).toBe(LIVES);
-    const cut = events.find((e) => e.type === 'cutIn');
-    expect(cut).toBeTruthy();
-    expect(cut.rule).toBeTruthy();
     const passed = events.find((e) => e.type === 'passed');
-    expect(passed.cutIn).toBe(cut.to);
-    expect(passed.points).toBe(0);
-    expect(passed.record.outcome).toBe('spoiled');
+    expect(passed.points).toBeGreaterThan(0);
+    expect(passed.record.reasons.filter((r) => r.who === 'you')).toEqual([]);
   });
 });
 
@@ -667,7 +662,7 @@ describe('crash clears the swipe', () => {
         step(r, t);
       }
       applyInput(r, 'right');
-      if (first.blockers.some((id) => first.conflicts[id])) {
+      if (first.blockers.length) {
         run = r;
         j = first;
         now = t;

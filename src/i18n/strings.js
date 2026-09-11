@@ -2027,11 +2027,6 @@ export const STR = {
     2: 'STOP sign: swipe down to stop, then up once it is clear.',
     3: 'STOP tábla: húzz lefelé a megálláshoz, majd felfelé, ha szabad az út.',
   },
-  'crossing.cutIn': {
-    1: 'Nedal si prednosť: {vehicle} malo prednosť.',
-    2: 'You did not give way: {vehicle} had priority.',
-    3: 'Nem adtál elsőbbséget: {vehicle} elsőbbséget élvezett.',
-  },
   'crossing.coach.intro': {
     1: 'Prvé tri križovatky idú pomalšie a napovedáme ti.',
     2: 'The first three junctions are slower and come with hints.',

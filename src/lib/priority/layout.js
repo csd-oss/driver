@@ -32,10 +32,30 @@ const armPoint = (arm, d, lane) => {
   }
 };
 
-/** Approach lane point for a vehicle arriving on `arm`, `d` from the centre. */
-export const approachPoint = (arm, d) => armPoint(arm, d, LANE);
+// Roads with tram tracks are wider: the tracks run down the middle (one per
+// direction, TRACK_OFFSET right of the axis), the car lanes sit outside them.
+export const WIDE_HALF = 18;     // half width of an arm carrying tracks
+export const TRACK_OFFSET = 2.5; // a tram runs this far right of the road axis
+export const LANE_HALF = 6;      // half a lane
+
+/** Does this arm carry tram tracks (as the start or the end of a track)? */
+export const hasTrack = (scene, arm) => Boolean(scene && (scene.tramTracks || []).some((t) => t.from === arm || t.to === arm));
+/** Half width of the road on `arm`. */
+export const roadHalf = (scene, arm) => (hasTrack(scene, arm) ? WIDE_HALF : ROAD_HALF);
+/** Car lane centre offset from the axis on `arm` (6 on a plain road, 12 beside tracks). */
+export const laneOffset = (scene, arm) => roadHalf(scene, arm) - LANE_HALF;
+/** Half extent of the crossing box along `arm`: the half width of the road it crosses. */
+export const boxHalf = (scene, arm) => {
+  if (!scene || scene.layout === 'roundabout') return ROAD_HALF;
+  const across = arm === 'N' || arm === 'S' ? ['E', 'W'] : ['N', 'S'];
+  return Math.max(...across.map((a) => roadHalf(scene, a)));
+};
+const offsetFor = (scene, arm, vehicle) => (vehicle && vehicle.kind === 'tram' ? TRACK_OFFSET : scene ? laneOffset(scene, arm) : LANE);
+
+/** Approach lane point for a vehicle arriving on `arm`, `d` from the centre (a tram sits on its track). */
+export const approachPoint = (arm, d, scene, vehicle) => armPoint(arm, d, offsetFor(scene, arm, vehicle));
 /** Exit lane point for a vehicle leaving by `arm`, `d` from the centre. */
-export const exitPoint = (arm, d) => armPoint(arm, d, -LANE);
+export const exitPoint = (arm, d, scene, vehicle) => armPoint(arm, d, -offsetFor(scene, arm, vehicle));
 
 const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 
@@ -56,10 +76,10 @@ const line = (a, b, n) => {
   return pts;
 };
 
-const cornerFor = (from, to) => {
+const cornerFor = (from, to, scene, vehicle) => {
   // Control point for a turn: the corner of the crossing box between the arms.
-  const entry = approachPoint(from, ROAD_HALF);
-  const exit = exitPoint(to, ROAD_HALF);
+  const entry = approachPoint(from, boxHalf(scene, from), scene, vehicle);
+  const exit = exitPoint(to, boxHalf(scene, to), scene, vehicle);
   const vertical = from === 'N' || from === 'S';
   return vertical ? { x: entry.x, y: exit.y } : { x: exit.x, y: entry.y };
 };
@@ -69,16 +89,16 @@ const cornerFor = (from, to) => {
  * position (WAIT units before the box) to the far end of the exit arm.
  */
 export const WAIT = 8;
-export const crossingPath = (from, to) => {
-  const start = approachPoint(from, CENTER);           // arm end
-  const wait = approachPoint(from, ROAD_HALF + WAIT);   // waiting position
-  const entry = approachPoint(from, ROAD_HALF);
-  const exit = exitPoint(to, ROAD_HALF);
-  const end = exitPoint(to, CENTER);
+export const crossingPath = (from, to, scene, vehicle) => {
+  const start = approachPoint(from, CENTER, scene, vehicle);                     // arm end
+  const wait = approachPoint(from, boxHalf(scene, from) + WAIT, scene, vehicle); // waiting position
+  const entry = approachPoint(from, boxHalf(scene, from), scene, vehicle);
+  const exit = exitPoint(to, boxHalf(scene, to), scene, vehicle);
+  const end = exitPoint(to, CENTER, scene, vehicle);
   const turn = turnOf(from, to);
   let through;
   if (turn === 'straight') through = line(entry, exit, 8);
-  else if (turn === 'right') through = bezier(entry, cornerFor(from, to), exit, 10);
+  else if (turn === 'right') through = bezier(entry, cornerFor(from, to, scene, vehicle), exit, 10);
   else if (turn === 'left') {
     // Wide arc through the middle of the box.
     const mid = { x: CENTER, y: CENTER };
@@ -199,7 +219,7 @@ export const roundaboutPath = (from, to) => {
 };
 
 export const vehiclePath = (scene, vehicle) =>
-  scene.layout === 'roundabout' ? roundaboutPath(vehicle.from, vehicle.to) : crossingPath(vehicle.from, vehicle.to);
+  scene.layout === 'roundabout' ? roundaboutPath(vehicle.from, vehicle.to) : crossingPath(vehicle.from, vehicle.to, scene, vehicle);
 
 const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
 
@@ -222,8 +242,12 @@ export const pointAlong = (points, t) => {
   return { ...last, angle: 0 };
 };
 
-/** Where a sign for traffic arriving on `arm` stands: right of the lane, before the box. */
-export const signPoint = (arm, layout) => {
-  const d = (layout === 'roundabout' ? RING_R : ROAD_HALF) + 5;
-  return armPoint(arm, d, ROAD_HALF + 4);
+/** Where a sign for traffic arriving on `arm` stands: right of the road, before the box. */
+export const signPoint = (arm, layout, scene) => {
+  const ring = layout === 'roundabout';
+  const d = (ring ? RING_R : boxHalf(scene, arm)) + 5;
+  return armPoint(arm, d, (ring ? ROAD_HALF : roadHalf(scene, arm)) + 4);
 };
+
+/** Point on the arm's axis at `d` from the centre, offset `lane` to the right of travel towards the centre. */
+export const armPointOf = (arm, d, lane) => armPoint(arm, d, lane);

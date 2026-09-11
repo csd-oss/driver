@@ -198,17 +198,12 @@ export default function CrossingScreen() {
         } else if (e.type === 'ranStop') {
           setToast({ kind: 'wrong', text: t('crossing.ranStop', lang), until: tNow + TOAST_MS + 400 });
           haptic.honk();
-        } else if (e.type === 'cutIn') {
-          const junction = run.junctions.find((j: any) => j.index === e.junction);
-          const vehicle = junction?.scene?.vehicles?.find((v: any) => v.id === e.to);
-          const name = vehicle ? t(`crossing.vehicle.${vehicle.color}`, lang) : '';
-          setToast({ kind: 'wrong', text: tf('crossing.cutIn', lang, { vehicle: name }), until: tNow + TOAST_MS + 400 });
-          haptic.honk();
+
         } else if (e.type === 'passed') {
           highlightRef.current = [];
           setInstruction(null);
           setCoachHint(null);
-          if (!e.hesitated && !e.wrongWay && !e.late && !e.ranRed && !e.ranStop && !e.cutIn) {
+          if (!e.hesitated && !e.wrongWay && !e.late && !e.ranRed && !e.ranStop) {
             setToast({ kind: 'ok', text: tf('game.plusPoints', lang, { points: e.points }), until: tNow + 900 });
             haptic.passed();
           }
@@ -295,6 +290,7 @@ export default function CrossingScreen() {
     const seed = __DEV__ && params.seed ? Number(params.seed) : Date.now() % 1000003;
     const level = __DEV__ && params.level ? Math.max(1, Number(params.level)) : 1;
     runRef.current = createRun(makeRng(seed), level);
+    if (__DEV__) console.log(`[crossing] run seed=${seed} level=${level}`);
     runRef.current.now = now();
     runRef.current.coach = roundsPlayed === 0;
     runIdRef.current = generateId();

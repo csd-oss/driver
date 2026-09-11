@@ -94,7 +94,8 @@ const buildCrossing = (rng, band) => {
     if (band.bent && arms.includes('N')) for (const side of others.filter((a) => a === 'E' || a === 'W')) notThroughYou.push(['N', side]);
     mainRoad = notThroughYou.length && chance(rng, 0.5) ? pick(rng, notThroughYou) : pick(rng, candidates);
     for (const a of arms) {
-      if (mainRoad.includes(a)) signs[a] = chance(rng, 0.7) ? 'main' : null;
+      // Your own arm is always signed, so what you may do is readable from your seat.
+      if (mainRoad.includes(a)) signs[a] = a === 'S' || chance(rng, 0.85) ? 'main' : null;
       else signs[a] = chance(rng, 0.7) ? 'yield' : 'stop';
     }
     // A plain straight main road through you sometimes goes unsigned (right-hand rule applies).

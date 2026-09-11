@@ -1,15 +1,26 @@
 import { Circle, G, Line, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
+import { leftOf, oppositeOf, rightOf } from '@/src/lib/priority/geometry';
 import {
   CENTER,
-  EDGE,
   ISLAND_R,
   LANE,
   RING_R,
-  ROAD_HALF,
   SIZE,
-  approachPoint,
   signPoint,
 } from '@/src/lib/priority/layout';
+import {
+  approachLine,
+  armRect,
+  boxRect,
+  extensionPoints,
+  extensionShapes,
+  laneLines,
+  laneMarkPoint,
+  mainRoadBend,
+  pedestrianPoint,
+  pointsAttr,
+  trackRailPaths,
+} from './roadShapes';
 import type { SceneLike } from './types';
 
 export type LightPhase = 'red' | 'redyellow' | 'green' | 'yellow';
@@ -31,9 +42,8 @@ interface Props {
 const ARM_ROT: Record<string, number> = { S: 0, W: 90, N: 180, E: 270 };
 
 /** Painted give-way triangle or STOP text in the approach lane, so the sign's road is obvious from above. */
-const LaneMarking = ({ arm, layout, kind, colour }: { arm: string; layout: string; kind: 'yield' | 'stop'; colour: string }) => {
-  const d = (layout === 'roundabout' ? RING_R + LANE + 1 : ROAD_HALF + 1) + 6;
-  const p = approachPoint(arm, d);
+const LaneMarking = ({ scene, arm, kind, colour }: { scene: SceneLike; arm: string; kind: 'yield' | 'stop'; colour: string }) => {
+  const p = laneMarkPoint(scene, arm);
   return (
     <G transform={`translate(${p.x} ${p.y}) rotate(${ARM_ROT[arm]})`}>
       {kind === 'yield' ? (
@@ -46,8 +56,8 @@ const LaneMarking = ({ arm, layout, kind, colour }: { arm: string; layout: strin
 };
 
 /** Three-lamp traffic light head beside the lane, lit for the given phase. */
-const LightHead = ({ arm, layout, phase }: { arm: string; layout: string; phase: LightPhase }) => {
-  const p = signPoint(arm, layout);
+const LightHead = ({ scene, arm, phase }: { scene: SceneLike; arm: string; phase: LightPhase }) => {
+  const p = signPoint(arm, scene.layout, scene);
   const on = (lamp: 'red' | 'yellow' | 'green') =>
     (lamp === 'red' && (phase === 'red' || phase === 'redyellow')) ||
     (lamp === 'yellow' && (phase === 'yellow' || phase === 'redyellow')) ||
@@ -62,32 +72,6 @@ const LightHead = ({ arm, layout, phase }: { arm: string; layout: string; phase:
       <Circle cx={0} cy={3.4} r={1.5} fill={lampFill('green')} />
     </G>
   );
-};
-
-const armRect = (arm: string, extend: number) => {
-  switch (arm) {
-    case 'N': return { x: EDGE, y: -extend, w: ROAD_HALF * 2, h: CENTER + extend };
-    case 'S': return { x: EDGE, y: CENTER, w: ROAD_HALF * 2, h: CENTER + extend };
-    case 'W': return { x: -extend, y: EDGE, w: CENTER + extend, h: ROAD_HALF * 2 };
-    default: return { x: CENTER, y: EDGE, w: CENTER + extend, h: ROAD_HALF * 2 };
-  }
-};
-
-const centreLine = (arm: string, layout: string, extend: number) => {
-  const inner = layout === 'roundabout' ? RING_R + LANE : ROAD_HALF;
-  switch (arm) {
-    case 'N': return { x1: CENTER, y1: -extend, x2: CENTER, y2: CENTER - inner };
-    case 'S': return { x1: CENTER, y1: SIZE + extend, x2: CENTER, y2: CENTER + inner };
-    case 'W': return { x1: -extend, y1: CENTER, x2: CENTER - inner, y2: CENTER };
-    default: return { x1: SIZE + extend, y1: CENTER, x2: CENTER + inner, y2: CENTER };
-  }
-};
-
-const approachLine = (arm: string, layout: string) => {
-  const d = layout === 'roundabout' ? RING_R + LANE + 1 : ROAD_HALF + 1;
-  const a = approachPoint(arm, d);
-  if (arm === 'N' || arm === 'S') return { x1: a.x - LANE, y1: a.y, x2: a.x + LANE, y2: a.y };
-  return { x1: a.x, y1: a.y - LANE, x2: a.x, y2: a.y + LANE };
 };
 
 const BACK = '#9ca3af';
@@ -139,6 +123,29 @@ const Sign = ({ kind, x, y }: { kind: string; x: number; y: number }) => {
   return null;
 };
 
+/**
+ * "Tvar križovatky" panel under a main-road sign: the junction from this arm's
+ * point of view, the main road thick. Rotated with the arm so up is towards
+ * the junction, i.e. the bend goes the way the driver would steer.
+ */
+const MainShapePanel = ({ scene, arm, x, y, bend }: { scene: SceneLike; arm: string; x: number; y: number; bend: 'left' | 'right' }) => {
+  const hw = 3.2;
+  const hh = 2.5;
+  const sx = bend === 'right' ? 1 : -1;
+  const others: string[] = scene.arms ?? [];
+  const opposite = oppositeOf(arm);
+  const side = bend === 'right' ? leftOf(arm) : rightOf(arm); // the arm the main road does not take
+  return (
+    // Hung under the diamond in the arm's own frame, so it never lands on the road.
+    <G transform={`translate(${x} ${y}) rotate(${ARM_ROT[arm]}) translate(0 7.7)`}>
+      <Rect x={-hw} y={-hh} width={2 * hw} height={2 * hh} rx={0.6} fill="#ffffff" stroke="#1f2937" strokeWidth={0.4} />
+      {others.includes(opposite) && <Line x1={0} y1={0} x2={0} y2={-hh} stroke="#111827" strokeWidth={0.4} />}
+      {others.includes(side) && <Line x1={0} y1={0} x2={-sx * hw} y2={0} stroke="#111827" strokeWidth={0.4} />}
+      <Path d={`M 0 ${hh} L 0 0 L ${sx * hw} 0`} fill="none" stroke="#111827" strokeWidth={1.1} strokeLinejoin="round" />
+    </G>
+  );
+};
+
 /** Blue "roundabout" disc: three white arrows chasing each other counter-clockwise (as driven). */
 const RoundaboutSign = ({ x, y }: { x: number; y: number }) => {
   const r = 2.3;
@@ -170,6 +177,9 @@ const RoundaboutSign = ({ x, y }: { x: number; y: number }) => {
 /** Roads, markings, signs, tracks, officer, lights, pedestrians of one junction, in its local frame. */
 export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0, ownArm }: Props) => {
   const ext = (arm: string) => extendArms[arm] ?? sideExtend;
+  // Only an arm the run continues along meets the next junction's plain road, so
+  // only that one tapers; a tram street cut off by the frame keeps its width.
+  const tapers = (arm: string) => extendArms[arm] != null;
   const grass = dark ? '#1a2e1a' : '#cfe8bf';
   const asphalt = dark ? '#334155' : '#8f96a3';
   const marking = dark ? '#cbd5e1' : '#f8fafc';
@@ -178,6 +188,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
   const treeFill = dark ? '#245c2e' : '#3f9c4a';
   const treeDark = dark ? '#1b4522' : '#2f7a38';
   const K = 2.2; // kerb width
+  const box = boxRect(scene);
   // Deterministic tree spots per quadrant, away from the roads.
   const trees = [
     { x: 12, y: 12, r: 4 }, { x: 24, y: 8, r: 2.6 }, { x: 8, y: 26, r: 3 },
@@ -185,6 +196,23 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
     { x: 12, y: 88, r: 3.4 }, { x: 24, y: 92, r: 2.6 }, { x: 8, y: 74, r: 2.8 },
     { x: 88, y: 88, r: 4 }, { x: 76, y: 92, r: 2.4 }, { x: 92, y: 74, r: 3 },
   ];
+  /** An arm's road, as the in-frame rectangle plus the (possibly tapering) extension beyond it. */
+  const armShapes = (arm: string, pad: number, fill: string, tag: string) => {
+    const r = armRect(scene, arm, 0);
+    const vertical = arm === 'N' || arm === 'S';
+    return (
+      <G key={`${tag}-${arm}`}>
+        {vertical ? (
+          <Rect x={r.x - pad} y={r.y} width={r.w + 2 * pad} height={r.h} fill={fill} />
+        ) : (
+          <Rect x={r.x} y={r.y - pad} width={r.w} height={r.h + 2 * pad} fill={fill} />
+        )}
+        {extensionShapes(scene, arm, ext(arm), tapers(arm)).map((s, i) => (
+          <Polygon key={i} points={pointsAttr(extensionPoints(arm, s, pad))} fill={fill} />
+        ))}
+      </G>
+    );
+  };
   return (
     <G>
       <Rect x={0} y={0} width={SIZE} height={SIZE} fill={grass} />
@@ -195,34 +223,25 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
           <Circle cx={tr.x - tr.r * 0.3} cy={tr.y - tr.r * 0.3} r={tr.r * 0.55} fill={treeDark} opacity={0.5} />
         </G>
       ))}
-      {scene.arms.map((arm) => {
-        // Kerbs run along the road only; no cap across it, so consecutive
-        // junction frames join without a seam.
-        const r = armRect(arm, ext(arm));
-        const vertical = arm === 'N' || arm === 'S';
-        return vertical ? (
-          <Rect key={`kerb-${arm}`} x={r.x - K} y={r.y} width={r.w + 2 * K} height={r.h} fill={kerb} />
-        ) : (
-          <Rect key={`kerb-${arm}`} x={r.x} y={r.y - K} width={r.w} height={r.h + 2 * K} fill={kerb} />
-        );
-      })}
-      {!isRoundabout && <Rect x={EDGE - K} y={EDGE - K} width={ROAD_HALF * 2 + 2 * K} height={ROAD_HALF * 2 + 2 * K} fill={kerb} />}
+      {/* Kerbs run along the road only; no cap across it, so consecutive
+          junction frames join without a seam. */}
+      {scene.arms.map((arm) => armShapes(arm, K, kerb, 'kerb'))}
+      {!isRoundabout && <Rect x={box.x - K} y={box.y - K} width={box.w + 2 * K} height={box.h + 2 * K} fill={kerb} />}
       {isRoundabout && <Circle cx={CENTER} cy={CENTER} r={RING_R + LANE + 1 + K} fill={kerb} />}
-      {scene.arms.map((arm) => {
-        const r = armRect(arm, ext(arm));
-        return <Rect key={arm} x={r.x} y={r.y} width={r.w} height={r.h} fill={asphalt} />;
-      })}
+      {scene.arms.map((arm) => armShapes(arm, 0, asphalt, 'road'))}
       {isRoundabout ? (
         <>
           <Circle cx={CENTER} cy={CENTER} r={RING_R + LANE + 1} fill={asphalt} />
           <Circle cx={CENTER} cy={CENTER} r={ISLAND_R} fill={grass} stroke={marking} strokeWidth={0.6} />
         </>
       ) : (
-        <Rect x={EDGE} y={EDGE} width={ROAD_HALF * 2} height={ROAD_HALF * 2} fill={asphalt} />
+        <Rect x={box.x} y={box.y} width={box.w} height={box.h} fill={asphalt} />
       )}
-      {scene.arms.map((arm) => (
-        <Line key={`c-${arm}`} {...centreLine(arm, scene.layout, ext(arm))} stroke={marking} strokeWidth={0.7} strokeDasharray="4 3" />
-      ))}
+      {scene.arms.map((arm) =>
+        laneLines(scene, arm, ext(arm)).map((l, i) => (
+          <Line key={`c-${arm}-${i}`} {...l} stroke={marking} strokeWidth={0.7} strokeDasharray="4 3" />
+        )),
+      )}
       {scene.arms.map((arm) => {
         const sign = scene.signs?.[arm] ?? null;
         const isStop = sign === 'stop' || sign === 'roundabout-stop';
@@ -230,8 +249,8 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
         if (!isStop && !isYield) return null;
         return (
           <G key={`s-${arm}`}>
-            <Line {...approachLine(arm, scene.layout)} stroke={marking} strokeWidth={isStop ? 1.4 : 1} strokeDasharray={isYield ? '1.5 1.2' : undefined} />
-            <LaneMarking arm={arm} layout={scene.layout} kind={isStop ? 'stop' : 'yield'} colour={marking} />
+            <Line {...approachLine(scene, arm)} stroke={marking} strokeWidth={isStop ? 1.4 : 1} strokeDasharray={isYield ? '1.5 1.2' : undefined} />
+            <LaneMarking scene={scene} arm={arm} kind={isStop ? 'stop' : 'yield'} colour={marking} />
           </G>
         );
       })}
@@ -239,26 +258,20 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
         scene.arms.map((arm) => {
           // A stop line for every arm with a light; the lane belongs to that light.
           if (!scene.control?.arms?.[arm] && !lights?.[arm]) return null;
-          return <Line key={`ll-${arm}`} {...approachLine(arm, scene.layout)} stroke={marking} strokeWidth={1.4} />;
+          return <Line key={`ll-${arm}`} {...approachLine(scene, arm)} stroke={marking} strokeWidth={1.4} />;
         })}
-      {(scene.tramTracks ?? []).map((t, i) => {
-        const horizontal = (t.from === 'W' && t.to === 'E') || (t.from === 'E' && t.to === 'W');
-        return horizontal ? (
-          <G key={`t-${i}`}>
-            <Line x1={0} y1={CENTER - 1.4} x2={SIZE} y2={CENTER - 1.4} stroke="#4b5563" strokeWidth={0.5} />
-            <Line x1={0} y1={CENTER + 1.4} x2={SIZE} y2={CENTER + 1.4} stroke="#4b5563" strokeWidth={0.5} />
-          </G>
-        ) : (
-          <G key={`t-${i}`}>
-            <Line x1={CENTER - 1.4} y1={0} x2={CENTER - 1.4} y2={SIZE} stroke="#4b5563" strokeWidth={0.5} />
-            <Line x1={CENTER + 1.4} y1={0} x2={CENTER + 1.4} y2={SIZE} stroke="#4b5563" strokeWidth={0.5} />
-          </G>
-        );
-      })}
+      {/* Two tracks per line, one per direction, in the middle of the wide road. */}
+      {(scene.tramTracks ?? []).map((t, i) => (
+        <G key={`t-${i}`}>
+          {trackRailPaths(scene, t, ext(t.from), ext(t.to)).map((d, j) => (
+            <Path key={j} d={d} fill="none" stroke="#4b5563" strokeWidth={0.5} />
+          ))}
+        </G>
+      ))}
       {scene.arms.map((arm) => {
         const sign = scene.signs?.[arm] ?? null;
         if (!sign) return null;
-        const p = signPoint(arm, scene.layout);
+        const p = signPoint(arm, scene.layout, scene);
         if (ownArm && arm !== ownArm) {
           if (sign === 'roundabout-yield' || sign === 'roundabout-stop') {
             return (
@@ -279,7 +292,13 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
             </G>
           );
         }
-        return <Sign key={`sign-${arm}`} kind={sign} x={p.x} y={p.y} />;
+        const bend = sign === 'main' || sign === 'main-end' ? mainRoadBend(scene, arm) : null;
+        return (
+          <G key={`sign-${arm}`}>
+            <Sign kind={sign} x={p.x} y={p.y} />
+            {bend && <MainShapePanel scene={scene} arm={arm} x={p.x} y={p.y} bend={bend} />}
+          </G>
+        );
       })}
       {scene.control?.type === 'police' && (
         <G transform={`translate(${CENTER} ${CENTER}) rotate(${{ N: 0, E: 90, S: 180, W: 270 }[scene.control.facing ?? 'S']})`}>
@@ -301,11 +320,11 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
           const colour = scene.control?.arms?.[arm];
           if (!live && !colour) return null;
           const phase: LightPhase = live ?? (colour === 'red' ? 'red' : 'green');
-          return <LightHead key={`light-${arm}`} arm={arm} layout={scene.layout} phase={phase} />;
+          return <LightHead key={`light-${arm}`} scene={scene} arm={arm} phase={phase} />;
         })}
       {(scene.pedestrians ?? []).map((p, i) => {
-        const a = approachPoint(p.crossing, ROAD_HALF + 2.5);
-        return <Circle key={`ped-${i}`} cx={a.x - LANE} cy={a.y} r={1.3} fill="#f97316" />;
+        const a = pedestrianPoint(scene, p.crossing);
+        return <Circle key={`ped-${i}`} cx={a.x} cy={a.y} r={1.3} fill="#f97316" />;
       })}
     </G>
   );

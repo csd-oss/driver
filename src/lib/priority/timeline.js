@@ -102,28 +102,93 @@ const lengthOf = (points) =>
  * arm with one ahead that far behind the line; when it starts it first creeps
  * up to the line at its normal speed.
  */
-export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queueBack = 0) => {
+// Motion profiles. A vehicle that starts from rest accelerates over the
+// first EASE share of its drive time and then holds its cruising speed
+// (path length over its duration); a vehicle that rolls in keeps that
+// speed all along. Vehicles rolling up to a line slow into it.
+export const EASE = 0.3;
+export const ROLL_IN_MAX = 88; // a rolling-in vehicle appears at most this far behind its line
+const V_EASE = 1 / (1 - EASE / 2);
+/** Distance share covered at time share `u` when starting from rest. */
+export const easeIn = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u <= EASE ? (V_EASE * u * u) / (2 * EASE) : V_EASE * (u - EASE / 2));
+/** Time share at which a start from rest has covered distance share `d` (inverse of easeIn). */
+export const easeInTime = (d) => {
+  if (d <= 0) return 0;
+  if (d >= 1) return 1;
+  const atEase = (V_EASE * EASE) / 2;
+  return d <= atEase ? Math.sqrt((2 * EASE * d) / V_EASE) : d / V_EASE + EASE / 2;
+};
+const easeOut = (u) => 1 - (1 - u) * (1 - u);
+
+const cached = (scene, vehicle, pathCache) => {
   const key = vehicle.id;
   const path = pathCache[key] || (pathCache[key] = vehiclePath(scene, vehicle));
+  if (path.throughLength === undefined) path.throughLength = lengthOf(path.through);
+  return path;
+};
+
+/** The point `dist` units behind the waiting position, straight back along the approach. */
+const behindLine = (path, dist) => {
+  const a = path.approach[0];
+  const w = path.wait;
+  const len = Math.hypot(a.x - w.x, a.y - w.y) || 1;
+  return { x: w.x + ((a.x - w.x) / len) * dist, y: w.y + ((a.y - w.y) / len) * dist };
+};
+
+/**
+ * Milliseconds after its start at which a vehicle has covered `fraction`
+ * of its through path. `eased` for a start from rest (queued `queueBack`
+ * units behind its line), otherwise a steady roll-in.
+ */
+export const clearTimeMs = (scene, vehicle, fraction, eased, queueBack, pathCache) => {
+  const path = cached(scene, vehicle, pathCache);
+  const D = durationOf(vehicle);
+  if (!eased) return fraction * D;
+  const L = path.throughLength || 1;
+  const back = path.approach.length ? Math.max(0, queueBack) : 0;
+  const total = back + L;
+  return easeInTime((back + fraction * L) / total) * ((total / L) * D);
+};
+
+/**
+ * Where a vehicle is at scene time `now` (ms), given its `start` (ms, or
+ * null while unknown). Returns {x, y, angle, progress} with `progress` its
+ * share of the through path, or null once it has left the scene.
+ * `rollInMs` > 0: it rolls in at cruising speed and crosses without
+ * stopping. Otherwise it rolls up to its (queued) line, waits, and
+ * accelerates away from rest when its start comes.
+ */
+export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queueBack = 0) => {
+  const path = cached(scene, vehicle, pathCache);
+  const L = path.throughLength || 1;
+  const D = durationOf(vehicle);
+  const V = L / D; // units per ms at cruising speed
   const back = path.approach.length ? Math.max(0, queueBack) : 0;
   const queued = back > 0 ? queuePoint(scene, vehicle, back) : null;
-  // Approach shortened to the queued spot, and the creep from there to the line.
   const approach = back > 0 ? [path.approach[0], queued] : path.approach;
-  const gapMs = back > 0 ? (back / lengthOf(path.through)) * durationOf(vehicle) : 0;
   if (start !== null && rollInMs > 0) {
-    // Runner: a vehicle with a known start rolls in over its approach so
-    // that it reaches the box without stopping. Not in sight before that.
     const from = start - rollInMs;
     if (now < from) return null;
-    if (now < start) return approach.length ? pointAlong(approach, (now - from) / rollInMs) : pointAlong(path.through, 0.001);
-  } else if (start === null || now < start) {
-    if (approach.length && now < APPROACH_MS) {
-      return pointAlong(approach, Math.max(0, now) / APPROACH_MS);
+    if (now < start) {
+      if (!approach.length) return { ...pointAlong(path.through, 0.001), progress: 0 };
+      const dist = Math.min(V * rollInMs, ROLL_IN_MAX);
+      return { ...pointAlong([behindLine(path, dist), path.wait], (now - from) / rollInMs), progress: 0 };
     }
-    return back > 0 ? pointAlong(approach, 1) : pointAlong(path.through, 0.001);
+    const t = (now - start) / D;
+    if (t >= 1.05) return null;
+    const fr = Math.min(1, t);
+    return { ...pointAlong(path.through, fr), progress: fr };
   }
-  if (back > 0 && now - start < gapMs) return pointAlong([queued, path.wait], (now - start) / gapMs);
-  const t = (now - start - gapMs) / durationOf(vehicle);
-  if (t >= 1.05) return null;
-  return pointAlong(path.through, Math.min(1, Math.max(0, t)));
+  if (start === null || now < start) {
+    if (approach.length && now < APPROACH_MS) return { ...pointAlong(approach, easeOut(Math.max(0, now) / APPROACH_MS)), progress: 0 };
+    return { ...(back > 0 ? pointAlong(approach, 1) : pointAlong(path.through, 0.001)), progress: 0 };
+  }
+  // One drive from the (queued) line through the junction, from rest.
+  const total = back + L;
+  const u = (now - start) / (total / V);
+  if (u >= 1.05) return null;
+  const dist = easeIn(Math.min(1, u)) * total;
+  if (back > 0 && dist < back) return { ...pointAlong([queued, path.wait], dist / back), progress: 0 };
+  const fr = Math.min(1, (dist - back) / L);
+  return { ...pointAlong(path.through, fr), progress: fr };
 };
