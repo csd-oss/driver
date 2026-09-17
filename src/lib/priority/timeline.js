@@ -24,6 +24,10 @@ export const patienceFor = (level) => Math.max(1100, 2600 - (level - 1) * 140);
  *
  * @returns {{ starts: Record<string, number|null>, clearAt: number, deadline: number, youGoesAt: number }}
  */
+// The block below is the timing and scoring of the older tap-a-junction
+// mode. The runner schedules in `world.js` (`schedule`) and scores in
+// `passJunction`; only the tests reach these. Kept because a level pack of
+// the exam pictures would use them again.
 export const buildTimeline = (scene, resolution, level = 1) => {
   const groups = resolution.order;
   const youGoesAt = groups.findIndex((g) => g.includes('you'));

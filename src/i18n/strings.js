@@ -2052,4 +2052,234 @@ export const STR = {
     2: 'The first three junctions guide you: slower, and they say which way to swipe. Nothing there costs you.',
     3: 'Az első három kereszteződés végigvezet: lassabban, és megmondja, merre húzz. Ott semmit sem veszíthetsz.',
   },
+  'guide.lesson.controls.title': {
+    1: 'Ovládanie',
+    2: 'The controls',
+    3: 'A vezérlés',
+  },
+  'guide.lesson.controls.goal': {
+    1: 'Auto ide samo. Potiahni nadol, keď chceš zastaviť, a nahor, keď sa chceš rozbehnúť.',
+    2: 'The car drives itself. Swipe down to stop, and up to move off again.',
+    3: 'Az autó magától megy. Húzz lefelé a megálláshoz, felfelé az elinduláshoz.',
+  },
+  'guide.lesson.rightHand.title': {
+    1: 'Pravidlo pravej ruky',
+    2: 'The right-hand rule',
+    3: 'Jobbkéz-szabály',
+  },
+  'guide.lesson.rightHand.goal': {
+    1: 'Na križovatke bez značiek má prednosť ten, kto prichádza sprava. Zastav a nechaj ho prejsť.',
+    2: 'With no signs, the car coming from your right goes first. Stop and let it pass.',
+    3: 'Táblák nélkül a jobbról jövő megy előbb. Állj meg, és engedd el.',
+  },
+  'guide.lesson.mainRoad.title': {
+    1: 'Hlavná cesta',
+    2: 'The main road',
+    3: 'Főút',
+  },
+  'guide.lesson.mainRoad.goal': {
+    1: 'Žltý kosoštvorec znamená hlavnú cestu. Máš prednosť, takže nezastavuj.',
+    2: 'The yellow diamond means main road. You have priority, so do not stop.',
+    3: 'A sárga rombusz főutat jelent. Tiéd az elsőbbség, ne állj meg.',
+  },
+  'guide.lesson.sideRoad.title': {
+    1: 'Vedľajšia cesta',
+    2: 'The side road',
+    3: 'Mellékút',
+  },
+  'guide.lesson.sideRoad.goal': {
+    1: 'Obrátený trojuholník znamená daj prednosť. Zastav a nechaj prejsť vozidlá na hlavnej.',
+    2: 'The upside-down triangle means give way. Stop and let the main-road traffic pass.',
+    3: 'A fordított háromszög elsőbbségadást jelent. Állj meg, és engedd el a főúton haladókat.',
+  },
+  'guide.lesson.stopSign.title': {
+    1: 'Značka STOP',
+    2: 'The STOP sign',
+    3: 'STOP tábla',
+  },
+  'guide.lesson.stopSign.goal': {
+    1: 'Pri značke STOP musíš vždy zastaviť, aj keď je voľno.',
+    2: 'At a STOP sign you must always come to a halt, even when the way is clear.',
+    3: 'A STOP táblánál mindig meg kell állnod, akkor is, ha szabad az út.',
+  },
+  'guide.lesson.lights.title': {
+    1: 'Svetelná signalizácia',
+    2: 'Traffic lights',
+    3: 'Jelzőlámpa',
+  },
+  'guide.lesson.lights.goal': {
+    1: 'Na červenú zastav a rozbehni sa až na zelenú.',
+    2: 'Stop on red, and move off only on green.',
+    3: 'Piroson állj meg, és csak zöldre indulj el.',
+  },
+  'guide.lesson.turn.title': {
+    1: 'Odbočenie',
+    2: 'Turning',
+    3: 'Kanyarodás',
+  },
+  'guide.lesson.turn.goal': {
+    1: 'Inštruktor ti povie smer. Potiahni doprava alebo doľava, aby si odbočil.',
+    2: 'The instructor tells you the way. Swipe right or left to turn.',
+    3: 'Az oktató megmondja az irányt. Húzz jobbra vagy balra a kanyarodáshoz.',
+  },
+  'guide.lesson.leftTurn.title': {
+    1: 'Odbočenie vľavo',
+    2: 'Turning left',
+    3: 'Balra kanyarodás',
+  },
+  'guide.lesson.leftTurn.goal': {
+    1: 'Najprv potiahni doľava. Pri odbočení vľavo dávaš prednosť vozidlám, ktoré idú oproti.',
+    2: 'Swipe left first. Turning left, you give way to oncoming traffic.',
+    3: 'Először húzz balra. Balra kanyarodáskor elsőbbséget adsz a szemből jövőknek.',
+  },
+  'guide.lesson.tram.title': {
+    1: 'Električka',
+    2: 'Trams',
+    3: 'Villamos',
+  },
+  'guide.lesson.tram.goal': {
+    1: 'Električka má prednosť pred vozidlami. Nechaj ju prejsť.',
+    2: 'A tram has priority over cars. Let it pass.',
+    3: 'A villamosnak elsőbbsége van az autókkal szemben. Engedd el.',
+  },
+  'guide.lesson.roundabout.title': {
+    1: 'Kruhový objazd',
+    2: 'Roundabouts',
+    3: 'Körforgalom',
+  },
+  'guide.lesson.roundabout.goal': {
+    1: 'Daj prednosť vozidlám v kruhu, potom krúž. Pred svojím výjazdom potiahni doprava.',
+    2: 'Give way to traffic in the ring, then keep circling. Swipe right just before your exit.',
+    3: 'Adj elsőbbséget a körben haladóknak, majd körözz. A kijáratod előtt húzz jobbra.',
+  },
+  'guide.title': {
+    1: 'Sprievodca',
+    2: 'Guide',
+    3: 'Útmutató',
+  },
+  'guide.hubBody': {
+    1: 'Desať krátkych lekcií: ovládanie a všetky typy križovatiek. Prejdi ich raz a potom hraj.',
+    2: 'Ten short lessons: the controls and every kind of junction. Go through them once, then play.',
+    3: 'Tíz rövid lecke: a vezérlés és minden kereszteződéstípus. Menj végig rajtuk egyszer, aztán játssz.',
+  },
+  'guide.gateBody': {
+    1: 'Križovatky sa odomknú po sprievodcovi.',
+    2: 'Crossings unlocks when you finish the guide.',
+    3: 'A Kereszteződések az útmutató után nyílik meg.',
+  },
+  'guide.lessonOf': {
+    1: 'Lekcia {n} z {total}',
+    2: 'Lesson {n} of {total}',
+    3: '{n}. lecke a {total}-ből',
+  },
+  'guide.startGuide': {
+    1: 'Začať sprievodcu',
+    2: 'Start the guide',
+    3: 'Útmutató indítása',
+  },
+  'guide.start': {
+    1: 'Začať lekciu',
+    2: 'Start the lesson',
+    3: 'Lecke indítása',
+  },
+  'guide.next': {
+    1: 'Ďalšia lekcia',
+    2: 'Next lesson',
+    3: 'Következő lecke',
+  },
+  'guide.retry': {
+    1: 'Skúsiť znova',
+    2: 'Try again',
+    3: 'Újra',
+  },
+  'guide.passedTitle': {
+    1: 'Dobrá jazda',
+    2: 'Well driven',
+    3: 'Jól vezettél',
+  },
+  'guide.failedTitle': {
+    1: 'Skús to ešte raz',
+    2: 'Try that again',
+    3: 'Próbáld újra',
+  },
+  'guide.fail.crash': {
+    1: 'Zrážka. Najprv nechaj prejsť toho, kto má prednosť.',
+    2: 'A crash. Let the vehicle with priority go first.',
+    3: 'Ütközés. Először engedd el azt, akinek elsőbbsége van.',
+  },
+  'guide.fail.wrongWay': {
+    1: 'Išiel si inam, než povedal inštruktor.',
+    2: 'You went a different way than the instructor said.',
+    3: 'Máshova mentél, mint az oktató mondta.',
+  },
+  'guide.fail.red': {
+    1: 'Rozbehol si sa na červenú. Počkaj na zelenú.',
+    2: 'You moved off on red. Wait for the green.',
+    3: 'Piroson indultál el. Várd meg a zöldet.',
+  },
+  'guide.fail.noStop': {
+    1: 'Pri značke STOP treba zastaviť, nie iba spomaliť.',
+    2: 'A STOP sign needs a full halt, not just slowing down.',
+    3: 'A STOP tábla teljes megállást kíván, nem csak lassítást.',
+  },
+  'guide.fail.needlessStop': {
+    1: 'Zastavil si, hoci si mal prednosť.',
+    2: 'You stopped although you had priority.',
+    3: 'Megálltál, pedig tiéd volt az elsőbbség.',
+  },
+  'guide.doneTitle': {
+    1: 'Sprievodca hotový',
+    2: 'Guide complete',
+    3: 'Az útmutató kész',
+  },
+  'guide.doneBody': {
+    1: 'Ovládanie máš v rukách a poznáš všetky typy križovatiek. Teraz to je tvoja jazda.',
+    2: 'You have the controls and you know every kind of junction. The drive is yours now.',
+    3: 'A vezérlés a tiéd, és minden kereszteződéstípust ismersz. Most már a tiéd a menet.',
+  },
+  'guide.play': {
+    1: 'Hrať Križovatky',
+    2: 'Play Crossings',
+    3: 'Kereszteződések indítása',
+  },
+  'guide.replay': {
+    1: 'Sprievodca znova',
+    2: 'Guide again',
+    3: 'Útmutató újra',
+  },
+  'guide.swipe.up': {
+    1: 'Potiahni nahor',
+    2: 'Swipe up',
+    3: 'Húzz felfelé',
+  },
+  'guide.swipe.down': {
+    1: 'Potiahni nadol',
+    2: 'Swipe down',
+    3: 'Húzz lefelé',
+  },
+  'guide.swipe.left': {
+    1: 'Potiahni doľava',
+    2: 'Swipe left',
+    3: 'Húzz balra',
+  },
+  'guide.swipe.right': {
+    1: 'Potiahni doprava',
+    2: 'Swipe right',
+    3: 'Húzz jobbra',
+  },
+  'guide.hint.redLight': {
+    1: 'Červená. Potiahni nadol a zastav.',
+    2: 'Red light. Swipe down to stop.',
+    3: 'Piros. Húzz lefelé és állj meg.',
+  },
+  'guide.hint.ring': {
+    1: 'Tvoj výjazd. Potiahni doprava.',
+    2: 'Your exit. Swipe right.',
+    3: 'A kijáratod. Húzz jobbra.',
+  },
+  'guide.watch': {
+    1: 'Pozeraj, ako sa potiahne',
+    2: 'Watch the swipe',
+    3: 'Figyeld a húzást',
+  },
 };

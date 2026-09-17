@@ -953,9 +953,9 @@ One row per finished "Who goes first?" round (event-sourced; best score is `MAX(
 | lang | INTEGER | 1, 2, 3 |
 | mode | TEXT | `quiz` or `crossing`, default `quiz` |
 | score | INTEGER | points earned in the round |
-| correct_count | INTEGER | |
-| total | INTEGER | situations played (10) |
-| duration_sec | INTEGER | nullable |
+| correct_count | INTEGER | `quiz`: correct answers. `crossing`: junctions passed |
+| total | INTEGER | `quiz`: situations played (10). `crossing`: junctions passed plus lives lost |
+| duration_sec | INTEGER | nullable; `quiz` writes it, `crossing` leaves it null |
 | created_at | INTEGER | unix seconds |
 | synced_at | INTEGER | nullable |
 
@@ -964,11 +964,25 @@ streak count that mode alongside `study` and `mistakes`.
 
 ## CROSSING DRIVE LOG (`crossing_log`)
 
-One row per junction driven in the crossing minigame. The `record` column is the JSON
-returned by `junctionRecord()` in `src/lib/priority/world.js`: outcome flags, the instruction,
-the direction you took, the priority order, the rules that involved you, and the scene
-(layout, arms, signs, vehicles) so the history screen can draw it again. The log is purged to
-the newest 300 rows per language after each run.
+One row per junction driven in the crossing minigame, written from `app/crossing.tsx` as each
+`crash` or `passed` event arrives. The `record` column is the JSON returned by
+`junctionRecord()` in `src/lib/priority/world.js`: the junction index and level, outcome flags
+(`crashed`, `hesitated`, `late`, `ranRed`, `ranStop`, `wrongWay`, `stopped`, `stopSign`,
+`lights`, `laps`), the crash `culprit` and its `rule`, the instruction and the direction you
+actually took (`executedTo`), the `blockers`, the resolved `order`, the `reasons` that involved
+you in either direction, and a drawable copy of the scene (`layout`, `arms`, `signs`,
+`mainRoad`, `tramTracks`, `control`, `vehicles` with `ringAt`, `pedestrians`) so the history
+screen can draw it again. The record repeats `outcome` and `points` inside the JSON as well as
+in their own columns.
+
+One gotcha in the JSON: the recorded `control` goes through `recordControl()`, which flips the
+light colours when `crossFirst` was set, so the picture shows the lights as they were when you
+had to decide rather than the phase the scene encodes.
+
+Queries live in `src/db/queries/crossingLog.ts`. `addCrossingLog` clamps `points` to
+`max(0, round(points))`. `purgeCrossingLog(lang)` runs at the end of every run and keeps the
+newest `LOG_KEEP` (300) rows per language; `deleteCrossingLog(lang)` is called from the
+per-language reset in `src/lib/stats.js`.
 
 | column | type | notes |
 |---|---|---|
@@ -981,3 +995,10 @@ the newest 300 rows per language after each run.
 | record | TEXT | JSON, see above |
 | created_at | INTEGER | unix seconds |
 | synced_at | INTEGER | nullable |
+
+```sql
+CREATE INDEX crossing_log_lang_idx ON crossing_log(lang);
+CREATE INDEX crossing_log_date_idx ON crossing_log(created_at);
+```
+
+The full runner, and what every field of `record` means, is in `docs/game/runner.md`.

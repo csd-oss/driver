@@ -568,3 +568,68 @@ check must be general.
   signs A3 203 / P 10 and A4 304 / P 11 fix this for narrow sections.
 - §59a(4): on a "bicyklová cesta" cyclists have priority over admitted
   motor vehicles.
+
+## 10. What the runner does differently from the exam
+
+Everything above is what `src/lib/priority/engine.js` computes, and it is the
+same engine in both game modes. The endless runner in
+`src/lib/priority/world.js` then makes three deliberate departures, because a
+picture and a road are not the same problem. The quiz (`app/game-quiz.tsx` and
+the exam scenes in `data/game/scenes.json`) keeps the exam behaviour unchanged.
+
+**1. A vehicle whose path never crosses yours is not something you wait for.**
+The engine ranks you behind vehicles you could never physically meet. R4 does
+it on purpose: a side-road driver waits for every vehicle on the main road
+whatever direction it takes, even one turning away. The right-turn convention
+under R5 does it too, because the exam treats a right-turner and a car going
+straight out of the arm it enters as interacting (ds-05, ds-14, ds-23). On a
+picture that is the right answer. On a road there is nothing there to give way
+to, and a runner that made you stop for it would feel broken.
+
+So `applyResolution` in `world.js` splits the engine's answer in two.
+`clearFractionFor` in `src/lib/priority/conflict.js` compares the two
+`through` polylines and returns `null` when no point of theirs comes within
+`CONFLICT_RADIUS` (6 scene units) of yours; `junction.blockers` is
+`resolution.yields.you` with those dropped. Only blockers can crash you, and
+only blockers are named by the coach and by `wayClearAt`. The dropped vehicles
+still drive: they get their own start times from the multi-pass loop in
+`schedule()` and cross on their own order, whether or not you have arrived.
+
+Nothing about this touches the engine, so the quiz still asks you to put the
+right-turner in the right place in the order, and `__tests__/scenes.test.js`
+still checks all 39 official answers.
+
+**2. Generated roundabouts always give the ring priority.** Section 4 above is
+correct: the bare roundabout sign (A3 213) with no yield sign leaves the
+right-hand rule in force, so an entering vehicle has priority over one already
+circulating. `roundaboutDecision` in `engine.js` implements exactly that, and
+ds-07 in the exam data depends on it.
+
+On a real Slovak roundabout that combination effectively does not occur; the
+roundabout sign comes with a yield or a stop sign on every arm.
+`buildRoundabout` in
+`src/lib/priority/generator.js` therefore only ever emits
+`roundabout-yield` (80%) or `roundabout-stop` (20%), the same sign on every
+arm, so in the runner you always give way to the ring. Teaching the bare sign
+by making the player drive it would teach a reflex that is wrong in practice.
+The picture stays in the quiz, where it belongs.
+
+**3. Traffic lights cycle instead of holding one phase.** Section 6 reads a
+signal as a fixed state, because that is what a picture shows, and a scene's
+`control.arms` is one phase: your arms green, the cross arms red.
+
+The runner keeps that as the phase the engine resolves, and adds
+`control.crossFirst` to say whether the cross road had its green *before* you.
+With it, you arrive on red and the cross traffic goes first; your green comes
+`ALL_RED_MS` (700 ms) after the last of it has cleared. Without it you go
+first and the cross arms turn green behind you. `lightState(junction, now)`
+turns that into a colour per arm, with `LIGHT_CHANGE_MS` 800 of red+yellow
+before a green and a yellow phase before losing one. Entering the box while
+your arm shows red or red+yellow is a `redLight` penalty, and at a signalled
+junction the whole cross phase holds you whether or not any of that traffic
+crosses your path, because a red light is a red light (`holdIds` in
+`schedule()`). The reasoning stays the hierarchy of section 2: the signal
+outranks the signs.
+
+Full detail on all three is in `docs/game/runner.md`. None of the citations
+above change.

@@ -6,7 +6,7 @@ import { UIText } from '@/components/ui/text';
 import * as GameRoundsDB from '@/src/db/queries/gameRounds';
 import { t } from '@/src/i18n/i18n';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
-import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
+import { getCachedLanguage, getGuideFinished, getLanguage } from '@/src/lib/settings';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
@@ -20,18 +20,21 @@ export default function GameHubScreen() {
   const [lang, setLang] = useState(getCachedLanguage);
   const [bestCrossing, setBestCrossing] = useState(0);
   const [bestQuiz, setBestQuiz] = useState(0);
+  const [guideDone, setGuideDone] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       trackScreenView(posthog, 'GameHub');
       getLanguage().then(async (l) => {
         setLang(l);
-        const [crossing, quiz] = await Promise.all([
+        const [crossing, quiz, guide] = await Promise.all([
           GameRoundsDB.getGameStats(l, 'crossing'),
           GameRoundsDB.getGameStats(l, 'quiz'),
+          getGuideFinished(),
         ]);
         setBestCrossing(crossing.best);
         setBestQuiz(quiz.best);
+        setGuideDone(guide);
       });
     }, [posthog])
   );
@@ -47,19 +50,25 @@ export default function GameHubScreen() {
             {t('crossing.hubBody', lang)}
           </UIText>
           <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-            {t('game.best', lang)}: {bestCrossing}
+            {guideDone ? `${t('game.best', lang)}: ${bestCrossing}` : t('guide.gateBody', lang)}
           </UIText>
+          {/* The guide comes first: it teaches the swipes and every junction. */}
           <Button
             onPress={() => {
-              trackEvent(posthog, 'game_mode_selected', { mode: 'crossing', language: lang });
-              router.push('/crossing');
+              trackEvent(posthog, 'game_mode_selected', { mode: guideDone ? 'crossing' : 'guide', language: lang });
+              router.push(guideDone ? '/crossing' : '/crossing-guide');
             }}
             variant="default"
             className="w-full"
-            testID="game.playCrossing"
+            testID={guideDone ? 'game.playCrossing' : 'game.startGuide'}
           >
-            {t('game.start', lang)}
+            {guideDone ? t('game.start', lang) : t('guide.startGuide', lang)}
           </Button>
+          {guideDone && (
+            <Button onPress={() => router.push('/crossing-guide')} variant="outline" className="w-full" testID="game.replayGuide">
+              {t('guide.replay', lang)}
+            </Button>
+          )}
           <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
             {t('crossing.hubLogHint', lang)}
           </UIText>

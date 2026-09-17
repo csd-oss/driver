@@ -11,6 +11,7 @@ export const settings = sqliteTable('settings', {
   notificationLunchEnabled: integer('notification_lunch_enabled', { mode: 'boolean' }).notNull().default(true),
   notificationEveningEnabled: integer('notification_evening_enabled', { mode: 'boolean' }).notNull().default(true),
   examDate: integer('exam_date', { mode: 'timestamp' }), // planned real exam date (null = not set)
+  hasFinishedGuide: integer('has_finished_guide', { mode: 'boolean' }).notNull().default(false), // the crossing guide has been completed once
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });

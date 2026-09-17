@@ -949,68 +949,124 @@ describe('roundabout traffic keeps moving', () => {
   });
 });
 
-describe('guided start', () => {
-  const { coachStep, TUTORIAL_LENGTH } = require('../src/lib/priority/world');
-  const { TUTORIAL_STEPS } = require('../src/lib/priority/tutorial');
+describe('the guide', () => {
+  const { lessonHint } = require('../src/lib/priority/world');
+  const { LESSONS, LESSON_COUNT, lessonVerdict } = require('../src/lib/priority/lessons');
 
-  it('drives the same three lessons, whatever the seed', () => {
-    for (const seed of [1, 7, 99]) {
-      const run = createRun(makeRng(seed), 1, { coach: true });
-      expect(run.coach).toBe(true);
-      let now = 0;
-      const seen = [];
-      for (let i = 0; i < 12000 && seen.length < TUTORIAL_STEPS.length + 1; i++) {
-        now += 16;
-        const evs = step(run, now);
-        const j = currentJunction(run);
-        if (j.tutorial && !seen.includes(j.tutorial)) seen.push(j.tutorial);
-        if (!j.tutorial && seen.length === TUTORIAL_STEPS.length) seen.push('free');
-        // Follow the coaching: brake when told, then go, and turn as asked.
-        const hint = coachStep(run);
-        if (hint?.step === 'giveWay') applyInput(run, 'brake');
-        if (hint?.step === 'go') applyInput(run, 'go');
-        if (hint?.step === 'turn') applyInput(run, hint.dir);
-        if (evs.some((e) => e.type === 'needTurn')) applyInput(run, j.instruction.turn === 'left' ? 'left' : 'right');
-      }
-      expect(seen).toEqual([...TUTORIAL_STEPS.map((s) => s.id), 'free']);
-      expect(run.lives).toBe(LIVES);
-      expect(run.passed).toBeGreaterThanOrEqual(TUTORIAL_LENGTH);
-    }
-  });
+  // Follow the lesson's own prompts, whatever they ask for.
+  const obey = (run) => {
+    const hint = lessonHint(run);
+    if (!hint) return;
+    if (hint.step === 'giveWay' || hint.step === 'redLight' || hint.step === 'stopSign') applyInput(run, 'brake');
+    if (hint.step === 'go') applyInput(run, 'go');
+    if (hint.step === 'turn') applyInput(run, hint.dir);
+    if (hint.step === 'ring') applyInput(run, 'right');
+  };
 
-  it('names the swipe for each lesson and costs nothing when it goes wrong', () => {
-    const run = createRun(makeRng(3), 1, { coach: true });
-    let now = 0;
-    const steps = new Set();
+  const play = (index, drive) => {
+    const run = createRun(makeRng(4), 1, { lesson: index });
+    const j = run.junctions[0];
     const events = [];
-    // A player who ignores every prompt: bumps and needless stops alike are free.
-    for (let i = 0; i < 9000; i++) {
+    let now = 0;
+    for (let i = 0; i < 9000 && !j.passed && !j.crashed; i++) {
       now += 16;
       events.push(...step(run, now));
-      const j = currentJunction(run);
-      // The lessons are over, and so is the free ride, once the end is announced.
-      if (!j.tutorial && events.some((e) => e.type === 'coachDone')) break;
-      const hint = coachStep(run);
-      if (hint) steps.add(hint.step);
-      if (j.needTurn) applyInput(run, 'left'); // the wrong way at the T-junction
-      if (run.stoppedAt !== null && !j.needTurn) applyInput(run, 'go');
-      if (j.tutorial === 'priority' && j.scheduled && !j.stopped && run.s < j.sLine && j.sWait - run.s < 40) applyInput(run, 'brake');
+      drive(run, j, now);
     }
-    expect(steps.has('giveWay')).toBe(true);
-    expect(steps.has('turn')).toBe(true);
-    expect(run.lives).toBe(LIVES); // a crash in the guided start costs nothing
-    const guided = events.filter((x) => x.type === 'passed' && x.junction < TUTORIAL_LENGTH);
-    expect(guided.length).toBeGreaterThan(0);
-    for (const e of guided) expect(e.points).toBeGreaterThan(0);
-    expect(events.some((e) => e.type === 'crash' && e.junction < TUTORIAL_LENGTH)).toBe(true);
-    expect(events.filter((e) => e.type === 'coachDone')).toHaveLength(1);
+    return { run, j, events, verdict: lessonVerdict(LESSONS[index], j) };
+  };
+
+  it('sets up every lesson with the junction it means to teach', () => {
+    const expected = {
+      controls: { blockers: [], stop: false },
+      rightHand: { blockers: ['red'], stop: false },
+      mainRoad: { blockers: [], stop: false },
+      sideRoad: { blockers: ['green'], stop: false },
+      stopSign: { blockers: [], stop: true },
+      lights: { blockers: ['yellow'], stop: false },
+      turn: { blockers: [], stop: false },
+      // You go straight until you swipe left, so the oncoming car is not
+      // yet in your way when the junction is built.
+      leftTurn: { blockers: [], stop: false },
+      tram: { blockers: ['tram1'], stop: false },
+      roundabout: { blockers: ['red'], stop: false },
+    };
+    expect(LESSONS.map((l) => l.id)).toEqual(Object.keys(expected));
+    LESSONS.forEach((lesson, index) => {
+      const run = createRun(makeRng(1), 1, { lesson: index });
+      const j = run.junctions[0];
+      expect(j.lesson).toBe(lesson.id);
+      expect(j.scene.vehicles.find((v) => v.id === 'you')).toBeTruthy();
+      expect(j.blockers).toEqual(expected[lesson.id].blockers);
+      expect(j.instruction).toEqual(lesson.instruction);
+      expect(run.coach).toBe(true);
+    });
   });
 
-  it('stays out of the way on a later run', () => {
+  it('passes every lesson when the player does as it says', () => {
+    LESSONS.forEach((lesson, index) => {
+      const { run, j, verdict } = play(index, (r, junction, now) => {
+        obey(r);
+        if (r.stoppedAt !== null && !junction.needTurn && (!junction.blockers.length || r.now >= junction.clearAt) && now > junction.stoppedAtTime + 500) applyInput(r, 'go');
+      });
+      expect(j.crashed).toBe(false);
+      expect(verdict).toEqual({ passed: true, reason: null });
+      expect(run.lives).toBe(LIVES); // the guide never takes a life
+    });
+  });
+
+  it('fails the lesson, without cost, when the player ignores it', () => {
+    const cases = { rightHand: 'crash', sideRoad: 'crash', stopSign: 'noStop', lights: 'crash', turn: 'wrongWay', leftTurn: 'wrongWay' };
+    for (const [id, reason] of Object.entries(cases)) {
+      const index = LESSONS.findIndex((l) => l.id === id);
+      const { run, verdict } = play(index, (r, junction) => {
+        // Drive straight on regardless: no braking, and the wrong way at a T.
+        if (junction.needTurn) applyInput(r, junction.instruction.turn === 'left' ? 'right' : 'left');
+        if (r.stoppedAt !== null && !junction.needTurn) applyInput(r, 'go');
+      });
+      expect(verdict.passed).toBe(false);
+      expect(verdict.reason).toBe(reason);
+      expect(run.lives).toBe(LIVES);
+    }
+  });
+
+  it('fails a lesson for moving off on red, and it still costs nothing', () => {
+    const index = LESSONS.findIndex((l) => l.id === 'lights');
+    const { run, j, verdict } = play(index, (r, junction) => {
+      // Brake at the last moment, then pull away while the light is still red.
+      if (junction.scheduled && junction.sWait - r.s < 40 && r.stoppedAt === null) applyInput(r, 'brake');
+      if (r.stoppedAt !== null) applyInput(r, 'go');
+    });
+    expect(j.ranRed).toBe(true);
+    expect(verdict).toEqual({ passed: false, reason: 'red' });
+    expect(run.lives).toBe(LIVES);
+  });
+
+  it('asks for the swipe that matches the moment', () => {
+    const index = LESSONS.findIndex((l) => l.id === 'rightHand');
+    const run = createRun(makeRng(4), 1, { lesson: index });
+    const j = run.junctions[0];
+    const seen = [];
+    let now = 0;
+    for (let i = 0; i < 6000 && !j.passed; i++) {
+      now += 16;
+      step(run, now);
+      const hint = lessonHint(run);
+      if (hint && seen[seen.length - 1] !== hint.step) seen.push(hint.step);
+      obey(run);
+    }
+    expect(seen[0]).toBe('giveWay');
+    expect(seen).toContain('go');
+    expect(seen.indexOf('go')).toBeGreaterThan(seen.indexOf('giveWay'));
+  });
+
+  it('is not part of an ordinary run', () => {
     const run = createRun(makeRng(5), 1);
     expect(run.coach).toBe(false);
-    expect(run.junctions[0].tutorial).toBeNull();
-    expect(coachStep(run)).toBeNull();
+    expect(run.lesson).toBeNull();
+    expect(run.junctions[0].lesson).toBeNull();
+    expect(lessonHint(run)).toBeNull();
+    expect(LESSON_COUNT).toBe(LESSONS.length);
   });
 });
 

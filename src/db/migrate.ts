@@ -64,6 +64,12 @@ function createTables(): void {
     // Column already exists, ignore
   }
 
+  try {
+    database.execSync(`ALTER TABLE settings ADD COLUMN has_finished_guide INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists
+  }
+
   // Category selections table
   database.execSync(`
     CREATE TABLE IF NOT EXISTS category_selections (

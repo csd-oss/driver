@@ -157,6 +157,15 @@ export const setSelectedCategory = async (lang, categoryTxt) => {
   return await getSettings();
 };
 
+/** Has the player been through the crossing guide at least once? */
+export const getGuideFinished = async () => {
+  return await SettingsDB.getGuideFinished();
+};
+
+export const setGuideFinished = async (done) => {
+  await SettingsDB.setGuideFinished(done);
+};
+
 /**
  * Get readiness calculation mode
  */

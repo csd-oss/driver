@@ -15,6 +15,7 @@ export interface SettingsData {
   notificationLunchEnabled: boolean;
   notificationEveningEnabled: boolean;
   examDate: Date | null;
+  hasFinishedGuide: boolean;
 }
 
 /**
@@ -53,6 +54,7 @@ export async function getSettings(): Promise<SettingsData> {
       notificationLunchEnabled: true,
       notificationEveningEnabled: true,
       examDate: null,
+      hasFinishedGuide: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -67,6 +69,7 @@ export async function getSettings(): Promise<SettingsData> {
       notificationLunchEnabled: true,
       notificationEveningEnabled: true,
       examDate: null,
+      hasFinishedGuide: false,
     };
   }
   
@@ -81,6 +84,7 @@ export async function getSettings(): Promise<SettingsData> {
     notificationLunchEnabled: s.notificationLunchEnabled ?? true,
     notificationEveningEnabled: s.notificationEveningEnabled ?? true,
     examDate: s.examDate ?? null,
+    hasFinishedGuide: s.hasFinishedGuide ?? false,
   };
 }
 
@@ -94,6 +98,16 @@ export async function updateSettings(updates: Partial<SettingsData>): Promise<vo
       updatedAt: new Date(),
     })
     .where(eq(settings.id, SETTINGS_ID));
+}
+
+/** Has the player been through the crossing guide at least once? */
+export async function getGuideFinished(): Promise<boolean> {
+  const s = await getSettings();
+  return s.hasFinishedGuide;
+}
+
+export async function setGuideFinished(done: boolean): Promise<void> {
+  await updateSettings({ hasFinishedGuide: done });
 }
 
 /**

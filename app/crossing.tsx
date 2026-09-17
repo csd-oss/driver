@@ -18,7 +18,6 @@ import {
   LIVES,
   applyInput,
   createRun,
-  coachStep,
   currentJunction,
   lightState,
   shiftTime,
@@ -53,25 +52,6 @@ interface Instruction {
 
 const instructionText = (i: { kind: string; turn: string }, lang: number) =>
   i.kind === 'roundabout' ? t(`crossing.instr.roundabout.${i.turn}`, lang) : t(`crossing.instr.${i.kind}`, lang);
-
-const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-
-/** What the guided start is asking for, as a sentence, or null outside it. */
-const coachText = (run: any, lang: number): string | null => {
-  const step = coachStep(run);
-  if (!step) return null;
-  const junction = currentJunction(run);
-  const car = step.vehicle ? junction.scene.vehicles.find((v: any) => v.id === step.vehicle) : null;
-  const vehicle = car ? t(`crossing.vehicle.${car.color}`, lang) : '';
-  if (step.step === 'giveWay') return tf('crossing.coach.giveWay', lang, { vehicle: cap(vehicle) });
-  if (step.step === 'wait') return tf('crossing.coach.waitSwipe', lang, { vehicle: vehicle || t('crossing.log.someone', lang) });
-  if (step.step === 'go') return t('crossing.coach.goSwipe', lang);
-  if (step.step === 'turn') {
-    return tf('crossing.coach.turn', lang, { dir: t(step.dir === 'left' ? 'crossing.coach.dirLeft' : 'crossing.coach.dirRight', lang) });
-  }
-  if (step.step === 'rolling') return t('crossing.coach.rolling', lang);
-  return t('crossing.coach.priority', lang);
-};
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 const TOAST_MS = 1500;
@@ -110,7 +90,6 @@ export default function CrossingScreen() {
   const [openRecord, setOpenRecord] = useState<any | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [instruction, setInstruction] = useState<Instruction | null>(null);
-  const [coachHint, setCoachHint] = useState<string | null>(null);
   const [intent, setIntent] = useState<string | null>(null);
   const [isNewBest, setIsNewBest] = useState(false);
   const [roundsPlayed, setRoundsPlayed] = useState<number | null>(null);
@@ -221,7 +200,6 @@ export default function CrossingScreen() {
         } else if (e.type === 'passed') {
           highlightRef.current = [];
           setInstruction(null);
-          setCoachHint(null);
           if (!e.hesitated && !e.wrongWay && !e.late && !e.ranRed && !e.ranStop) {
             setToast({ kind: 'ok', text: tf('game.plusPoints', lang, { points: e.points }), until: tNow + 900 });
             haptic.passed();
@@ -260,9 +238,6 @@ export default function CrossingScreen() {
       const junction = currentJunction(run);
       const youVehicle = junction.scene.vehicles.find((v: any) => v.id === 'you');
       const youSignal = youSignalFor(run) as 'left' | 'right' | null;
-      // The guided start speaks every frame, so the prompt follows what the
-      // player is doing rather than what happened at the last event.
-      setCoachHint(coachText(run, lang));
       const shaking = tNow < shakeUntilRef.current ? Math.sin(tNow / 18) * 1.6 : 0;
       const visible = visibleJunctions(run);
       const lights: Record<number, any> = {};
@@ -295,13 +270,12 @@ export default function CrossingScreen() {
   const startRun = () => {
     const seed = __DEV__ && params.seed ? Number(params.seed) : Date.now() % 1000003;
     const level = __DEV__ && params.level ? Math.max(1, Number(params.level)) : 1;
-    runRef.current = createRun(makeRng(seed), level, { coach: roundsPlayed === 0 });
+    runRef.current = createRun(makeRng(seed), level);
     if (__DEV__) console.log(`[crossing] run seed=${seed} level=${level}`);
     runRef.current.now = now();
     runIdRef.current = generateId();
     setRecords([]);
     setInstruction(null);
-    setCoachHint(null);
     setIntent(null);
     headingRef.current = 0;
     finishedRef.current = false;
@@ -391,11 +365,9 @@ export default function CrossingScreen() {
           <UIText variant="body" className="text-slate-800 dark:text-slate-100">🔄  {t('crossing.legendRing', lang)}</UIText>
           <UIText variant="caption" className="text-slate-500 dark:text-slate-400">{t('crossing.legendRules', lang)}</UIText>
         </View>
-        {roundsPlayed === 0 && (
-          <UIText variant="caption" className="text-indigo-700 dark:text-indigo-200">
-            {t('crossing.coach.intro', lang)}
-          </UIText>
-        )}
+        <Button onPress={() => router.push('/crossing-guide')} variant="outline" className="w-full" testID="crossing.openGuide">
+          {t('guide.replay', lang)}
+        </Button>
         <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
           {t('game.best', lang)}: {best}
         </UIText>
@@ -497,25 +469,14 @@ export default function CrossingScreen() {
         </View>
       );
     }
-    if (instruction || coachHint) {
+    if (instruction) {
       return (
-        <View className="rounded-2xl overflow-hidden min-h-[56px]">
-          {instruction && (
-            <View className="px-4 py-3 bg-slate-900 dark:bg-slate-800 flex-row items-center gap-3" testID="crossing.instruction">
-              <UIText variant="subtitle" className="text-white">🧑‍🏫</UIText>
-              <UIText variant="body" className="text-white font-semibold flex-1">
-                {instructionText(instruction, lang)}
-              </UIText>
-              <UIText variant="subtitle" className="text-white">{turnArrow}</UIText>
-            </View>
-          )}
-          {coachHint && (
-            <View className="px-4 py-2.5 bg-indigo-600" testID="crossing.coach">
-              <UIText variant="body" className="text-white font-semibold text-center">
-                {coachHint}
-              </UIText>
-            </View>
-          )}
+        <View className="rounded-2xl px-4 py-3 min-h-[56px] bg-slate-900 dark:bg-slate-800 flex-row items-center gap-3" testID="crossing.instruction">
+          <UIText variant="subtitle" className="text-white">🧑‍🏫</UIText>
+          <UIText variant="body" className="text-white font-semibold flex-1">
+            {instructionText(instruction, lang)}
+          </UIText>
+          <UIText variant="subtitle" className="text-white">{turnArrow}</UIText>
         </View>
       );
     }
