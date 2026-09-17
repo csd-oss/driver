@@ -148,10 +148,11 @@ const ringExitFor = (deg, span) => {
 
 const buildRoundabout = (rng, band) => {
   // Every entry to a roundabout carries the same regime, so one sign goes on
-  // every arm. A bare roundabout sign means circulating traffic gives way to
-  // you (right-hand rule), which is rare on the road.
-  const roll = rng();
-  const sign = roll < 0.7 ? 'roundabout-yield' : roll < 0.85 ? 'roundabout-stop' : 'roundabout';
+  // every arm. The ring always has priority here: a bare roundabout sign
+  // would put circulating traffic behind you under the right-hand rule,
+  // which effectively never happens on the road. The exam pictures still
+  // cover it, so the quiz still teaches it.
+  const sign = chance(rng, 0.8) ? 'roundabout-yield' : 'roundabout-stop';
   const arms = [...ARMS];
   const signs = Object.fromEntries(arms.map((a) => [a, sign]));
   const exits = arms.filter((a) => a !== 'S');

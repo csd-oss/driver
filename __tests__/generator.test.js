@@ -77,7 +77,8 @@ describe('generated roundabouts', () => {
       expect(ring.length).toBeGreaterThanOrEqual(1);
       const regimes = new Set(scene.arms.map((a) => scene.signs[a]));
       expect(regimes.size).toBe(1);
-      expect(['roundabout', 'roundabout-yield', 'roundabout-stop']).toContain(scene.signs.S);
+      // The ring always has priority: no bare roundabout sign in the runner.
+      expect(['roundabout-yield', 'roundabout-stop']).toContain(scene.signs.S);
       // Circulating vehicles leave by an arm; entering ones never turn back.
       for (const v of ring) expect(scene.arms).toContain(v.to);
       for (const v of scene.vehicles) expect(v.to).not.toBe(v.from);
@@ -113,15 +114,24 @@ describe('generated roundabouts', () => {
     }
   });
 
-  it('weights the sign regime towards give way', () => {
+  it('weights the sign regime towards give way and never leaves the ring waiting for you', () => {
     const scenes = draw(3000, 6, 77);
     const share = (sign) => scenes.filter((s) => s.signs.S === sign).length / scenes.length;
-    expect(share('roundabout-yield')).toBeGreaterThan(0.55);
-    expect(share('roundabout-yield')).toBeLessThan(0.85);
-    expect(share('roundabout-stop')).toBeGreaterThan(0.05);
+    expect(share('roundabout-yield')).toBeGreaterThan(0.7);
+    expect(share('roundabout-yield')).toBeLessThan(0.9);
+    expect(share('roundabout-stop')).toBeGreaterThan(0.1);
     expect(share('roundabout-stop')).toBeLessThan(0.3);
-    expect(share('roundabout')).toBeGreaterThan(0.05);
-    expect(share('roundabout')).toBeLessThan(0.3);
+    expect(share('roundabout')).toBe(0);
+    // Nobody on the ring ever has to give way to a vehicle entering.
+    const { resolve } = require('../src/lib/priority/engine');
+    for (const scene of scenes) {
+      const { yields } = resolve(scene);
+      for (const v of scene.vehicles) {
+        if (v.from !== 'ring') continue;
+        const waitsFor = (yields[v.id] || []).map((id) => scene.vehicles.find((x) => x.id === id)).filter(Boolean);
+        expect(waitsFor.every((w) => w.from === 'ring')).toBe(true);
+      }
+    }
   });
 });
 
