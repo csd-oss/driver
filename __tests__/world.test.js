@@ -839,3 +839,112 @@ describe('cross traffic follows its own order', () => {
     }
   });
 });
+
+describe('traffic lights hold their own phase', () => {
+  const { crossIdsOf } = require('../src/lib/priority/world');
+  const stopAtLine = (run, j) => {
+    let now = run.now;
+    while (run.stoppedAt === null && now < 60000) {
+      now += 16;
+      step(run, now);
+      if (j.scheduled && j.sWait - run.s < 40) applyInput(run, 'brake');
+    }
+    return now;
+  };
+
+  it('never calls you slow while your light is red, even when no crossing car is in your way', () => {
+    let run = null;
+    for (let seed = 1; seed < 500 && !run; seed++) {
+      const r = createRun(makeRng(seed), 3);
+      const j = r.junctions[0];
+      if (j.scene.control?.type !== 'lights' || !j.scene.control.crossFirst) continue;
+      const cross = crossIdsOf(j.scene);
+      if (cross.length && cross.every((id) => j.clearFraction[id] === null)) run = r;
+    }
+    expect(run).toBeTruthy();
+    const j = run.junctions[0];
+    const cross = crossIdsOf(j.scene);
+    let now = stopAtLine(run, j);
+    expect(run.stoppedAt).not.toBeNull();
+    // The cross traffic still has green, so you are held even though none of
+    // those cars could ever hit you.
+    expect(lightState(j, now).S).toBe('red');
+    const events = [];
+    let greenAt = null;
+    for (let i = 0; i < 1200; i++) {
+      now += 16;
+      events.push(...step(run, now));
+      const phase = lightState(j, now).S;
+      if (phase === 'green' && greenAt === null) greenAt = now;
+      if (phase === 'red' || phase === 'redyellow') expect(events.some((e) => e.type === 'late')).toBe(false);
+    }
+    expect(greenAt).not.toBeNull();
+    // Green only after the other phase has cleared the junction.
+    for (const id of cross) expect(greenAt).toBeGreaterThan(j.starts[id]);
+  });
+
+  it('keeps the cross traffic waiting while you have the green', () => {
+    let run = null;
+    for (let seed = 1; seed < 500 && !run; seed++) {
+      const r = createRun(makeRng(seed), 3);
+      const j = r.junctions[0];
+      if (j.scene.control?.type === 'lights' && !j.scene.control.crossFirst && crossIdsOf(j.scene).length) run = r;
+    }
+    expect(run).toBeTruthy();
+    const j = run.junctions[0];
+    const cross = crossIdsOf(j.scene);
+    let now = stopAtLine(run, j);
+    for (let i = 0; i < 400; i++) {
+      now += 16;
+      step(run, now);
+      expect(lightState(j, now).S).toBe('green');
+      for (const id of cross) expect(j.starts[id]).toBeNull();
+    }
+  });
+});
+
+describe('roundabout traffic keeps moving', () => {
+  it('a car with priority circulates towards your entry instead of standing on the ring', () => {
+    const { RING_R } = require('../src/lib/priority/layout');
+    let found = null;
+    for (let seed = 1; seed < 300 && !found; seed++) {
+      const run = createRun(makeRng(seed), 4);
+      const j = run.junctions[0];
+      if (!j.ring || !j.blockers.length) continue;
+      const onRing = j.blockers.find((id) => j.scene.vehicles.find((v) => v.id === id)?.from === 'ring');
+      if (!onRing) continue;
+      let now = 0;
+      for (let i = 0; i < 3000 && !j.scheduled; i++) {
+        now += 16;
+        step(run, now);
+      }
+      if (j.scheduled) found = { run, j, id: onRing, now };
+    }
+    expect(found).toBeTruthy();
+    const { run, j, id } = found;
+    let now = found.now;
+    const poseOf = () => vehiclePoses(run).find((p) => p.vehicle.id === id && p.junction.index === j.index);
+    let moved = 0;
+    let still = 0;
+    let offRing = 0;
+    let last = null;
+    while (now < j.starts[id] + 200) {
+      now += 16;
+      step(run, now);
+      const p = poseOf();
+      if (!p) continue;
+      const local = { x: p.pose.x - j.cx, y: p.pose.y - j.cy };
+      const r = Math.hypot(local.x, local.y);
+      if (Math.abs(r - RING_R) > 9 && Math.abs(local.x) > 13 && Math.abs(local.y) > 13) offRing += 1;
+      if (last) {
+        const d = Math.hypot(p.pose.x - last.x, p.pose.y - last.y);
+        if (d > 0.15) moved += 1;
+        else still += 1;
+      }
+      last = p.pose;
+    }
+    expect(moved).toBeGreaterThan(30);
+    expect(still).toBeLessThan(moved / 4);
+    expect(offRing).toBe(0);
+  });
+});

@@ -272,7 +272,12 @@ const applyResolution = (junction) => {
       for (const id of cross) resolution.reasons.push({ who: 'you', to: id, rule: 'signal' });
     } else {
       resolution.order = [...yourOrder, cross];
-      for (const id of cross) resolution.reasons.push({ who: id, to: 'you', rule: 'signal' });
+      for (const id of cross) {
+        // Their red is your green: they wait for you, so nothing may send
+        // them off early and turn your own light red while you stand there.
+        resolution.yields[id] = [...(resolution.yields[id] || []), 'you'];
+        resolution.reasons.push({ who: id, to: 'you', rule: 'signal' });
+      }
     }
   }
   const group = resolution.order.findIndex((g) => g.includes('you'));
@@ -301,7 +306,12 @@ const applyResolution = (junction) => {
       .map((v) => v.id),
   ]); // the rest wait at their line, so they are drawn there all along
   // Vehicles sharing an arm queue behind each other in the order they go.
-  junction.queueBack = Object.fromEntries(scene.vehicles.map((v) => [v.id, queueBackFor(scene, resolution.order, v.id)]));
+  // Once the junction is running these are physical positions, so changing
+  // your own movement re-resolves priority but never shunts a car that is
+  // already standing in the queue.
+  if (!junction.scheduled) {
+    junction.queueBack = Object.fromEntries(scene.vehicles.map((v) => [v.id, queueBackFor(scene, resolution.order, v.id)]));
+  }
 };
 
 const createJunction = (rng, level, prev) => {
@@ -443,8 +453,13 @@ const schedule = (run, junction) => {
     for (const id of groups[k]) junction.starts[id] = start;
     groupStart = start - (GROUP_GAP_MS - longest) ;
   }
+  // What holds you here: at a signalled junction the other phase's traffic,
+  // whether or not any of it crosses your path, because a red light is a red
+  // light; otherwise the vehicles with priority over you.
+  const lightsHold = scene.control?.type === 'lights' && scene.control.crossFirst ? crossIdsOf(scene) : [];
+  const holdIds = [...new Set([...lightsHold, ...junction.blockers])];
   let clearAtReal = -Infinity;
-  for (const id of junction.blockers) {
+  for (const id of holdIds) {
     const start = junction.starts[id];
     if (start === null) continue;
     clearAtReal = Math.max(clearAtReal, start + clearMsOf(junction, id));
@@ -469,7 +484,7 @@ const schedule = (run, junction) => {
     }
   }
   junction.arriveAt = arriveAt;
-  junction.clearAt = junction.blockers.length ? clearAtReal : run.now;
+  junction.clearAt = holdIds.length && clearAtReal > -Infinity ? clearAtReal : run.now;
   junction.t0 = run.now;
   junction.scheduled = true;
 };

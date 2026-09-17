@@ -201,13 +201,18 @@ export const ringExitOrder = (from) => {
   return order;
 };
 
+// A vehicle already on the ring comes round this much of it before the spot
+// it starts from, so it can be seen circulating into place instead of
+// standing still there.
+export const RING_APPROACH_DEG = 190;
+
 export const roundaboutPath = (from, to, vehicle) => {
   if (from === 'ring') {
     const at = vehicle && Number.isFinite(vehicle.ringAt) ? vehicle.ringAt : RING_DEFAULT_START;
     const startDeg = ((at % 360) + 360) % 360;
     const exit = exitCurveFor(to);
     const ring = ringArc(startDeg, exit.leaveDeg);
-    return { approach: [], wait: ring[0], through: [...ring, ...exit.points.slice(1)] };
+    return { approach: ringArc(startDeg + RING_APPROACH_DEG, startDeg), wait: ring[0], through: [...ring, ...exit.points.slice(1)] };
   }
   const rot = ARM_ROT[from];
   const start = approachPoint(from, CENTER);

@@ -163,7 +163,10 @@ describe('layout', () => {
     const plain = roundaboutPath('ring', 'N');
     expect(plain).toEqual(roundaboutPath('ring', 'N', {}));
     expect(plain).toEqual(roundaboutPath('ring', 'N', { ringAt: RING_DEFAULT_START }));
-    expect(plain.approach).toEqual([]);
+    // It comes round the ring into its starting spot, so it can be seen moving.
+    expect(plain.approach.length).toBeGreaterThan(4);
+    expect(plain.approach[plain.approach.length - 1]).toEqual(plain.wait);
+    for (const p of plain.approach) expect(Math.hypot(p.x - 50, p.y - 50)).toBeCloseTo(RING_R, 6);
     expect(plain.wait).toEqual(plain.through[0]);
     // The default sits south-west of the island, a little before the S axis.
     expect(plain.wait.x).toBeLessThan(50);

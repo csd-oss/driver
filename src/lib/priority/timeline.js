@@ -128,11 +128,26 @@ const cached = (scene, vehicle, pathCache) => {
 };
 
 /** The point `dist` units behind the waiting position, straight back along the approach. */
-const behindLine = (path, dist) => {
-  const a = path.approach[0];
-  const w = path.wait;
-  const len = Math.hypot(a.x - w.x, a.y - w.y) || 1;
-  return { x: w.x + ((a.x - w.x) / len) * dist, y: w.y + ((a.y - w.y) / len) * dist };
+/**
+ * The last `dist` units of a polyline, ending where it ends. When `dist` is
+ * longer than the polyline, it is extended backwards in a straight line, so
+ * a vehicle can roll in from further up its road than the frame covers.
+ */
+const tailOf = (points, dist) => {
+  let left = dist;
+  for (let i = points.length - 1; i > 0; i--) {
+    const seg = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    if (seg >= left) {
+      const f = seg === 0 ? 0 : left / seg;
+      const p = { x: points[i].x + (points[i - 1].x - points[i].x) * f, y: points[i].y + (points[i - 1].y - points[i].y) * f };
+      return [p, ...points.slice(i)];
+    }
+    left -= seg;
+  }
+  const a = points[0];
+  const b = points[1] || points[0];
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  return [{ x: a.x + ((a.x - b.x) / len) * left, y: a.y + ((a.y - b.y) / len) * left }, ...points];
 };
 
 /**
@@ -143,9 +158,10 @@ const behindLine = (path, dist) => {
 export const clearTimeMs = (scene, vehicle, fraction, eased, queueBack, pathCache) => {
   const path = cached(scene, vehicle, pathCache);
   const D = durationOf(vehicle);
-  if (!eased) return fraction * D;
   const L = path.throughLength || 1;
   const back = path.approach.length ? Math.max(0, queueBack) : 0;
+  // Rolling through at cruising speed: the queue gap costs its own time.
+  if (!eased) return ((back + fraction * L) / L) * D;
   const total = back + L;
   return easeInTime((back + fraction * L) / total) * ((total / L) * D);
 };
@@ -171,10 +187,15 @@ export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queu
     if (now < from) return null;
     if (now < start) {
       if (!approach.length) return { ...pointAlong(path.through, 0.001), progress: 0 };
+      // Roll in along the approach itself, so a vehicle already on a
+      // roundabout comes round the ring rather than across it.
       const dist = Math.min(V * rollInMs, ROLL_IN_MAX);
-      return { ...pointAlong([behindLine(path, dist), path.wait], (now - from) / rollInMs), progress: 0 };
+      return { ...pointAlong(tailOf(approach, dist), (now - from) / rollInMs), progress: 0 };
     }
-    const t = (now - start) / D;
+    // Rolling on at cruising speed: cover the queue gap, then the junction.
+    const travelled = V * (now - start);
+    if (back > 0 && travelled < back) return { ...pointAlong([queued, path.wait], travelled / back), progress: 0 };
+    const t = (travelled - back) / L;
     if (t >= 1.05) return null;
     const fr = Math.min(1, t);
     return { ...pointAlong(path.through, fr), progress: fr };
