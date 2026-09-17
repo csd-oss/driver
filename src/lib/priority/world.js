@@ -7,6 +7,7 @@ import {
   ringArc, ringEntryPoints, ringExitOrder, ringJoinDeg, ringLeaveDeg, exitCurveFor,
 } from './layout';
 import { queueBackFor } from './queue';
+import { TUTORIAL_LENGTH, tutorialScene, tutorialStep } from './tutorial';
 import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt } from './timeline';
 
 /**
@@ -47,7 +48,8 @@ export const STOP_GRACE_MS = 1500;     // a STOP sign asks for a real halt, so i
 export const CRASH_PAUSE_MS = 1400;
 export const JUNCTIONS_PER_LEVEL = 4;
 export const LIVES = 3;
-export const COACH_JUNCTIONS = 3;     // slower junctions on a first run
+export const COACH_JUNCTIONS = TUTORIAL_LENGTH; // guided junctions on a first run
+export { TUTORIAL_LENGTH };
 export const COACH_SPEED = 0.6;
 export const ACCEL = 14;               // units/s² when moving off or speeding up
 export const DECEL = 12;               // the final braking curve into the line
@@ -314,13 +316,15 @@ const applyResolution = (junction) => {
   }
 };
 
-const createJunction = (rng, level, prev) => {
-  const scene = generatePlayable(rng, level);
+const createJunction = (rng, level, prev, tutorialIndex = null) => {
+  const step = tutorialIndex === null ? null : tutorialStep(tutorialIndex);
+  const scene = step ? tutorialScene(tutorialIndex) : generatePlayable(rng, level);
   const you = scene.vehicles.find((v) => v.id === 'you');
   const junction = prev
     ? placeAfter(prev, scene, spacingFor(level))
     : { scene, cx: CENTER, cy: CENTER, rot: 0, gapBefore: LEAD_ROAD, gapAfter: spacingFor(level) - 2 * CENTER };
-  junction.instruction = instructionFor(rng, scene, you.to);
+  junction.tutorial = step ? step.id : null;
+  junction.instruction = step ? { ...step.instruction } : instructionFor(rng, scene, you.to);
   // The car goes straight unless the player turns; where there is no
   // straight ahead the frame is placed as if the instruction is followed.
   const straight = oppositeOf('S');
@@ -343,6 +347,7 @@ const createJunction = (rng, level, prev) => {
   junction.crashed = false;
   junction.stopped = false;
   junction.hesitated = false;
+  junction.stopWasNeedless = false;
   junction.pathCache = {};
   junction.through = throughWorld(junction);
   return junction;
@@ -366,7 +371,7 @@ const markJunction = (run, junction, routeOffset) => {
 /**
  * Create a run. `rng` is the seeded generator, `level` the starting level.
  */
-export const createRun = (rng, level = 1) => {
+export const createRun = (rng, level = 1, { coach = false } = {}) => {
   const run = {
     rng,
     level,
@@ -380,7 +385,8 @@ export const createRun = (rng, level = 1) => {
     v: 0,               // current speed (units/s); eases towards `speed`
     brakeLights: false,
     speed: speedFor(level, false),
-    coach: false,
+    coach,
+    coachDone: false,
     intent: null,
     braking: false,
     stoppedAt: null,    // distance where you are stopped
@@ -389,7 +395,7 @@ export const createRun = (rng, level = 1) => {
     events: [],
     over: false,
   };
-  const first = createJunction(rng, level, null);
+  const first = createJunction(rng, level, null, coach ? 0 : null);
   run.junctions.push(first);
   rebuildRoute(run);
   run.s = 0;
@@ -424,7 +430,8 @@ const ensureAhead = (run) => {
   const ahead = run.junctions.filter((j) => j.index > current.index).length;
   if (ahead < 2) {
     const last = run.junctions[run.junctions.length - 1];
-    run.junctions.push(createJunction(run.rng, run.level, last));
+    const next = last.index + 1;
+    run.junctions.push(createJunction(run.rng, run.level, last, run.coach && next < TUTORIAL_LENGTH ? next : null));
     rebuildRoute(run);
   }
 };
@@ -542,7 +549,7 @@ const moveOff = (run, junction) => {
   }
   const readyAt = readyAtOf(junction);
   const early = run.now <= readyAt + EARLY_BONUS_MS;
-  junction.earlyResume = early && !junction.hesitated;
+  junction.earlyResume = early && !junction.stopWasNeedless;
   junction.resumedAt = run.now;
   run.stoppedAt = null;
   run.events.push({ type: 'resumed', junction: junction.index, early });
@@ -788,7 +795,9 @@ const crash = (run, junction, culprit) => {
   junction.crashed = true;
   junction.culprit = culprit;
   completeRing(run, junction);
-  run.lives -= 1;
+  // The guided junctions are for learning: a bump there explains itself
+  // and costs nothing.
+  if (!junction.tutorial) run.lives -= 1;
   run.streak = 0;
   run.crashUntil = run.now + CRASH_PAUSE_MS;
   run.stoppedAt = null;
@@ -809,7 +818,9 @@ const passJunction = (run, junction) => {
   const base = 100 + (run.level - 1) * 15;
   const bonus = junction.earlyResume ? 60 : 0;
   const multiplier = Math.min(2, 1 + 0.1 * run.streak);
-  const spoiled = junction.hesitated || wrongWay || junction.late || junction.ranRed || junction.ranStop;
+  junction.hesitated = Boolean(junction.stopWasNeedless) && !junction.blockers.length;
+  if (junction.hesitated) run.events.push({ type: 'hesitated', junction: junction.index });
+  const spoiled = !junction.tutorial && (junction.hesitated || wrongWay || junction.late || junction.ranRed || junction.ranStop);
   const points = spoiled ? 0 : Math.round((base + bonus) * multiplier);
   junction.wrongWay = wrongWay;
   junction.points = points;
@@ -837,7 +848,13 @@ export const step = (run, now) => {
 
   ensureAhead(run);
   const junction = currentJunction(run);
-  run.speed = speedFor(run.level, run.coach && run.passed < COACH_JUNCTIONS);
+  // The guided junctions run slower; announce the end once the road is yours,
+  // whether you drove those junctions cleanly or bumped your way through.
+  run.speed = speedFor(run.level, run.coach && junction.tutorial !== null);
+  if (run.coach && !run.coachDone && junction.tutorial === null) {
+    run.coachDone = true;
+    run.events.push({ type: 'coachDone' });
+  }
   if (!junction.scheduled && junction.sWait - run.s < run.speed * SCHEDULE_AHEAD_S) {
     schedule(run, junction);
     run.events.push({ type: 'instruction', junction: junction.index, ...junction.instruction, blockers: [...junction.blockers], stopSign: stopSignFor(junction) });
@@ -906,10 +923,9 @@ export const step = (run, now) => {
       // than strictly needed is driving, not a mistake; dawdling from the
       // line is caught by the late penalty instead.
       const needless = junction.blockers.length === 0 && !redFor(junction, now) && !stopSignFor(junction) && now >= wayClearAt(junction);
-      if (needless) {
-        junction.hesitated = true;
-        run.events.push({ type: 'hesitated', junction: junction.index });
-      }
+      // Judged again when you pass: swiping into a turn after stopping can
+      // give somebody priority over you, and then the stop was right after all.
+      junction.stopWasNeedless = needless;
     }
     run.s = next;
     // Roundabout: at each decision point either take the exit or carry on round.
@@ -952,6 +968,27 @@ export const step = (run, now) => {
   }
 
   return run.events.splice(0);
+};
+
+/**
+ * What the guided start is asking for right now, or null outside it. The
+ * screen turns this into a sentence; `vehicle` is the car to name.
+ */
+export const coachStep = (run) => {
+  if (!run.coach || run.over) return null;
+  const junction = currentJunction(run);
+  if (!junction.tutorial || !junction.scheduled || junction.passed) return null;
+  if (run.stoppedAt !== null) {
+    if (junction.needTurn) return { step: 'turn', dir: junction.instruction.turn };
+    const clear = !junction.blockers.length || run.now >= junction.clearAt;
+    return { step: clear ? 'go' : 'wait', vehicle: junction.blockers[0] || null };
+  }
+  if (junction.needTurn || (junction.instruction.turn !== 'straight' && !junction.scene.arms.includes(oppositeOf('S')))) {
+    return { step: 'turn', dir: junction.instruction.turn };
+  }
+  if (junction.blockers.length && !junction.stopped) return { step: 'giveWay', vehicle: junction.blockers[0] };
+  if (junction.stopped) return { step: 'rolling' };
+  return { step: 'priority' };
 };
 
 /** Your world pose now. */

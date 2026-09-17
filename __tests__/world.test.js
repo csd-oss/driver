@@ -948,3 +948,113 @@ describe('roundabout traffic keeps moving', () => {
     expect(offRing).toBe(0);
   });
 });
+
+describe('guided start', () => {
+  const { coachStep, TUTORIAL_LENGTH } = require('../src/lib/priority/world');
+  const { TUTORIAL_STEPS } = require('../src/lib/priority/tutorial');
+
+  it('drives the same three lessons, whatever the seed', () => {
+    for (const seed of [1, 7, 99]) {
+      const run = createRun(makeRng(seed), 1, { coach: true });
+      expect(run.coach).toBe(true);
+      let now = 0;
+      const seen = [];
+      for (let i = 0; i < 12000 && seen.length < TUTORIAL_STEPS.length + 1; i++) {
+        now += 16;
+        const evs = step(run, now);
+        const j = currentJunction(run);
+        if (j.tutorial && !seen.includes(j.tutorial)) seen.push(j.tutorial);
+        if (!j.tutorial && seen.length === TUTORIAL_STEPS.length) seen.push('free');
+        // Follow the coaching: brake when told, then go, and turn as asked.
+        const hint = coachStep(run);
+        if (hint?.step === 'giveWay') applyInput(run, 'brake');
+        if (hint?.step === 'go') applyInput(run, 'go');
+        if (hint?.step === 'turn') applyInput(run, hint.dir);
+        if (evs.some((e) => e.type === 'needTurn')) applyInput(run, j.instruction.turn === 'left' ? 'left' : 'right');
+      }
+      expect(seen).toEqual([...TUTORIAL_STEPS.map((s) => s.id), 'free']);
+      expect(run.lives).toBe(LIVES);
+      expect(run.passed).toBeGreaterThanOrEqual(TUTORIAL_LENGTH);
+    }
+  });
+
+  it('names the swipe for each lesson and costs nothing when it goes wrong', () => {
+    const run = createRun(makeRng(3), 1, { coach: true });
+    let now = 0;
+    const steps = new Set();
+    const events = [];
+    // A player who ignores every prompt: bumps and needless stops alike are free.
+    for (let i = 0; i < 9000; i++) {
+      now += 16;
+      events.push(...step(run, now));
+      const j = currentJunction(run);
+      // The lessons are over, and so is the free ride, once the end is announced.
+      if (!j.tutorial && events.some((e) => e.type === 'coachDone')) break;
+      const hint = coachStep(run);
+      if (hint) steps.add(hint.step);
+      if (j.needTurn) applyInput(run, 'left'); // the wrong way at the T-junction
+      if (run.stoppedAt !== null && !j.needTurn) applyInput(run, 'go');
+      if (j.tutorial === 'priority' && j.scheduled && !j.stopped && run.s < j.sLine && j.sWait - run.s < 40) applyInput(run, 'brake');
+    }
+    expect(steps.has('giveWay')).toBe(true);
+    expect(steps.has('turn')).toBe(true);
+    expect(run.lives).toBe(LIVES); // a crash in the guided start costs nothing
+    const guided = events.filter((x) => x.type === 'passed' && x.junction < TUTORIAL_LENGTH);
+    expect(guided.length).toBeGreaterThan(0);
+    for (const e of guided) expect(e.points).toBeGreaterThan(0);
+    expect(events.some((e) => e.type === 'crash' && e.junction < TUTORIAL_LENGTH)).toBe(true);
+    expect(events.filter((e) => e.type === 'coachDone')).toHaveLength(1);
+  });
+
+  it('stays out of the way on a later run', () => {
+    const run = createRun(makeRng(5), 1);
+    expect(run.coach).toBe(false);
+    expect(run.junctions[0].tutorial).toBeNull();
+    expect(coachStep(run)).toBeNull();
+  });
+});
+
+describe('a stop before a turn is not a needless stop', () => {
+  it('counts the priority of the way you actually took', () => {
+    // Straight on nobody has priority over you; turning left the oncoming
+    // car does. Stopping and then turning left is correct driving.
+    const scene = {
+      layout: 'cross', arms: ['N', 'E', 'S', 'W'], signs: {}, mainRoad: null, tramTracks: [], control: null, pedestrians: [],
+      vehicles: [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: 'N' }, { id: 'green', kind: 'car', color: 'green', from: 'N', to: 'S' }],
+    };
+    let run = null;
+    for (let seed = 1; seed < 100 && !run; seed++) {
+      const r = createRun(makeRng(seed), 1);
+      if (!r.junctions[0].ring) run = r;
+    }
+    const j = run.junctions[0];
+    j.scene = { ...scene, id: 'test', level: 1 };
+    j.starts = { you: null, green: null };
+    j.pathCache = {};
+    j.instruction = { kind: 'left', turn: 'left', to: 'W' };
+    let now = 0;
+    // Approach going straight, with nothing in the way, and stop at the line.
+    while (run.stoppedAt === null && now < 40000) {
+      now += 16;
+      step(run, now);
+      if (j.scheduled && j.sWait - run.s < 40) applyInput(run, 'brake');
+    }
+    expect(run.stoppedAt).not.toBeNull();
+    expect(j.blockers).toEqual([]);
+    expect(j.stopWasNeedless).toBe(true);
+    // Now swipe left, as the instructor asked: the green car has priority.
+    applyInput(run, 'left');
+    expect(j.blockers).toEqual(['green']);
+    const events = [];
+    for (let i = 0; i < 2000 && !j.passed; i++) {
+      now += 16;
+      events.push(...step(run, now));
+      if (run.stoppedAt !== null && run.now >= j.clearAt) applyInput(run, 'go');
+    }
+    const passed = events.find((e) => e.type === 'passed');
+    expect(passed.hesitated).toBe(false);
+    expect(events.some((e) => e.type === 'hesitated')).toBe(false);
+    expect(passed.points).toBeGreaterThan(0);
+    expect(passed.record.reasons.some((r) => r.who === 'you' && r.to === 'green')).toBe(true);
+  });
+});

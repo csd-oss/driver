@@ -2027,9 +2027,29 @@ export const STR = {
     2: 'STOP sign: swipe down to stop, then up once it is clear.',
     3: 'STOP tábla: húzz lefelé a megálláshoz, majd felfelé, ha szabad az út.',
   },
+  'crossing.coach.goSwipe': {
+    1: 'Voľno. Potiahni nahor a rozbehni sa.',
+    2: 'The way is clear. Swipe up to move off.',
+    3: 'Szabad az út. Húzz felfelé az elinduláshoz.',
+  },
+  'crossing.coach.waitSwipe': {
+    1: 'Počkaj, kým {vehicle} prejde.',
+    2: 'Wait for {vehicle} to pass.',
+    3: 'Várd meg, míg {vehicle} elhalad.',
+  },
+  'crossing.coach.rolling': {
+    1: 'Dobre. Pokračuj.',
+    2: 'Good. Now carry on.',
+    3: 'Jó. Haladj tovább.',
+  },
+  'crossing.coach.done': {
+    1: 'Ovládanie máš v rukách. Ďalej to už je tvoja jazda.',
+    2: 'You have the controls. The rest of the drive is yours.',
+    3: 'A vezérlés a tiéd. A menet többi része már rád vár.',
+  },
   'crossing.coach.intro': {
-    1: 'Prvé tri križovatky idú pomalšie a napovedáme ti.',
-    2: 'The first three junctions are slower and come with hints.',
-    3: 'Az első három kereszteződés lassabb, és súgunk.',
+    1: 'Prvé tri križovatky ťa povedú: pomalšie a s pokynmi, čo potiahnuť. Nič tam nestratíš.',
+    2: 'The first three junctions guide you: slower, and they say which way to swipe. Nothing there costs you.',
+    3: 'Az első három kereszteződés végigvezet: lassabban, és megmondja, merre húzz. Ott semmit sem veszíthetsz.',
   },
 };

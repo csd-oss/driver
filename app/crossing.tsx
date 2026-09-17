@@ -15,10 +15,10 @@ import { explainRecord } from '@/src/lib/crossingLog';
 import { confirmDialog } from '@/src/lib/dialog';
 import { makeRng } from '@/src/lib/priority/generator';
 import {
-  COACH_JUNCTIONS,
   LIVES,
   applyInput,
   createRun,
+  coachStep,
   currentJunction,
   lightState,
   shiftTime,
@@ -53,6 +53,25 @@ interface Instruction {
 
 const instructionText = (i: { kind: string; turn: string }, lang: number) =>
   i.kind === 'roundabout' ? t(`crossing.instr.roundabout.${i.turn}`, lang) : t(`crossing.instr.${i.kind}`, lang);
+
+const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+/** What the guided start is asking for, as a sentence, or null outside it. */
+const coachText = (run: any, lang: number): string | null => {
+  const step = coachStep(run);
+  if (!step) return null;
+  const junction = currentJunction(run);
+  const car = step.vehicle ? junction.scene.vehicles.find((v: any) => v.id === step.vehicle) : null;
+  const vehicle = car ? t(`crossing.vehicle.${car.color}`, lang) : '';
+  if (step.step === 'giveWay') return tf('crossing.coach.giveWay', lang, { vehicle: cap(vehicle) });
+  if (step.step === 'wait') return tf('crossing.coach.waitSwipe', lang, { vehicle: vehicle || t('crossing.log.someone', lang) });
+  if (step.step === 'go') return t('crossing.coach.goSwipe', lang);
+  if (step.step === 'turn') {
+    return tf('crossing.coach.turn', lang, { dir: t(step.dir === 'left' ? 'crossing.coach.dirLeft' : 'crossing.coach.dirRight', lang) });
+  }
+  if (step.step === 'rolling') return t('crossing.coach.rolling', lang);
+  return t('crossing.coach.priority', lang);
+};
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 const TOAST_MS = 1500;
@@ -218,25 +237,9 @@ export default function CrossingScreen() {
         } else if (e.type === 'instruction') {
           setInstruction(e.kind === 'none' ? null : { kind: e.kind, turn: e.turn, to: e.to, junction: e.junction });
           setIntent(null);
-          if (run.coach && run.passed < COACH_JUNCTIONS) {
-            const junction = run.junctions.find((j: any) => j.index === e.junction);
-            const blocker = e.blockers?.[0];
-            const vehicle = junction?.scene?.vehicles?.find((v: any) => v.id === blocker);
-            if (e.stopSign) {
-              setCoachHint(t('crossing.coach.stopSign', lang));
-            } else if (e.kind === 'roundabout') {
-              setCoachHint(t('crossing.coach.roundabout', lang));
-            } else if (e.turn !== 'straight') {
-              setCoachHint(tf('crossing.coach.turn', lang, { dir: t(e.turn === 'left' ? 'crossing.coach.dirLeft' : 'crossing.coach.dirRight', lang) }));
-            } else if (vehicle) {
-              const name = t(`crossing.vehicle.${vehicle.color}`, lang);
-              setCoachHint(tf('crossing.coach.giveWay', lang, { vehicle: name.charAt(0).toUpperCase() + name.slice(1) }));
-            } else {
-              setCoachHint(t('crossing.coach.priority', lang));
-            }
-          } else {
-            setCoachHint(null);
-          }
+        } else if (e.type === 'coachDone') {
+          setToast({ kind: 'level', text: t('crossing.coach.done', lang), until: tNow + TOAST_MS * 2 });
+          haptic.level();
         } else if (e.type === 'intent') {
           setIntent(e.intent);
           haptic.resumed();
@@ -257,6 +260,9 @@ export default function CrossingScreen() {
       const junction = currentJunction(run);
       const youVehicle = junction.scene.vehicles.find((v: any) => v.id === 'you');
       const youSignal = youSignalFor(run) as 'left' | 'right' | null;
+      // The guided start speaks every frame, so the prompt follows what the
+      // player is doing rather than what happened at the last event.
+      setCoachHint(coachText(run, lang));
       const shaking = tNow < shakeUntilRef.current ? Math.sin(tNow / 18) * 1.6 : 0;
       const visible = visibleJunctions(run);
       const lights: Record<number, any> = {};
@@ -289,10 +295,9 @@ export default function CrossingScreen() {
   const startRun = () => {
     const seed = __DEV__ && params.seed ? Number(params.seed) : Date.now() % 1000003;
     const level = __DEV__ && params.level ? Math.max(1, Number(params.level)) : 1;
-    runRef.current = createRun(makeRng(seed), level);
+    runRef.current = createRun(makeRng(seed), level, { coach: roundsPlayed === 0 });
     if (__DEV__) console.log(`[crossing] run seed=${seed} level=${level}`);
     runRef.current.now = now();
-    runRef.current.coach = roundsPlayed === 0;
     runIdRef.current = generateId();
     setRecords([]);
     setInstruction(null);
