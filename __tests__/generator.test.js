@@ -38,7 +38,13 @@ describe('generator', () => {
       for (let i = 0; i < 3000; i++) {
         const scene = generatePlayable(rng, level); // throws when 50 draws in a row are unplayable
         const others = scene.vehicles.filter((v) => v.id !== 'you' && v.kind !== 'tram');
-        expect(others.length).toBe(expectedOthers(level));
+        // Roundabouts use at most one approach per non-player entry so a
+        // queued entrant cannot spawn in front of arriving ring traffic.
+        expect(others.length).toBe(scene.layout === 'roundabout' ? Math.min(3, expectedOthers(level)) : expectedOthers(level));
+        if (scene.layout === 'roundabout') {
+          const approaches = others.map(v => v.from === 'ring' ? v.entryFrom : v.from);
+          expect(new Set(approaches).size).toBe(approaches.length);
+        }
         // No arm carries more vehicles than it has to: extras queue, two deep at most here.
         const counts = {};
         for (const v of others) counts[v.from] = (counts[v.from] || 0) + 1;
@@ -173,10 +179,11 @@ describe('layout', () => {
     const plain = roundaboutPath('ring', 'N');
     expect(plain).toEqual(roundaboutPath('ring', 'N', {}));
     expect(plain).toEqual(roundaboutPath('ring', 'N', { ringAt: RING_DEFAULT_START }));
-    // It comes round the ring into its starting spot, so it can be seen moving.
+    // It arrives along a road, then follows the ring into its starting spot.
     expect(plain.approach.length).toBeGreaterThan(4);
     expect(plain.approach[plain.approach.length - 1]).toEqual(plain.wait);
-    for (const p of plain.approach) expect(Math.hypot(p.x - 50, p.y - 50)).toBeCloseTo(RING_R, 6);
+    expect(plain.approach[0]).toEqual({ x: 44, y: -110 });
+    expect(Math.hypot(plain.approach.at(-1).x - 50, plain.approach.at(-1).y - 50)).toBeCloseTo(RING_R, 6);
     expect(plain.wait).toEqual(plain.through[0]);
     // The default sits south-west of the island, a little before the S axis.
     expect(plain.wait.x).toBeLessThan(50);

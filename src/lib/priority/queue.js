@@ -1,4 +1,4 @@
-import { approachPoint, boxHalf, RING_R, vehiclePath, WAIT } from './layout';
+import { approachPoint, boxHalf, RING_R, RING_WAIT, vehiclePath, WAIT } from './layout';
 
 /**
  * Queueing for vehicles that arrive on the same arm and lane. Only the first
@@ -13,7 +13,7 @@ export const VEHICLE_LENGTH = { car: 10, van: 11.5, truck: 13.5, bus: 13.5, tram
 const lengthOf = (v) => VEHICLE_LENGTH[v.kind] ?? VEHICLE_LENGTH.car;
 
 /** Distance from the centre at which a vehicle on `from` waits. */
-const waitDistance = (scene, vehicle) => (scene.layout === 'roundabout' ? RING_R : boxHalf(scene, vehicle.from)) + WAIT;
+const waitDistance = (scene, vehicle) => scene.layout === 'roundabout' ? RING_R + RING_WAIT : boxHalf(scene, vehicle.from) + WAIT;
 
 /** Index of the group `id` crosses in, or the end of the order when it is missing. */
 const rankOf = (order, id) => {

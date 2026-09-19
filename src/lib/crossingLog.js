@@ -1,3 +1,4 @@
+import { vehicleName as displayVehicleName } from './priority/vehicleName';
 import { t, tf } from '../i18n/i18n';
 import { turnOf } from './priority/geometry';
 
@@ -5,7 +6,7 @@ const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 const vehicleName = (record, id, lang) => {
   const v = record.scene.vehicles.find((x) => x.id === id);
-  if (v) return t(`crossing.vehicle.${v.color}`, lang);
+  if (v) return displayVehicleName(v, lang);
   if (record.scene.pedestrians && record.scene.pedestrians.length) return t('crossing.log.pedestrians', lang);
   return t('crossing.log.someone', lang);
 };

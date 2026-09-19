@@ -1,7 +1,8 @@
+import { StreetEnvironment } from './StreetEnvironment';
 import { memo } from 'react';
-import { useColorScheme } from 'react-native';
 import Svg, { G, Rect } from 'react-native-svg';
 import { CENTER } from '@/src/lib/priority/layout';
+import { cameraView, screenPoint } from '@/src/lib/priority/view';
 import { JunctionStatic, type LightPhase } from './JunctionStatic';
 import { PathArrow } from './PathArrow';
 import { VehicleSprite } from './VehicleSprite';
@@ -55,7 +56,7 @@ interface Props {
  * turns with it; junctions are drawn in their own rotated frames.
  */
 // Side roads run this far past the junction frame, off the screen in practice.
-const SIDE_ROAD = 70;
+const SIDE_ROAD = 190;
 
 interface FrameProps {
   scene: any;
@@ -72,28 +73,24 @@ interface FrameProps {
 // primitive props change. That keeps a turning camera smooth.
 const JunctionFrame = memo(({ scene, index, gapBefore, gapAfter, youTo, dark, lights }: FrameProps) => {
   // The first junction owns its whole lead road; later ones meet halfway.
-  const before = index === 0 ? gapBefore + 2 : gapBefore / 2 + 2;
+  const before = index === 0 ? gapBefore + SIDE_ROAD : gapBefore / 2 + 2;
   const extendArms: Record<string, number> = { S: before };
   if (youTo) extendArms[youTo] = gapAfter / 2 + 2;
-  return <JunctionStatic scene={scene} dark={dark} extendArms={extendArms} lights={lights} sideExtend={SIDE_ROAD} ownArm="S" />;
+  return <><StreetEnvironment arms={scene.arms} extensions={extendArms} seed={index} /><JunctionStatic scene={scene} dark={dark} extendArms={extendArms} lights={lights} sideExtend={SIDE_ROAD} ownArm="S" /></>;
 });
 JunctionFrame.displayName = 'JunctionFrame';
 
 export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle, heading, highlight = [], blinkOn = true, shake = 0, lights = {}, youSignal, youBraking = false }: Props) => {
-  const dark = useColorScheme() === 'dark';
-  const grass = dark ? '#1a2e1a' : '#cfe8bf';
-  // Zoom in: the view spans ZOOM_W scene units across, the car sits lower down.
-  const ZOOM_W = 78;
-  const viewH = (ZOOM_W * height) / width;
-  const camera = `translate(${ZOOM_W / 2 + shake} ${viewH * 0.78}) rotate(${-heading}) translate(${-you.x} ${-you.y})`;
+  const dark = false; // Daylight road training stays readable in either app theme.
+  const grass = dark ? '#233831' : '#c6d5b7';
+  const view = cameraView(width, height, you, heading);
+  const ZOOM_W = view.span;
+  const viewH = view.viewHeight;
+  const camera = `translate(${ZOOM_W / 2 + shake} ${viewH * 0.72}) rotate(${-heading}) translate(${-you.x} ${-you.y})`;
   // Is a world point on screen? Same transform as the camera, with a small margin.
-  const rad = (-heading * Math.PI) / 180;
   const inView = (p: VehiclePose) => {
-    const dx = p.x - you.x;
-    const dy = p.y - you.y;
-    const vx = ZOOM_W / 2 + dx * Math.cos(rad) - dy * Math.sin(rad);
-    const vy = viewH * 0.78 + dx * Math.sin(rad) + dy * Math.cos(rad);
-    return vx > -4 && vx < ZOOM_W + 4 && vy > -4 && vy < viewH + 4;
+    const point = screenPoint(p, view);
+    return point.x > -12 && point.x < width + 12 && point.y > -12 && point.y < height + 12;
   };
   return (
     <Svg width={width} height={height} viewBox={`0 0 ${ZOOM_W} ${viewH}`}>
@@ -109,7 +106,7 @@ export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle
                 vehicles
                   .filter((p) => p.junction.index === j.index && inView(p.pose))
                   .map((p) => (
-                    <PathArrow key={`arrow-${j.index}-${p.vehicle.id}`} scene={j.scene} vehicle={p.vehicle} opacity={0.7} span={0.5} progress={p.progress ?? 0} from={p.local} />
+                    <PathArrow key={`arrow-${j.index}-${p.vehicle.id}`} scene={j.scene} vehicle={p.vehicle} opacity={0.38} span={0.5} progress={p.progress ?? 0} from={p.local} />
                   ))}
             </G>
           );

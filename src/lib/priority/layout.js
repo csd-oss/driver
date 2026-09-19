@@ -16,6 +16,7 @@ export const LANE = 6;         // lane centre offset from the road centre line
 export const EDGE = CENTER - ROAD_HALF; // 38, the near edge of the crossing box
 export const FAR = CENTER + ROAD_HALF;  // 62
 export const RING_R = 19;      // roundabout ring centre-line radius
+export const RING_WAIT = 14;   // room for circulating vehicles beyond the nose of a waiting car
 export const ISLAND_R = 10;    // roundabout island radius
 
 export const ARM_HEADING = { N: 180, E: 270, S: 0, W: 90 }; // heading when arriving from the arm
@@ -212,11 +213,19 @@ export const roundaboutPath = (from, to, vehicle) => {
     const startDeg = ((at % 360) + 360) % 360;
     const exit = exitCurveFor(to);
     const ring = ringArc(startDeg, exit.leaveDeg);
-    return { approach: ringArc(startDeg + RING_APPROACH_DEG, startDeg), wait: ring[0], through: [...ring, ...exit.points.slice(1)] };
+    // Arrive on an actual road, then join the ring before the scheduled
+    // circulating segment. Never extend a ring tangent into the grass.
+    const entryArm = vehicle?.entryFrom || ['S', 'W', 'N', 'E'][Math.floor(startDeg / 90)];
+    const entryRotation = ARM_ROT[entryArm];
+    const entry = entryCurveS();
+    const entryPts = entry.points.map(p => rotateAbout(p, entryRotation));
+    const approach = [approachPoint(entryArm, CENTER + 110), approachPoint(entryArm, RING_R + WAIT), ...entryPts,
+      ...ringArc((entry.joinDeg + entryRotation) % 360, startDeg).slice(1)];
+    return { approach, wait: ring[0], through: [...ring, ...exit.points.slice(1)] };
   }
   const rot = ARM_ROT[from];
   const start = approachPoint(from, CENTER);
-  const wait = approachPoint(from, RING_R + WAIT);
+  const wait = approachPoint(from, RING_R + RING_WAIT);
   const entry = entryCurveS();
   const entryPts = entry.points.map((p) => rotateAbout(p, rot));
   const joinDeg = (entry.joinDeg + rot) % 360;

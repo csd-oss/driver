@@ -1,5 +1,5 @@
 import { makeRng } from '../src/lib/priority/generator';
-import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, ALL_RED_MS, LATE_MS, LIVES } from '../src/lib/priority/world';
+import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, ALL_RED_MS, LIVES, speedFor } from '../src/lib/priority/world';
 
 // A T-junction with no straight ahead waits for a direction: take the instructed one.
 // A stopped car only moves off on a swipe: do that once the way is clear.
@@ -67,7 +67,7 @@ describe('world', () => {
     expect(run.lives).toBe(LIVES - 1);
   });
 
-  it('penalises a needless stop without taking a life and resumes by itself', () => {
+  it('allows cautious stops without hesitation penalties', () => {
     const run = createRun(makeRng(5), 1);
     // Brake at every junction regardless.
     const events = runUntil(run, (r) => r.passed >= 4 || r.over, {
@@ -78,6 +78,7 @@ describe('world', () => {
       },
     });
     const hesitations = events.filter((e) => e.type === 'hesitated');
+    expect(hesitations).toHaveLength(0);
     const crashes = events.filter((e) => e.type === 'crash');
     expect(crashes).toHaveLength(0);
     expect(run.lives).toBe(LIVES);
@@ -427,7 +428,11 @@ describe('motion and roundabouts', () => {
           const key = `${p.junction.index}-${p.vehicle.id}`;
           cur.set(key, p.pose);
           const was = prev.get(key);
-          if (was) worst = Math.max(worst, Math.hypot(p.pose.x - was.x, p.pose.y - was.y));
+          if (was) {
+            const movement = Math.hypot(p.pose.x - was.x, p.pose.y - was.y);
+            if (movement >= 3) throw new Error(`jump seed=${seed} t=${now} ${key} ${JSON.stringify({was, now:p.pose, vehicle:p.vehicle, starts:p.junction.starts, roll:p.junction.rollIn, s:r.s})}`);
+            worst = Math.max(worst, movement);
+          }
         }
         prev = cur;
       });
@@ -568,7 +573,7 @@ describe('brake reaction, turn-means-go, blinker', () => {
     expect(stop.s).toBeCloseTo(stop.sWait, 5);
   });
 
-  it('a direction swipe while standing at the line moves the car off', () => {
+  it('selecting a direction keeps the car stopped until Go', () => {
     let run = null;
     for (let seed = 1; seed < 200 && !run; seed++) {
       const r = createRun(makeRng(seed), 1);
@@ -585,6 +590,9 @@ describe('brake reaction, turn-means-go, blinker', () => {
     expect(j.needTurn).toBe(true);
     const dir = j.instruction.turn === 'left' ? 'left' : 'right';
     applyInput(run, dir);
+    expect(run.stoppedAt).not.toBeNull();
+    expect(j.needTurn).toBe(false);
+    applyInput(run, 'go');
     expect(run.stoppedAt).toBeNull();
     expect(youSignalFor(run)).toBe(dir);
     const events = drive(run, 20000);
@@ -752,10 +760,11 @@ describe('giving way is never punished', () => {
     j.starts[crossing] = t0 + 2000;
     run.now = now;
     // Past the plain grace: without the crossing vehicle this would be late.
-    const first = runFor(run, t0 + LATE_MS + 600);
+    const first = runFor(run, t0 + 4600);
     expect(first.some((e) => e.type === 'late')).toBe(false);
-    const later = runFor(run, t0 + LATE_MS + 9000);
-    expect(later.some((e) => e.type === 'late')).toBe(true);
+    const later = runFor(run, t0 + 13000);
+    expect(later.some((e) => e.type === 'late')).toBe(false);
+    expect(run.stoppedAt).not.toBeNull();
   });
 });
 
@@ -989,6 +998,7 @@ describe('the guide', () => {
       // yet in your way when the junction is built.
       leftTurn: { blockers: [], stop: false },
       tram: { blockers: ['tram1'], stop: false },
+      tramYield: { blockers: [], stop: false },
       roundabout: { blockers: ['red'], stop: false },
     };
     expect(LESSONS.map((l) => l.id)).toEqual(Object.keys(expected));
@@ -1112,5 +1122,36 @@ describe('a stop before a turn is not a needless stop', () => {
     expect(events.some((e) => e.type === 'hesitated')).toBe(false);
     expect(passed.points).toBeGreaterThan(0);
     expect(passed.record.reasons.some((r) => r.who === 'you' && r.to === 'green')).toBe(true);
+  });
+});
+
+
+describe('safety-first practice', () => {
+  it('keeps later levels at a readable cruising speed', () => {
+    expect(speedFor(1)).toBe(20);
+    expect(speedFor(100)).toBeLessThanOrEqual(24);
+  });
+
+  it('awards the same points after a short or long observation stop', () => {
+    const driveFirst = (waitMs) => {
+      const run = createRun(makeRng(5), 1);
+      const j = run.junctions[0];
+      let resumeAt = null;
+      const events = [];
+      while (run.now < 90000 && !j.passed && !j.crashed) {
+        events.push(...step(run, run.now + 16));
+        if (j.scheduled && run.s < j.sWait && !j.stopped) applyInput(run, 'brake');
+        if (run.stoppedAt !== null) {
+          if (resumeAt === null) resumeAt = Math.max(run.now, j.clearAt) + waitMs;
+          if (run.now >= resumeAt) applyInput(run, 'go');
+        }
+      }
+      expect(j.passed).toBe(true);
+      expect(events.some((e) => e.type === 'late' || e.type === 'hesitated')).toBe(false);
+      return run.score;
+    };
+    const prompt = driveFirst(1000);
+    expect(prompt).toBeGreaterThan(0);
+    expect(driveFirst(20000)).toBe(prompt);
   });
 });

@@ -4,7 +4,8 @@ import { RING_DEFAULT_START } from './layout';
 /**
  * The guide: one fixed junction per lesson, in order, covering every kind of
  * junction the game generates. Nothing here is random, so every player is
- * taught the same thing, and a lesson has to be passed before the next one.
+ * taught the same thing during one continuous drive. Mistakes are explained
+ * in place and reviewed at the end, without restarting every junction.
  *
  * `demo` lists the swipes the brief shows; `pass` is what the lesson asks of
  * you beyond not crashing. Titles and texts live in `src/i18n/strings.js`
@@ -12,7 +13,7 @@ import { RING_DEFAULT_START } from './layout';
  */
 
 const you = (to) => ({ id: 'you', kind: 'car', color: 'you', from: 'S', to });
-const car = (id, from, to, kind = 'car') => ({ id, kind, color: id, from, to });
+const car = (id, from, to, kind = 'car') => ({ id, kind, color: kind === 'tram' ? 'tram' : id, from, to });
 
 const cross = ({ vehicles, signs = {}, mainRoad = null, tramTracks = [], control = null }) => ({
   layout: 'cross',
@@ -43,7 +44,7 @@ export const LESSONS = [
   {
     id: 'mainRoad',
     demo: [],
-    pass: { noNeedlessStop: true },
+    pass: {},
     scene: cross({
       vehicles: [you('N'), car('blue', 'E', 'W')],
       signs: { S: 'main', N: 'main', E: 'yield', W: 'yield' },
@@ -117,6 +118,15 @@ export const LESSONS = [
     instruction: { kind: 'none', turn: 'straight', to: 'N' },
   },
   {
+    id: 'tramYield', demo: [], pass: {},
+    scene: cross({
+      vehicles: [you('N'), car('tram1', 'W', 'E', 'tram')],
+      signs: { S: 'main', N: 'main', E: 'yield', W: 'yield' },
+      mainRoad: ['S', 'N'], tramTracks: [{ from: 'W', to: 'E' }],
+    }),
+    instruction: { kind: 'none', turn: 'straight', to: 'N' },
+  },
+  {
     id: 'roundabout',
     demo: ['down', 'right'],
     pass: { rightWay: true },
@@ -162,9 +172,9 @@ export const lessonVerdict = (lesson, junction) => {
   const fail = (reason) => ({ passed: false, reason });
   if (!lesson) return { passed: true, reason: null };
   if (junction.crashed) return fail('crash');
-  if (lesson.pass.rightWay && junction.wrongWay) return fail('wrongWay');
-  if (lesson.pass.noRed && junction.ranRed) return fail('red');
-  if (lesson.pass.mustStop && (junction.ranStop || !junction.stopped)) return fail('noStop');
+  if (junction.wrongWay) return fail('wrongWay');
+  if (junction.ranRed) return fail('red');
+  if (junction.ranStop || (lesson.pass.mustStop && !junction.stopped)) return fail('noStop');
   if (lesson.pass.noNeedlessStop && junction.hesitated) return fail('needlessStop');
   return { passed: true, reason: null };
 };

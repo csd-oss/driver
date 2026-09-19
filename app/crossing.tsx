@@ -1,3 +1,5 @@
+import { vehicleName } from '@/src/lib/priority/vehicleName';
+import { DriveStage } from '@/components/game/DriveStage';
 import { IntersectionScene } from '@/components/game/IntersectionScene';
 import { RecordModal, outcomeClass, outcomeTextClass } from '@/components/game/RecordModal';
 import { WorldScene, type WorldVehicle } from '@/components/game/WorldScene';
@@ -27,13 +29,13 @@ import {
   youPose,
   youSignalFor,
 } from '@/src/lib/priority/world';
-import { getCachedLanguage, getGuideFinished, getLanguage } from '@/src/lib/settings';
+import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, View, type LayoutChangeEvent } from 'react-native';
+import { AppState, PanResponder, Pressable, ScrollView, View } from 'react-native';
 
 type Phase = 'intro' | 'running' | 'over';
 
@@ -55,7 +57,6 @@ const instructionText = (i: { kind: string; turn: string }, lang: number) =>
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 const TOAST_MS = 1500;
-const SCENE_MAX_W = 480;
 
 // Physical moments of the drive, each with its own pattern. Crashes get a
 // double heavy thud so they are unmistakable even with the phone in a hand.
@@ -84,6 +85,8 @@ export default function CrossingScreen() {
   const params = useLocalSearchParams<{ seed?: string; level?: string }>();
   const [lang, setLang] = useState(getCachedLanguage);
   const [phase, setPhase] = useState<Phase>('intro');
+  const [paused, setPaused] = useState(false);
+  const [motion, setMotion] = useState<'driving' | 'braking' | 'waiting'>('driving');
   const [best, setBest] = useState(0);
   const [hud, setHud] = useState({ level: 1, lives: LIVES, score: 0, streak: 0, passed: 0 });
   const [frame, setFrame] = useState<{ junctions: any[]; vehicles: WorldVehicle[]; you: any; heading: number; youVehicle: any; blink: boolean; shake: number; lights: Record<number, any>; youSignal: 'left' | 'right' | null; youBraking: boolean } | null>(null);
@@ -94,9 +97,6 @@ export default function CrossingScreen() {
   const [isNewBest, setIsNewBest] = useState(false);
   const [roundsPlayed, setRoundsPlayed] = useState<number | null>(null);
   const [records, setRecords] = useState<any[]>([]);
-  // The scene takes whatever is left below the instructor bar.
-  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
-
   const runRef = useRef<any>(null);
   const runIdRef = useRef('');
   const frameRef = useRef<number | null>(null);
@@ -111,18 +111,11 @@ export default function CrossingScreen() {
       trackScreenView(posthog, 'Crossing');
       getLanguage().then(async (l) => {
         setLang(l);
-        // The guide comes first, however you got here: the hub button, a deep
-        // link or a bookmarked web URL.
-        const finished = await getGuideFinished().catch(() => true);
-        if (!finished) {
-          router.replace('/crossing-guide');
-          return;
-        }
         const stats = await GameRoundsDB.getGameStats(l, 'crossing');
         setBest(stats.best);
         setRoundsPlayed(stats.rounds);
       });
-    }, [posthog, router])
+    }, [posthog])
   );
 
   const stopLoop = () => {
@@ -154,7 +147,7 @@ export default function CrossingScreen() {
   const explain = useCallback(
     (run: any, junction: any, culprit: string | null, rule: string | null) => {
       const vehicle = junction?.scene?.vehicles?.find((v: any) => v.id === culprit);
-      const name = vehicle ? t(`crossing.vehicle.${vehicle.color}`, lang) : '';
+      const name = vehicle ? vehicleName(vehicle, lang) : '';
       return rule ? tf(`rule.${rule}`, lang, { vehicle: name }) : t('crossing.crash', lang);
     },
     [lang]
@@ -171,7 +164,8 @@ export default function CrossingScreen() {
 
   // Main loop.
   useEffect(() => {
-    if (phase !== 'running') return;
+    if (phase !== 'running' || paused) return;
+    if (lastTickRef.current) shiftTime(runRef.current, Math.max(0, now() - lastTickRef.current));
     const tick = () => {
       const run = runRef.current;
       const tNow = now();
@@ -233,12 +227,13 @@ export default function CrossingScreen() {
           haptic.honk();
         }
       }
+      setMotion(run.stoppedAt !== null ? 'waiting' : run.braking ? 'braking' : 'driving');
       setHud({ level: run.level, lives: run.lives, score: run.score, streak: run.streak, passed: run.passed });
 
       const you = youPose(run);
       // Turn the camera with the car, shortest way round.
       let diff = ((you.angle - headingRef.current + 540) % 360) - 180;
-      headingRef.current = (headingRef.current + diff * 0.12 + 360) % 360;
+      headingRef.current = (headingRef.current + diff * (1 - Math.exp(-Math.min(gap, 100) / 140)) + 360) % 360;
       const junction = currentJunction(run);
       const youVehicle = junction.scene.vehicles.find((v: any) => v.id === 'you');
       const youSignal = youSignalFor(run) as 'left' | 'right' | null;
@@ -267,9 +262,15 @@ export default function CrossingScreen() {
     lastTickRef.current = now();
     frameRef.current = requestAnimationFrame(tick);
     return stopLoop;
-  }, [explain, finishRun, lang, logRecord, phase, posthog]);
+  }, [explain, finishRun, lang, logRecord, phase, paused, posthog]);
 
   useEffect(() => stopLoop, []);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') setPaused(true);
+    });
+    return () => subscription.remove();
+  }, []);
 
   const startRun = () => {
     const seed = __DEV__ && params.seed ? Number(params.seed) : Date.now() % 1000003;
@@ -278,6 +279,8 @@ export default function CrossingScreen() {
     if (__DEV__) console.log(`[crossing] run seed=${seed} level=${level}`);
     runRef.current.now = now();
     runIdRef.current = generateId();
+    setPaused(false);
+    lastTickRef.current = 0;
     setRecords([]);
     setInstruction(null);
     setIntent(null);
@@ -292,16 +295,16 @@ export default function CrossingScreen() {
   };
 
   const brake = useCallback(() => {
-    if (phase === 'running' && runRef.current) applyInput(runRef.current, 'brake');
-  }, [phase]);
+    if (phase === 'running' && !paused && runRef.current) applyInput(runRef.current, 'brake');
+  }, [phase, paused]);
   const go = useCallback(() => {
-    if (phase === 'running' && runRef.current) applyInput(runRef.current, 'go');
-  }, [phase]);
+    if (phase === 'running' && !paused && runRef.current) applyInput(runRef.current, 'go');
+  }, [phase, paused]);
   const turn = useCallback(
     (dir: 'left' | 'right') => {
-      if (phase === 'running' && runRef.current) applyInput(runRef.current, dir);
+      if (phase === 'running' && !paused && runRef.current) applyInput(runRef.current, dir);
     },
-    [phase]
+    [phase, paused]
   );
 
   const panResponder = useMemo(
@@ -323,6 +326,7 @@ export default function CrossingScreen() {
 
   const handleBack = async () => {
     if (phase === 'running') {
+      setPaused(true);
       const confirmed = await confirmDialog({
         title: t('game.quit', lang),
         message: t('game.quitMessage', lang),
@@ -339,16 +343,8 @@ export default function CrossingScreen() {
     else router.replace('/game');
   };
 
-  const onSceneLayout = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    const w = Math.floor(Math.min(width, SCENE_MAX_W));
-    const h = Math.floor(height);
-    if (w > 0 && h > 0 && (!box || box.w !== w || box.h !== h)) setBox({ w, h });
-  };
-
   const hearts = Array.from({ length: LIVES }, (_, i) => (i < hud.lives ? '♥' : '♡')).join(' ');
   const toastVisible = toast && now() < toast.until;
-  const turnArrow = intent === 'left' ? '⬅️' : intent === 'right' ? '➡️' : '⬆️';
 
   const renderIntro = () => (
     <ScrollView className="flex-1" contentContainerClassName="pb-4" showsVerticalScrollIndicator={false}>
@@ -458,91 +454,30 @@ export default function CrossingScreen() {
     </ScrollView>
   );
 
-  const toastStyle = toast?.kind === 'ok' ? 'bg-emerald-600' : toast?.kind === 'level' ? 'bg-indigo-600' : toast?.kind === 'wrong' ? 'bg-amber-600' : 'bg-rose-600';
-
-  // The instructor bar sits above the road and never covers it. A toast
-  // takes the bar over for a moment, then the instruction (and, on a first
-  // run, the coach's hint) comes back.
-  const renderBar = () => {
-    if (toastVisible) {
-      return (
-        <View className={`rounded-2xl px-4 py-3 min-h-[56px] justify-center ${toastStyle}`} testID={`crossing.toast.${toast.kind}`}>
-          <UIText variant="body" className="text-white font-semibold text-center">
-            {toast.text}
-          </UIText>
+  if (phase === 'running') return (
+    <DriveStage lang={lang}
+      detail={`${tf('crossing.level', lang, { n: hud.level })}  ·  ${t('game.score', lang)}: ${hud.score}  ·  ${hearts}`}
+      instruction={instruction ? instructionText(instruction, lang) : t('crossing.runnerHint', lang)} direction={instruction?.turn}
+      status={paused ? t('crossing.control.paused', lang) : toastVisible ? toast.text : t(`crossing.control.${motion}`, lang)}
+      paused={paused} onPause={() => setPaused(value => !value)} onBack={handleBack}
+      intent={intent} braking={motion !== 'driving'} onInput={input => {
+        if (input === 'brake') brake(); else if (input === 'go') go(); else turn(input);
+      }} testID="screen.crossing">
+      {(width, height) => frame && (
+        <View {...panResponder.panHandlers} style={{ width, height }} testID="crossing.scene">
+          <WorldScene width={width} height={height} junctions={frame.junctions} vehicles={frame.vehicles}
+            you={frame.you} youVehicle={frame.youVehicle} heading={frame.heading} highlight={highlightRef.current}
+            blinkOn={frame.blink} shake={frame.shake} lights={frame.lights} youSignal={frame.youSignal} youBraking={frame.youBraking} />
         </View>
-      );
-    }
-    if (instruction) {
-      return (
-        <View className="rounded-2xl px-4 py-3 min-h-[56px] bg-slate-900 dark:bg-slate-800 flex-row items-center gap-3" testID="crossing.instruction">
-          <UIText variant="subtitle" className="text-white">🧑‍🏫</UIText>
-          <UIText variant="body" className="text-white font-semibold flex-1">
-            {instructionText(instruction, lang)}
-          </UIText>
-          <UIText variant="subtitle" className="text-white">{turnArrow}</UIText>
-        </View>
-      );
-    }
-    return (
-      <View className="rounded-2xl px-4 py-3 min-h-[56px] justify-center bg-slate-200/70 dark:bg-slate-800/70" testID="crossing.bar.idle">
-        <UIText variant="caption" className="text-slate-600 dark:text-slate-300 text-center">
-          {t('crossing.runnerHint', lang)}
-        </UIText>
-      </View>
-    );
-  };
-
+      )}
+    </DriveStage>
+  );
   return (
     <Screen testID="screen.crossing" header={<Header title={t('crossing.title', lang)} onBackPress={handleBack} />}>
-      <View className="flex-1 gap-3 mt-1">
+      <View className="flex-1 gap-3">
         {phase === 'intro' && renderIntro()}
         {phase === 'over' && renderOver()}
         {openRecord && <RecordModal record={openRecord} lang={lang} onClose={() => setOpenRecord(null)} />}
-        {phase === 'running' && (
-          <>
-            <View className="flex-row items-center justify-between">
-              <UIText variant="body" className="font-semibold text-rose-600 dark:text-rose-300" accessibilityLabel={`${t('game.lives', lang)} ${hud.lives}`}>
-                {hearts}
-              </UIText>
-              <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                {tf('crossing.level', lang, { n: hud.level })}{intent ? `  ${turnArrow}` : ''}
-              </UIText>
-              <View className="flex-row items-center gap-3">
-                {hud.streak > 1 && (
-                  <UIText variant="caption" className="font-semibold text-amber-600 dark:text-amber-300">
-                    🔥 {hud.streak}
-                  </UIText>
-                )}
-                <UIText variant="subtitle" className="text-indigo-700 dark:text-indigo-200" testID="crossing.score">
-                  {hud.score}
-                </UIText>
-              </View>
-            </View>
-            {renderBar()}
-            <View className="flex-1 items-center" onLayout={onSceneLayout}>
-              {frame && box && (
-                <View {...panResponder.panHandlers} style={{ width: box.w, height: box.h, borderRadius: 18, overflow: 'hidden' }} testID="crossing.scene">
-                  <WorldScene
-                    width={box.w}
-                    height={box.h}
-                    junctions={frame.junctions}
-                    vehicles={frame.vehicles}
-                    you={frame.you}
-                    youVehicle={frame.youVehicle}
-                    heading={frame.heading}
-                    highlight={highlightRef.current}
-                    blinkOn={frame.blink}
-                    shake={frame.shake}
-                    lights={frame.lights}
-                    youSignal={frame.youSignal}
-                    youBraking={frame.youBraking}
-                  />
-                </View>
-              )}
-            </View>
-          </>
-        )}
       </View>
     </Screen>
   );

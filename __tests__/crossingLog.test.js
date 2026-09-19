@@ -67,9 +67,9 @@ describe('crossing drive log', () => {
     expect(crash.record.reasons.some((r) => r.who === 'you' && r.to === crash.culprit)).toBe(true);
   });
 
-  it('a needless stop is a spoiled junction with the hesitation as headline', () => {
-    let spoiled = null;
-    for (let seed = 1; seed < 40 && !spoiled; seed++) {
+  it('a cautious stop is logged as clean and keeps its points', () => {
+    let cautious = null;
+    for (let seed = 1; seed < 40 && !cautious; seed++) {
       const run = createRun(makeRng(seed), 1);
       let stoppedOnce = false;
       const events = drive(run, 60000, (r, now, evs) => {
@@ -82,11 +82,13 @@ describe('crossing drive log', () => {
           stoppedOnce = true;
         }
       });
-      spoiled = events.find((e) => e.type === 'passed' && e.hesitated && !e.wrongWay) || null;
+      cautious = events.find((e) => e.type === 'passed' && e.record.stopped && !e.wrongWay && !e.ranRed && !e.ranStop) || null;
     }
-    expect(spoiled).toBeTruthy();
-    expect(spoiled.record.outcome).toBe('spoiled');
-    expect(explainRecord(spoiled.record, 2).headline).toBe('Needless stop. You had priority.');
+    expect(cautious).toBeTruthy();
+    expect(cautious.record.outcome).toBe('clean');
+    expect(cautious.points).toBeGreaterThan(0);
+    expect(cautious.record.hesitated).toBe(false);
+    expect(explainRecord(cautious.record, 2).outcome).toBe('clean');
   });
 
   it('junctionRecord carries a drawable scene', () => {

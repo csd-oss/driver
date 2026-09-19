@@ -1,57 +1,47 @@
-# Guide mode: the gate on the hub, the first lesson's brief with its swipe
-# animation, and driving that lesson to a verdict.
+# Continuous guide: native bottom controls and pause, without lesson cards.
 appId: com.smartie.driver
 ---
 - launchApp:
     clearState: true
 - runFlow: subflows/complete_onboarding.yaml
 - tapOn:
-    id: "home.game"
+    id: home.game
 - extendedWaitUntil:
     visible:
-      id: "screen.game"
+      id: screen.game
     timeout: 15000
-# Crossings is locked until the guide is done, so the button opens the guide.
-- assertVisible:
-    id: "game.startGuide"
 - tapOn:
-    id: "game.startGuide"
+    id: game.replayGuide
 - extendedWaitUntil:
     visible:
-      id: "screen.crossingGuide"
+      id: guide.start
     timeout: 15000
-- assertVisible:
-    id: "guide.brief"
-- assertVisible:
-    id: "guide.progress"
-- assertVisible:
-    id: "guide.swipe.down"
-- assertVisible:
-    id: "guide.swipe.up"
 - tapOn:
-    id: "guide.start"
+    id: guide.start
 - extendedWaitUntil:
     visible:
-      id: "guide.scene"
+      id: guide.scene
     timeout: 15000
 - assertVisible:
-    id: "guide.prompt"
-# Play the lesson: stop, then move off again.
-- swipe:
-    start: "50%,58%"
-    end: "50%,80%"
-    duration: 200
-- swipe:
-    start: "50%,80%"
-    end: "50%,58%"
-    duration: 200
-- extendedWaitUntil:
-    visible:
-      id: "guide.passed"
-    timeout: 40000
+    id: crossing.control.left
+- assertVisible:
+    id: crossing.control.right
+- assertVisible:
+    id: crossing.control.brake
+- assertVisible:
+    id: crossing.control.go
 - tapOn:
-    id: "guide.next"
-- extendedWaitUntil:
-    visible:
-      id: "guide.brief"
-    timeout: 15000
+    id: crossing.pause
+- assertVisible: Drive paused
+- tapOn:
+    id: crossing.pause
+- assertVisible:
+    id: crossing.instruction
+- tapOn:
+    id: crossing.control.brake
+- tapOn:
+    id: crossing.control.go
+- assertNotVisible:
+    id: guide.next
+- assertVisible:
+    id: guide.scene

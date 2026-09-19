@@ -167,15 +167,19 @@ const buildRoundabout = (rng, band) => {
   let deg = (RING_DEFAULT_START + Math.floor(rng() * RING_JITTER_DEG) - RING_JITTER_DEG / 2 + 360) % 360;
   let exit = ARMS.indexOf(ringExitFor(deg, RING_SPAN_DEG));
   for (let i = 0; i < onRing; i++) {
-    vehicles.push({ id: colours[i], kind: chance(rng, 0.2) ? 'van' : 'car', color: colours[i], from: 'ring', ringAt: deg, to: ARMS[exit] });
+    vehicles.push({ id: colours[i], kind: chance(rng, 0.2) ? 'van' : 'car', color: colours[i], from: 'ring', entryFrom: ['N', 'W', 'E'][i], ringAt: deg, to: ARMS[exit] });
     deg = (deg + RING_GAP_DEG + Math.floor(rng() * RING_JITTER_DEG)) % 360;
     exit = (exit + 1) % ARMS.length;
   }
-  const entering = sourceArms(rng, exits, Math.min(band.others - onRing, exits.length));
+  const entering = sourceArms(rng, exits, Math.min(band.others - onRing, exits.length - onRing));
   entering.forEach((from, i) => {
     const colour = colours[onRing + i];
     vehicles.push({ id: colour, kind: chance(rng, 0.2) ? 'van' : 'car', color: colour, from, to: pick(rng, arms.filter((a) => a !== from)) });
   });
+  // Ring traffic arrives first on its own road. Do not place its approach
+  // behind a vehicle already waiting to give way at that same entry.
+  const entryArms = ['N', 'W', 'E'].filter(arm => !vehicles.some(v => v.from === arm));
+  vehicles.filter(v => v.from === 'ring').forEach((v, i) => { v.entryFrom = entryArms[i]; });
   return { layout: 'roundabout', arms, signs, mainRoad: null, tramTracks: [], control: null, vehicles, pedestrians: [] };
 };
 

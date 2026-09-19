@@ -50,23 +50,23 @@ export default function GameHubScreen() {
             {t('crossing.hubBody', lang)}
           </UIText>
           <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-            {guideDone ? `${t('game.best', lang)}: ${bestCrossing}` : t('guide.gateBody', lang)}
+            {`${t('game.best', lang)}: ${bestCrossing}`}
           </UIText>
-          {/* The guide comes first: it teaches the swipes and every junction. */}
+          {/* Practice is available directly; the guided drive remains optional. */}
           <Button
             onPress={() => {
-              trackEvent(posthog, 'game_mode_selected', { mode: guideDone ? 'crossing' : 'guide', language: lang });
-              router.push(guideDone ? '/crossing' : '/crossing-guide');
+              trackEvent(posthog, 'game_mode_selected', { mode: 'crossing', language: lang });
+              router.push('/crossing');
             }}
             variant="default"
             className="w-full"
-            testID={guideDone ? 'game.playCrossing' : 'game.startGuide'}
+            testID="game.playCrossing"
           >
-            {guideDone ? t('game.start', lang) : t('guide.startGuide', lang)}
+            {t('game.start', lang)}
           </Button>
-          {guideDone && (
+          {(
             <Button onPress={() => router.push('/crossing-guide')} variant="outline" className="w-full" testID="game.replayGuide">
-              {t('guide.replay', lang)}
+              {guideDone ? t('guide.replay', lang) : t('guide.startGuide', lang)}
             </Button>
           )}
           <UIText variant="caption" className="text-slate-500 dark:text-slate-400">

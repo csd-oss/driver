@@ -46,3 +46,16 @@ if (fs.existsSync(PBX)) {
 } else {
   console.log('• pbxproj not found (run `expo prebuild -p ios` first); app.json only.');
 }
+
+// Prebuild can leave a literal CFBundleVersion in Info.plist. Tie it to the
+// project setting so the archived app actually receives the bumped number.
+const INFO = path.join(REPO, 'ios', 'DriverSK', 'Info.plist');
+if (fs.existsSync(INFO)) {
+  const plist = fs.readFileSync(INFO, 'utf8');
+  const updated = plist.replace(
+    /(<key>CFBundleVersion<\/key>\s*<string>)[^<]*(<\/string>)/,
+    (_, before, after) => `${before}$(CURRENT_PROJECT_VERSION)${after}`,
+  );
+  if (updated !== plist) fs.writeFileSync(INFO, updated);
+  console.log('✓ Info.plist: CFBundleVersion uses CURRENT_PROJECT_VERSION');
+}
