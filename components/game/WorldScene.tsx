@@ -116,8 +116,8 @@ export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle
             </G>
           );
         })}
-        {vehicles.map(({ junction, vehicle, pose }) => (
-          <VehicleSprite key={`${junction.index}-${vehicle.id}`} v={vehicle} pose={pose} glow={highlight.includes(`${junction.index}-${vehicle.id}`)} blinkOn={blinkOn} />
+        {vehicles.map(({ junction, vehicle, pose, progress }) => (
+          <VehicleSprite key={`${junction.index}-${vehicle.id}`} v={vehicle} pose={pose} glow={highlight.includes(`${junction.index}-${vehicle.id}`)} blinkOn={blinkOn} signal={progress === 1 ? null : undefined} />
         ))}
         <VehicleSprite v={youVehicle} pose={you} glow={highlight.includes('you')} blinkOn={blinkOn} signal={youSignal} brakeLights={youBraking} />
       </G>
