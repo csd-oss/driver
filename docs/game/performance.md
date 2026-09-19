@@ -24,3 +24,15 @@ npx jest --runInBand --testMatch '**/scripts/benchmarks/*.test.js'
 `__tests__/practiceSafety.test.js` covers body separation, the continuous guide, wrong turns, braking and resuming within a roundabout, extended stops across twenty generated routes, and cars remaining present while nearby. Departing followers retain their source identity and follow the road actually driven; they are retired out of view. Comfort following applies after departure so it does not disturb reserved crossing trajectories. Long vehicles wait further back to keep their noses out of crossing lanes.
 
 `.maestro/08_crossing.yaml` checks that Play opens driving directly without an intro or guide gate. `.maestro/09_guide.yaml` checks the optional continuous guide and native controls.
+
+Build 26 adds `trafficStall.test.js`: sixty deterministic level-three routes
+must keep progressing, including opposing turns, mixed queues and cars carried
+over from older junctions. Entry reservations hold incoming vehicles outside
+an occupied crossing. Queue spacing uses the lead vehicle's dimensions; tram
+stopping positions also allow for turning vehicles' swept corners. Changing
+the player's turn rechecks dependencies before releasing newly prioritised
+traffic. Departing traffic continues beyond the end of its cached road path.
+
+`railLinks.test.js` checks visual continuity between independently generated
+junctions. Additional rails connect to side streets without changing traffic
+priority rules, and roundabout rails curve around the island.

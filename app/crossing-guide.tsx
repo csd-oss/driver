@@ -26,7 +26,7 @@ const instructionText = (i: { kind: string; turn: string }, lang: number) =>
 const promptFor = (run: any, lang: number, lessonId: string, visibility: any): { text: string; swipe: SwipeDirection | null } | null => {
   const hint = lessonHint(run, visibility);
   if (lessonId === 'controls' && (!hint || ['observe', 'priority', 'rolling'].includes(hint.step))) {
-    return { text: t('guide.lesson.controls.goal', lang), swipe: null };
+    return { text: t('guide.lesson.controls.goal', lang), swipe: run.stoppedAt === null ? 'down' : 'up' };
   }
   if (!hint) return null;
   const junction = currentJunction(run);
@@ -128,9 +128,10 @@ export default function CrossingGuideScreen() {
         youVehicle: { ...current.scene.vehicles.find((v: any) => v.id === 'you'), from: 'S' },
         lights, blink: Math.floor(time / 350) % 2 === 0, signal: youSignalFor(run), braking: run.brakeLights || run.stoppedAt !== null,
         index: current.lessonIndex ?? LESSON_COUNT - 1,
-        instruction: current.instruction.kind === 'none' ? t('crossing.runnerHint', lang) : instructionText(current.instruction, lang),
+        instruction: current.instruction.kind === 'none' ? null : instructionText(current.instruction, lang),
         direction: current.instruction.turn,
         status: feedback || prompt?.text || t('guide.continuous.observe', lang),
+        swipe: feedback ? null : prompt?.swipe,
       });
       request = requestAnimationFrame(tick);
     };
@@ -151,8 +152,8 @@ export default function CrossingGuideScreen() {
   const back = () => router.canGoBack() ? router.back() : router.replace('/game');
   if (phase === 'driving') return <DriveStage lang={lang}
     detail={`${Math.min((frame?.index ?? 0) + 1, LESSON_COUNT)} / ${LESSON_COUNT}  ·  ${t(`guide.lesson.${LESSONS[frame?.index ?? 0]?.id ?? 'controls'}.title`, lang)}`}
-    instruction={frame?.instruction ?? t('crossing.runnerHint', lang)} direction={frame?.direction}
-    status={paused ? t('crossing.control.paused', lang) : frame?.status ?? t('guide.continuous.controls', lang)}
+    instruction={paused ? t('crossing.control.paused', lang) : frame?.instruction ?? frame?.status ?? t('guide.continuous.controls', lang)} direction={frame?.direction}
+    status={!paused && frame?.instruction ? frame.status : undefined} swipe={frame?.swipe}
     paused={paused} onPause={() => setPaused(value => !value)} onBack={back} intent={frame?.signal} braking={frame?.braking} onInput={input} testID="screen.crossingGuide">
     {(width, height, occludedTop) => {
       sizeRef.current = { width, height, occludedTop };

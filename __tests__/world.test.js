@@ -937,7 +937,7 @@ describe('roundabout traffic keeps moving', () => {
     let still = 0;
     let offRing = 0;
     let last = null;
-    while (now < j.starts[id] + 200) {
+    while (now < j.starts[id] + 200 && now < found.now + 30000) {
       now += 16;
       step(run, now);
       const p = poseOf();
@@ -952,6 +952,7 @@ describe('roundabout traffic keeps moving', () => {
       }
       last = p.pose;
     }
+    expect(now).toBeGreaterThanOrEqual(j.starts[id] + 200);
     expect(moved).toBeGreaterThan(30);
     expect(still).toBeLessThan(moved / 4);
     expect(offRing).toBe(0);

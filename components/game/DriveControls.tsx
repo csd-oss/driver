@@ -40,6 +40,7 @@ export const DriveControls = memo(function DriveControls({ lang, intent, braking
         style={[styles.button, { backgroundColor: selected ? palette.accent : palette.surface, opacity: disabled ? 0.4 : 1 }]}>
         <ControlIcon input={input} color={color} />
         <Text maxFontSizeMultiplier={1.3} style={[styles.label, { color }]}>{t(`crossing.control.${input}`, lang)}</Text>
+        <Text maxFontSizeMultiplier={1.2} style={[styles.swipeLabel, { color }]}>{t('crossing.control.swipe', lang)} {input === 'left' ? '←' : input === 'right' ? '→' : input === 'brake' ? '↓' : '↑'}</Text>
       </PressableScale>
     );
   };
@@ -63,4 +64,5 @@ const styles = StyleSheet.create({
   groupLabel: { color: '#64748b', fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 8, fontWeight: '600' },
   button: { flex: 1, minWidth: 0, minHeight: 78, borderRadius: 15, alignItems: 'center', justifyContent: 'center', gap: 6 },
   label: { fontSize: 12, fontWeight: '600' },
+  swipeLabel: { fontSize: 9, opacity: 0.8 },
 });

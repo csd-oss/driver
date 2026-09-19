@@ -45,13 +45,19 @@ export const spaceTraffic = (junction, now, newIds = null) => {
   const pending = vehicles.filter(v => !fixed.includes(v)).sort((a, b) => junction.starts[a.id] - junction.starts[b.id]);
   const position = (v, t) => poseAt(junction.scene, v, junction.starts[v.id] - junction.t0, t - junction.t0, junction.pathCache, junction.rollIn[v.id] || 0, junction.queueBack[v.id] || 0, 100);
   for (const v of pending) {
+    if (junction.scene.layout === 'roundabout' && junction.rollIn[v.id] > 0) {
+      // Rolling approaches include the entry bend and part of the ring.
+      // Keep the next arrival outside until the previous traversal clears;
+      // reserving only the later "through" segment misses that merge.
+      for (const other of fixed) junction.starts[v.id] = Math.max(junction.starts[v.id], junction.starts[other.id] + durationOf(other) + (junction.rollIn[v.id] || 0) + 1200);
+    }
     // A newly released car waits at its line while we find a safe slot.
     let attempts = 0;
     const overlaps = () => {
       const until = junction.starts[v.id] + durationOf(v) * 2 + 3000;
       for (let t = now; t <= until; t += 80) {
         const p = position(v, t);
-        if (fixed.some(other => bodiesOverlap(p, v, position(other, t), other))) return true;
+        if (fixed.some(other => bodiesOverlap(p, v, position(other, t), other, 1.5))) return true;
       }
       return false;
     };

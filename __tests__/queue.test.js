@@ -25,8 +25,8 @@ describe('queueBackFor', () => {
     const scene = { ...base, tramTracks: [{ from: 'E', to: 'W' }], vehicles: [car('you', 'S', 'N'), car('red', 'E', 'W'), { ...car('tram1', 'E', 'W'), kind: 'tram' }] };
     const { order } = resolve(scene);
     expect(queueBackFor(scene, order, 'red')).toBe(0);
-    // Its nose, rather than its centre, lines up with the car's nose.
-    expect(queueBackFor(scene, order, 'tram1')).toBe(5.5);
+    // Extra body length plus room for a turning vehicle's swept corner.
+    expect(queueBackFor(scene, order, 'tram1')).toBe(9.5);
   });
 
   it('gives a third car on the arm two lengths', () => {
@@ -35,6 +35,15 @@ describe('queueBackFor', () => {
     expect(queueBackFor(scene, order, 'a')).toBe(0);
     expect(queueBackFor(scene, order, 'b')).toBe(13);
     expect(queueBackFor(scene, order, 'c')).toBe(26);
+  });
+
+  it('preserves the gap behind a longer lead vehicle', () => {
+    const van = { ...car('van', 'E', 'W'), kind: 'van' };
+    const rear = car('rear', 'E', 'N');
+    const scene = { ...base, vehicles: [car('you', 'S', 'N'), van, rear] };
+    const order = [['van'], ['rear'], ['you']];
+    const separation = queueBackFor(scene, order, rear.id) - queueBackFor(scene, order, van.id);
+    expect(separation - 11.5 / 2 - 10 / 2).toBe(3);
   });
 
   it('keeps a lone vehicle and ring vehicles at the line', () => {

@@ -1,4 +1,5 @@
-import { bodiesOverlap, followingFraction, spaceTraffic } from './traffic';
+import { bodiesOverlap, followingFraction, spaceTraffic, vehicleSize } from './traffic';
+import { railLinks } from './railLinks';
 import { resolve } from './engine';
 import { generatePlayable } from './generator';
 import { leftOf, rightOf, oppositeOf, turnOf } from './geometry';
@@ -423,6 +424,8 @@ const rebuildRoute = (run) => {
     offset += measure(through).length;
   });
   run.route = measure(points);
+  const rails = railLinks(run.junctions);
+  for (const junction of run.junctions) junction.railKey = rails.get(junction.index).map(track => track.from + track.to).join(',');
 };
 
 const ensureAhead = (run) => {
@@ -532,9 +535,30 @@ const setYourMovement = (run, junction, to, keepStarts = false) => {
   applyResolution(junction);
   junction.through = throughWorld(junction);
   if (junction.scheduled && !keepStarts) {
+    const required = new Set(junction.blockers);
+    const addDependencies = id => {
+      for (const dependency of junction.resolution.yields[id] || []) {
+        if (dependency === 'you' || required.has(dependency)) continue;
+        required.add(dependency);
+        addDependencies(dependency);
+      }
+    };
+    for (const id of junction.blockers) addDependencies(id);
+    const newlyStarted = [];
+    for (const id of junction.resolution.order.flat()) {
+      if (!required.has(id) || junction.starts[id] !== null) continue;
+      let at = run.now + (junction.rollIn[id] || 0);
+      for (const dependency of junction.resolution.yields[id] || []) {
+        if (dependency !== 'you' && junction.starts[dependency] !== null) at = Math.max(at, junction.starts[dependency] + clearMsOf(junction, dependency) + GROUP_GAP_MS);
+      }
+      junction.starts[id] = at;
+      newlyStarted.push(id);
+    }
+    // Choosing a turn can release several newly-prioritised cars. They
+    // need the same trajectory reservation as the initial traffic wave.
+    spaceTraffic(junction, run.now, newlyStarted);
     let clearAt = run.now;
     for (const id of junction.blockers) {
-      if (junction.starts[id] === null) junction.starts[id] = run.now; // it goes before you: now
       clearAt = Math.max(clearAt, junction.starts[id] + clearMsOf(junction, id));
     }
     junction.clearAt = junction.blockers.length ? clearAt : run.now;
@@ -946,11 +970,41 @@ export const step = (run, now) => {
   const keyOf = car => `${car.junction.index}-${car.vehicle.id}`;
   const previousByKey = new Map(previousTraffic.map(car => [keyOf(car), car]));
   const delays = new Map();
+  const entryBlocked = new Set();
+  // Claim the crossing before entering, with enough clearance for the
+  // whole vehicle. Preventing entry is safer than freezing touching bodies.
+  for (const area of visibleJunctions(run)) {
+    const radius = area.ring ? RING_R + RING_WAIT + 4 : WAIT + 4;
+    const inner = area.ring ? RING_R + 9 : 0;
+    const distance = car => {
+      const dx = car.pose.x - area.cx, dy = car.pose.y - area.cy;
+      const allowance = car.vehicle ? Math.max(0, vehicleSize(car.vehicle).length / 2 - 5) + (car.vehicle.kind === 'tram' ? 4 : 0) : 0;
+      if (area.ring) return Math.hypot(dx, dy) - allowance;
+      const angle = rad(area.rot), c = Math.cos(angle), sn = Math.sin(angle);
+      return Math.max(Math.abs(dx * c + dy * sn) - boxHalf(area.scene, 'E'), Math.abs(-dx * sn + dy * c) - boxHalf(area.scene, 'N')) - allowance;
+    };
+    const owner = previousTraffic.find(car => keyOf(car) === area.entryOwner);
+    if (!owner || distance(owner) > radius + 12) area.entryOwner = null;
+    if (!area.entryOwner) {
+      const arriving = proposedTraffic.filter(car => {
+        const start = car.junction.starts[car.vehicle.id];
+        return start !== null && run.now >= start - (car.junction.rollIn[car.vehicle.id] || 0) && distance(car) <= radius;
+      }).sort((a, b) => distance(a) - distance(b) || keyOf(a).localeCompare(keyOf(b)));
+      area.entryOwner = arriving[0] ? keyOf(arriving[0]) : null;
+    }
+    const playerInside = distance({ pose: playerPose }) < inner;
+    for (const car of proposedTraffic) {
+      const previous = previousByKey.get(keyOf(car));
+      if (!previous || distance(previous) < inner || distance(car) > radius || distance(car) >= distance(previous)) continue;
+      if (playerInside || (area.entryOwner && area.entryOwner !== keyOf(car))) entryBlocked.add(keyOf(car));
+    }
+  }
   for (const car of proposedTraffic) {
     const start = car.junction.starts[car.vehicle.id];
     if (start === null || !car.junction.scheduled) continue;
     const ownKey = keyOf(car);
     let fraction = car.progress === 1 ? followingFraction(car.pose, car.vehicle, playerPose, playerVehicle) : 1;
+    if (entryBlocked.has(ownKey)) fraction = 0;
     if (car.routeS !== undefined) fraction = Math.min(fraction, Math.max(0, Math.min(1, (run.s - car.routeS - 18) / 22)));
     for (const other of previousTraffic) {
       if (keyOf(other) !== ownKey && car.progress === 1) fraction = Math.min(fraction, followingFraction(car.pose, car.vehicle, other.pose, other.vehicle));
@@ -1123,15 +1177,28 @@ export const vehiclePoses = (run, at = run.now) => {
           // Use the complete intended path: the player's ring path is built
           // one exit at a time and would leave an earlier car stranded there.
           if (!junction.departureRoutes?.[v.id]) {
-            const target = next.scene.vehicles.find(other => other.id === 'you');
-            const points = [toWorld(junction, end), ...vehiclePath(next.scene, target).through.map(p => toWorld(next, p))];
+            const points = [toWorld(junction, end)];
+            let exitHeading = junction.rot + EXIT_HEADING[v.to];
+            for (const ahead of run.junctions.filter(j => j.index > junction.index)) {
+              const target = ahead.scene.vehicles.find(other => other.id === 'you');
+              points.push(...vehiclePath(ahead.scene, target).through.map(p => toWorld(ahead, p)));
+              exitHeading = ahead.rot + EXIT_HEADING[target.to];
+            }
             const last = points[points.length - 1];
-            const angle = rad(next.rot + EXIT_HEADING[target.to]);
+            const angle = rad(exitHeading);
             points.push({ x: last.x + 200 * Math.sin(angle), y: last.y - 200 * Math.cos(angle) });
             junction.departureRoutes ||= {};
             junction.departureRoutes[v.id] = measure(points);
           }
           worldPose = pointAtDistance(junction.departureRoutes[v.id], travelled);
+          // The synthetic tail is a continuation, never a destination at
+          // which a car can park and hold every junction behind it forever.
+          const route = junction.departureRoutes[v.id];
+          if (travelled > route.length) {
+            const remaining = travelled - route.length;
+            worldPose.x += Math.sin(rad(worldPose.angle)) * remaining;
+            worldPose.y -= Math.cos(rad(worldPose.angle)) * remaining;
+          }
         }
       }
       out.push({ junction, vehicle: v, pose: worldPose, progress: pose.progress, local: { x: pose.x, y: pose.y }, routeS });

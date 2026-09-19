@@ -110,6 +110,22 @@ const railPath = (scene: SceneLike, track: { from: string; to: string }, r: numb
   const b = armPointOf(from, boxHalf(scene, from), r);
   const c = armPointOf(to, boxHalf(scene, to), -r);
   const d = armPointOf(to, CENTER + extTo, -r);
+  if (isRing(scene)) {
+    const axes: Record<string, number> = { N: 0, E: 90, S: 180, W: 270 };
+    const start = axes[from] - 32, end = axes[to] + 32;
+    const span = (start - end + 360) % 360;
+    const radius = RING_R + r;
+    const point = (angle: number) => ({ x: CENTER + radius * Math.sin(angle * Math.PI / 180), y: CENTER - radius * Math.cos(angle * Math.PI / 180) });
+    const join = point(start), leave = point(end);
+    const approach = armPointOf(from, RING_R + 13, r);
+    const departure = armPointOf(to, RING_R + 13, -r);
+    const inControl = armPointOf(from, RING_R + 2, r);
+    const outControl = armPointOf(to, RING_R + 2, -r);
+    const joinControl = { x: join.x + 8 * Math.cos(start * Math.PI / 180), y: join.y + 8 * Math.sin(start * Math.PI / 180) };
+    const leaveControl = { x: leave.x - 8 * Math.cos(end * Math.PI / 180), y: leave.y - 8 * Math.sin(end * Math.PI / 180) };
+    const arc = Array.from({ length: 25 }, (_, i) => point(start - span * i / 24)).map(p => `L ${round(p.x)} ${round(p.y)}`).join(' ');
+    return `M ${round(a.x)} ${round(a.y)} L ${round(approach.x)} ${round(approach.y)} C ${round(inControl.x)} ${round(inControl.y)} ${round(joinControl.x)} ${round(joinControl.y)} ${round(join.x)} ${round(join.y)} ${arc} C ${round(leaveControl.x)} ${round(leaveControl.y)} ${round(outControl.x)} ${round(outControl.y)} ${round(departure.x)} ${round(departure.y)} L ${round(d.x)} ${round(d.y)}`;
+  }
   // Through the box: straight, or bent through the box corner like `crossingPath` does.
   const vertical = from === 'N' || from === 'S';
   const k = vertical ? { x: b.x, y: c.y } : { x: c.x, y: b.y };

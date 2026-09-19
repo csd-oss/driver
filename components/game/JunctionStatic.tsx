@@ -36,6 +36,7 @@ interface Props {
   sideExtend?: number;
   /** The arm you arrive on: only its signs face you, the other arms show grey sign backs (their shape still tells what they are). */
   ownArm?: string;
+  connectingTracks?: { from: string; to: string }[];
 }
 
 // Rotation that turns "up" into "towards the junction" for traffic arriving on an arm.
@@ -175,7 +176,7 @@ const RoundaboutSign = ({ x, y }: { x: number; y: number }) => {
 };
 
 /** Roads, markings, signs, tracks, officer, lights, pedestrians of one junction, in its local frame. */
-export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0, ownArm }: Props) => {
+export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0, ownArm, connectingTracks = [] }: Props) => {
   const ext = (arm: string) => extendArms[arm] ?? sideExtend;
   // Only an arm the run continues along meets the next junction's plain road, so
   // only that one tapers; a tram street cut off by the frame keeps its width.
@@ -246,7 +247,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
           return <Line key={`ll-${arm}`} {...approachLine(scene, arm)} stroke={marking} strokeWidth={1.4} />;
         })}
       {/* Two tracks per line, one per direction, in the middle of the wide road. */}
-      {(scene.tramTracks ?? []).map((t, i) => (
+      {[...(scene.tramTracks ?? []), ...connectingTracks].map((t, i) => (
         <G key={`t-${i}`}>
           {trackRailPaths(scene, t, ext(t.from), ext(t.to)).map((d, j) => (
             <Path key={j} d={d} fill="none" stroke="#4b5563" strokeWidth={0.5} />

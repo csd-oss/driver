@@ -2,6 +2,7 @@ import { StreetEnvironment } from './StreetEnvironment';
 import { memo } from 'react';
 import Svg, { G, Rect } from 'react-native-svg';
 import { CENTER } from '@/src/lib/priority/layout';
+import { railLinks } from '@/src/lib/priority/railLinks';
 import { cameraView, screenPoint } from '@/src/lib/priority/view';
 import { JunctionStatic, type LightPhase } from './JunctionStatic';
 import { PathArrow } from './PathArrow';
@@ -19,6 +20,7 @@ export interface WorldJunction {
   /** Open road before / after this junction's frame (scene units). */
   gapBefore?: number;
   gapAfter?: number;
+  railKey?: string;
 }
 
 export interface WorldVehicle {
@@ -66,23 +68,26 @@ interface FrameProps {
   youTo: string | null;
   dark: boolean;
   lights: Record<string, LightPhase> | null;
+  railKey: string;
 }
 
 // The static drawing of one junction does not change from frame to frame
 // (only the camera above it does), so it is rebuilt only when these
 // primitive props change. That keeps a turning camera smooth.
-const JunctionFrame = memo(({ scene, index, gapBefore, gapAfter, youTo, dark, lights }: FrameProps) => {
+const JunctionFrame = memo(({ scene, index, gapBefore, gapAfter, youTo, dark, lights, railKey }: FrameProps) => {
   // The first junction owns its whole lead road; later ones meet halfway.
   const before = index === 0 ? gapBefore + SIDE_ROAD : gapBefore / 2 + 2;
   const extendArms: Record<string, number> = { S: before };
   if (youTo) extendArms[youTo] = gapAfter / 2 + 2;
-  return <><StreetEnvironment arms={scene.arms} extensions={extendArms} seed={index} /><JunctionStatic scene={scene} dark={dark} extendArms={extendArms} lights={lights} sideExtend={SIDE_ROAD} ownArm="S" /></>;
+  const connectingTracks = railKey ? railKey.split(',').map(pair => ({ from: pair[0], to: pair[1] })) : [];
+  return <><StreetEnvironment arms={scene.arms} extensions={extendArms} seed={index} /><JunctionStatic scene={scene} dark={dark} extendArms={extendArms} lights={lights} sideExtend={SIDE_ROAD} ownArm="S" connectingTracks={connectingTracks} /></>;
 });
 JunctionFrame.displayName = 'JunctionFrame';
 
 export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle, heading, highlight = [], blinkOn = true, shake = 0, lights = {}, youSignal, youBraking = false }: Props) => {
   const dark = false; // Daylight road training stays readable in either app theme.
   const grass = dark ? '#233831' : '#c6d5b7';
+  const rails = junctions.some(j => j.railKey === undefined) ? railLinks(junctions) : null;
   const view = cameraView(width, height, you, heading);
   const ZOOM_W = view.span;
   const viewH = view.viewHeight;
@@ -100,7 +105,7 @@ export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle
           const youAt = j.scene.vehicles.find((v: SceneVehicle) => v.id === 'you');
           return (
             <G key={j.index} transform={`translate(${j.cx} ${j.cy}) rotate(${j.rot}) translate(${-CENTER} ${-CENTER})`}>
-              <JunctionFrame scene={j.scene} index={j.index} gapBefore={j.gapBefore ?? 80} gapAfter={j.gapAfter ?? 80} youTo={youAt ? youAt.to : null} dark={dark} lights={lights[j.index] ?? null} />
+              <JunctionFrame scene={j.scene} index={j.index} gapBefore={j.gapBefore ?? 80} gapAfter={j.gapAfter ?? 80} youTo={youAt ? youAt.to : null} dark={dark} lights={lights[j.index] ?? null} railKey={j.railKey ?? (rails?.get(j.index) ?? []).map((track: { from: string; to: string }) => track.from + track.to).join(',')} />
               {/* A vehicle that is on screen shows the part of its path still ahead of it, from where it is. */}
               {!j.passed &&
                 vehicles

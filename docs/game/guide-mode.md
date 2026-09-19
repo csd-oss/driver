@@ -20,9 +20,11 @@ in `priority-rules.md` and resolved by the shared priority engine.
 
 ## Controls and coaching
 
-`DriveStage` provides a full-width road viewport, a persistent instructor
-instruction, pause, and a bottom console. `DriveControls` groups Left/Right and
-Stop/Go. Swipes remain available. Selecting a turn does not release the brake;
+`DriveStage` provides a full-width road viewport and one instructor panel at
+the top for directions, explanations, feedback and animated gesture hints.
+The bottom console contains progress and controls only. `DriveControls` groups
+Left/Right and Stop/Go, with their corresponding swipe directions printed on
+each button. The first lesson teaches both methods. Selecting a turn does not release the brake;
 Go is a separate action. Waiting and cautious stops cost no points.
 
 `lessonHint(run, visibility)` gates situational prompts using the same camera

@@ -37,10 +37,14 @@ appId: com.smartie.driver
     id: crossing.pause
 - assertVisible:
     id: crossing.instruction
-- tapOn:
-    id: crossing.control.brake
-- tapOn:
-    id: crossing.control.go
+- swipe:
+    start: 50%, 38%
+    end: 50%, 60%
+    duration: 500
+- swipe:
+    start: 50%, 60%
+    end: 50%, 38%
+    duration: 500
 - assertNotVisible:
     id: guide.next
 - assertVisible:
