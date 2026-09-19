@@ -6,8 +6,9 @@ Lens: how the app feels in someone's hand, not what it does.
 
 > **Status reviewed 2026-09-19.** The findings below are kept as written on the audit
 > date — including their line numbers, most of which have since moved. Each section now
-> ends with a **Status** line saying what happened to it. Three of the five recommended
-> fixes shipped, all with the libraries that were already installed.
+> ends with a **Status** line saying what happened to it. All four prescribed fixes
+> shipped, each with a library that was already installed; section 4 was advice rather
+> than a fix, and its premise has since changed.
 
 ## 1. Press states — 9 / 20
 
@@ -95,6 +96,8 @@ Empty states are inconsistent:
 You have the bones of a competent app — typography, color system, the readiness card composition, the dot indicator, the splash, the empty-with-CTA pattern on category-empty mistakes. None of it feels physical.
 
 The damning data point isn't any single score — it's that `expo-haptics` is installed and never called, and `react-native-reanimated` is installed and never used for any interaction. The bundle cost is paid for both libraries and neither is used. The app feels like a well-designed website running on a phone.
+
+**Status — the damning data point is gone.** Both libraries earn their place now: fifteen haptic call sites and three Reanimated-driven primitives (`pressable-scale`, `animated-bar`, `skeleton`), each with a Reduce Motion branch. The score above has not been recalculated — the four scored deficiencies that were fixed are marked section by section, and what remains open is listed at the end of this document. `react-native-gesture-handler` is now the only shipped-and-unused library.
 
 ## Single highest-leverage fix this week
 

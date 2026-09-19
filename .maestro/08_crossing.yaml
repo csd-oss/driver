@@ -10,12 +10,40 @@ appId: com.smartie.driver
     visible:
       id: "screen.game"
     timeout: 10000
+# Crossings is locked until the guide is finished, so take the guide's
+# first lesson and let the screen send us on to the runner afterwards.
+- tapOn:
+    id: "game.startGuide"
+    optional: true
 - tapOn:
     id: "game.playCrossing"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen.crossingGuide"
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "screen.crossingGuide"
+    commands:
+      - back
+      - extendedWaitUntil:
+          visible:
+            id: "screen.game"
+          timeout: 10000
+      - tapOn:
+          id: "game.startGuide"
+      - extendedWaitUntil:
+          visible:
+            id: "guide.brief"
+          timeout: 10000
 - extendedWaitUntil:
     visible:
       id: "screen.crossing"
     timeout: 10000
+    optional: true
 - tapOn:
     id: "crossing.start"
 - extendedWaitUntil:

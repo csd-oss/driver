@@ -170,7 +170,7 @@ export default function StudyScreen() {
       correct
         ? Haptics.NotificationFeedbackType.Success
         : Haptics.NotificationFeedbackType.Error
-    );
+    ).catch(() => {});
 
     // Track session metrics
     questionsAnsweredRef.current += 1;

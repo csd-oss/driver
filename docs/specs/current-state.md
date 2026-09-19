@@ -1,7 +1,7 @@
 # CURRENT STATE SPECIFICATION — Driver SK (Slovakia Driving Exam App)
 
 **Last Updated:** September 19, 2026  
-**App Version:** 1.0.0 (`app.json`), iOS build 21  
+**App Version:** 1.0.0 (`app.json`; the iOS build number there is bumped per upload by `npm run bump:ios`)  
 **Status:** Shipping on iOS, Android, and the web as an installable PWA
 
 ---
@@ -23,9 +23,12 @@ The same codebase ships to iOS, Android, and — as an installable, offline PWA 
   - Offline-first learning experience
   - Official exam questions and answers
   - Adaptive learning through Smart Practice Mode (intelligent question prioritization)
-  - Mistake tracking with mastery system
+  - Mistake tracking with spaced repetition
+  - A readiness score that answers "am I ready yet?", and a forecast that answers "when will I be?"
   - Multi-language support for diverse learners
   - Realistic mock exam simulation
+  - Games that teach right of way at intersections, built from the official exam pictures
+  - Available as a phone app and as an installable web app
 
 ### 1.2 Core Features (Implemented)
 1. **Onboarding Experience** - Six-slide onboarding with animated dot indicators, a Slovakia-branded first slide, and a notifications slide that makes the permission ask

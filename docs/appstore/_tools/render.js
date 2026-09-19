@@ -99,7 +99,17 @@ for (const lang of LANGS) {
       .replace(/{{SUB}}/g, esc(copy.sub))
       .replace(/{{TRIAL_PILL}}/g, esc(trialPill));
 
-    if (needsImage) html = html.replace(/{{IMG}}/g, 'file://' + raw);
+    if (needsImage) {
+      // Pixel-exact composite of the capture into the real Apple frame.
+      const device = path.join(TMP, `device-${lang}-${screen.id}.png`);
+      execFileSync('python3', [
+        path.join(__dirname, 'compose.py'),
+        path.join(__dirname, 'frame.png'),
+        raw,
+        device,
+      ]);
+      html = html.replace(/{{DEVICE}}/g, 'file://' + device);
+    }
     if (variant === 'trust') html = html.replace(/{{BADGES}}/g, renderBadges(copy.badges || [], lang));
 
     const htmlPath = path.join(TMP, `${lang}-${screen.id}.html`);

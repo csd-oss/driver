@@ -58,33 +58,6 @@
     line-height: 1.2;
     letter-spacing: -0.6px;
   }
-  .ribbon {
-    position: absolute;
-    top: 1620px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: inline-flex;
-    align-items: center;
-    gap: 24px;
-    padding: 36px 72px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.16);
-    border: 1px solid rgba(255,255,255,0.26);
-    backdrop-filter: blur(24px);
-    color: #ffffff;
-    font-size: 48px;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-    box-shadow: 0 30px 80px rgba(0,0,0,0.3);
-  }
-  .ribbon::before {
-    content: "";
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #34d399;
-    box-shadow: 0 0 32px rgba(52,211,153,0.95);
-  }
   .footer {
     position: absolute;
     bottom: 200px;
@@ -105,7 +78,6 @@
       <h1>{{CAPTION}}</h1>
       <p>{{SUB}}</p>
     </div>
-    <div class="ribbon">{{TRIAL_PILL}}</div>
     <div class="footer">Driver SK</div>
   </div>
 </body>

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { ActivityIndicator, View, ScrollView } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { AspectImage } from '@/components/ui/aspect-image';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';

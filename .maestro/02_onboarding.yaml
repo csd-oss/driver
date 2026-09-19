@@ -23,6 +23,9 @@ appId: com.smartie.driver
     timeout: 10000
 - tapOn:
     id: "language.lang2" # English
+# Picking a language only selects it; Continue commits and leaves the screen.
+- tapOn:
+    id: "language.continue"
 - extendedWaitUntil:
     visible:
       id: "screen.home"

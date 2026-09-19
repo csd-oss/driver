@@ -27,7 +27,7 @@ import {
   youPose,
   youSignalFor,
 } from '@/src/lib/priority/world';
-import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
+import { getCachedLanguage, getGuideFinished, getLanguage } from '@/src/lib/settings';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -111,11 +111,18 @@ export default function CrossingScreen() {
       trackScreenView(posthog, 'Crossing');
       getLanguage().then(async (l) => {
         setLang(l);
+        // The guide comes first, however you got here: the hub button, a deep
+        // link or a bookmarked web URL.
+        const finished = await getGuideFinished().catch(() => true);
+        if (!finished) {
+          router.replace('/crossing-guide');
+          return;
+        }
         const stats = await GameRoundsDB.getGameStats(l, 'crossing');
         setBest(stats.best);
         setRoundsPlayed(stats.rounds);
       });
-    }, [posthog])
+    }, [posthog, router])
   );
 
   const stopLoop = () => {
