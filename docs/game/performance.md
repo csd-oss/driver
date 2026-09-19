@@ -38,3 +38,42 @@ layouts. `streetNetwork.test.js` checks track continuity, constant road widths,
 opposing-tram clearance, and guide recovery after joining a tram street by
 mistake. Trams continue on their own straight tracks, independently of the
 player. `pathHint.test.js` checks that roundabout previews stay on the road.
+
+Build 29 moves native camera and vehicle transforms into Reanimated SVG groups.
+The simulation and React snapshots update at 30 Hz; the UI thread interpolates
+position and heading between snapshots at the display cadence. Heading wrapping
+uses the shortest turn, and the simulation remains authoritative for collisions
+and input. Interpolation adds at most one snapshot of visual latency. Web keeps
+its existing display-rate SVG updates. The native and web implementations share
+the same `MotionGroup` interface.
+
+Native sampling also identified repeated Core Graphics image resampling and SVG
+painting on the main thread. `RoadSurface.native.tsx` separates the static road
+from the moving vehicles and path hints, rasterizes an overscanned road view,
+and moves that view with the native compositor. The cached surface is refreshed
+when its 64-unit world anchor, road layout, or traffic lights change. Its bounds
+cover the farthest viewport corner at any heading plus anchor rounding, so a
+turn cannot reveal the edge of the surface. This trades some texture memory for
+avoiding hundreds of SVG/image draws on every movement frame.
+
+September 20 diagnostic recordings with the production Hermes bundle in the
+iPhone 17 Pro simulator averaged 38.6 recorded frames/second before road caching
+and 58.6 after. These sampled different portions of the same guide and are not
+a controlled physical-device FPS benchmark. Native sampling showed the earlier
+main-thread cost in Core Graphics image resampling and SVG painting; the cached
+version reduced that work. Its sampled footprint was about 197 MB (313 MB peak),
+versus 152 MB before caching. Validate memory, frame pacing and thermal behavior
+on the installed iPhone build as well.
+
+Rotated-body collision checks now use scalar separating-axis calculations without
+allocating shapes, arrays or callbacks for each pair. Vehicle dimensions and
+approach lengths are cached; long route lookups use binary search. Player and NPC
+movement use identical bumper clearance so a stopped queue can pull away again.
+
+Roundabout arrival and crossing duration now depend on path length, with an
+18-unit/second cruise limit (up to 21.18 while completing the existing start-from-rest
+profile). Incoming cars slow before an occupied entrance. Collision-free approaches
+can run concurrently instead of waiting for an entire previous approach and traversal.
+`roundaboutMotion.test.js` checks speed bounds across generated paths, yielding
+outside an occupied ring, and resuming after it clears. Existing traffic-stall,
+body-separation and prolonged-roundabout-stop tests remain release checks.

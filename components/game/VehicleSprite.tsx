@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { MotionGroup } from './MotionGroup';
 import { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
 import { turnOf } from '@/src/lib/priority/geometry';
 import { VEHICLE_FILL, type SceneVehicle, type VehiclePose } from './types';
@@ -27,9 +28,9 @@ const darken = (hex: string, f = 0.72) => {
 /** One vehicle, drawn pointing up in its own frame and rotated to its heading. */
 export const VehicleSprite = ({ v, pose, glow, dim, blinkOn, signal, brakeLights = false }: Props) => {
   const turn = signal !== undefined ? signal ?? 'straight' : v.from === 'ring' || v.to === 'ring' ? 'straight' : turnOf(v.from, v.to);
-  return <G transform={`translate(${pose.x} ${pose.y}) rotate(${pose.angle})`} opacity={dim ? 0.35 : 1}>
+  return <MotionGroup x={pose.x} y={pose.y} angle={pose.angle} opacity={dim ? 0.35 : 1}>
     <VehicleBody kind={v.kind} color={v.color} glow={glow} turn={turn} blinkOn={blinkOn} brakeLights={brakeLights} />
-  </G>;
+  </MotionGroup>;
 };
 
 const VehicleBody = memo(function VehicleBody({ kind, color, glow, turn, blinkOn, brakeLights }: { kind: string; color: string; glow?: boolean; turn: string; blinkOn?: boolean; brakeLights: boolean }) {

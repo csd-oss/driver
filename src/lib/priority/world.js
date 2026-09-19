@@ -10,7 +10,7 @@ import {
 } from './layout';
 import { queueBackFor } from './queue';
 import { lessonAt, lessonScene } from './lessons';
-import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt } from './timeline';
+import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt, rollingDuration } from './timeline';
 
 /**
  * Endless road for the Crossings runner.
@@ -52,6 +52,7 @@ export const DECEL = 12;               // the final braking curve into the line
 export const SOFT_DECEL = 6;           // the immediate, gentle slow-down when you swipe to stop
 export const HARD_DECEL = 40;          // a late swipe brakes this hard
 export const CREEP = 0.6;              // after the swipe the car rolls on at this share of cruise speed until the line is near
+const PLAYER_CLEARANCE = 0.25;         // identical for player and NPC movement, so a stopped queue can restart
 
 export const speedFor = (level, coachActive = false) =>
   Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_STEP) * (coachActive ? COACH_SPEED : 1);
@@ -110,16 +111,13 @@ const measure = (points) => {
 const positionAt = (measured, s) => {
   const { points, cum } = measured;
   const target = Math.max(0, Math.min(measured.length, s));
-  for (let i = 1; i < points.length; i++) {
-    if (target <= cum[i] || i === points.length - 1) {
-      const seg = cum[i] - cum[i - 1];
-      const f = seg === 0 ? 0 : (target - cum[i - 1]) / seg;
-      const a = points[i - 1];
-      const b = points[i];
-      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
-    }
-  }
-  return { ...points[points.length - 1] };
+  if (points.length < 2) return { ...points[0] };
+  let lo = 1, hi = points.length - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < target) lo = mid + 1; else hi = mid; }
+  const seg = cum[lo] - cum[lo - 1];
+  const f = seg === 0 ? 0 : (target - cum[lo - 1]) / seg;
+  const a = points[lo - 1], b = points[lo];
+  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
 };
 
 const HEADING_REACH = 1.5; // heading is read over this much road either side, so bends turn the car smoothly
@@ -457,11 +455,13 @@ const schedule = (run, junction) => {
   // Last blocking group clears at clearAt; earlier groups one gap earlier each.
   let groupStart = clearAt;
   for (let k = junction.youGroup - 1; k >= 0; k--) {
-    for (const id of groups[k]) junction.rollIn[id] = junction.willRollIn.has(id) ? ROLL_IN_MS : 0;
+    for (const id of groups[k]) junction.rollIn[id] = junction.willRollIn.has(id)
+      ? rollingDuration(scene, scene.vehicles.find(v => v.id === id), junction.pathCache, ROLL_IN_MS) : 0;
     let longest = 0;
     for (const id of groups[k]) longest = Math.max(longest, clearMsOf(junction, id));
     const start = Math.max(run.now, groupStart - longest);
-    for (const id of groups[k]) junction.starts[id] = start;
+    for (const id of groups[k]) junction.starts[id] = scene.vehicles.find(v => v.id === id)?.from === 'ring'
+      ? Math.max(start, run.now + junction.rollIn[id]) : start;
     groupStart = start - (GROUP_GAP_MS - longest) ;
   }
   // What holds you here: at a signalled junction the other phase's traffic,
@@ -497,6 +497,11 @@ const schedule = (run, junction) => {
   junction.t0 = run.now;
   for (const v of scene.vehicles) {
     if (junction.willRollIn.has(v.id) && junction.queueBack[v.id] > 0) junction.rollIn[v.id] = ROLL_IN_MS;
+    if (v.from === 'ring' && junction.starts[v.id] !== null) {
+      junction.rollIn[v.id] = rollingDuration(scene, v, junction.pathCache);
+      // Show the entire arrival on its road, never halfway round the ring.
+      junction.starts[v.id] = Math.max(junction.starts[v.id], run.now + junction.rollIn[v.id]);
+    }
   }
   spaceTraffic(junction, run.now);
   clearAtReal = -Infinity;
@@ -952,7 +957,7 @@ export const step = (run, now) => {
 
   // Keep the actual bodies apart, even on an approach or after the crossing.
   // Braking can stop short of the line when traffic occupies that space.
-  const obstacle = previousTraffic.find(car => bodiesOverlap(youPose(run), playerVehicle, car.pose, car.vehicle, 0.25));
+  const obstacle = previousTraffic.find(car => bodiesOverlap(youPose(run), playerVehicle, car.pose, car.vehicle, PLAYER_CLEARANCE));
   if (obstacle && run.s > previousS) {
     run.s = previousS;
     run.v = 0;
@@ -971,7 +976,7 @@ export const step = (run, now) => {
   const keyOf = car => `${car.junction.index}-${car.vehicle.id}`;
   const previousByKey = new Map(previousTraffic.map(car => [keyOf(car), car]));
   const delays = new Map();
-  const entryBlocked = new Set();
+  const entryFractions = new Map();
   // Claim the crossing before entering, with enough clearance for the
   // whole vehicle. Preventing entry is safer than freezing touching bodies.
   for (const area of visibleJunctions(run)) {
@@ -996,8 +1001,13 @@ export const step = (run, now) => {
     const playerInside = distance({ pose: playerPose }) < inner;
     for (const car of proposedTraffic) {
       const previous = previousByKey.get(keyOf(car));
-      if (!previous || distance(previous) < inner || distance(car) > radius || distance(car) >= distance(previous)) continue;
-      if (playerInside || (area.entryOwner && area.entryOwner !== keyOf(car))) entryBlocked.add(keyOf(car));
+      const approach = distance(car);
+      const slowing = area.ring ? 20 : 0;
+      if (!previous || distance(previous) < inner || approach > radius + slowing || approach >= distance(previous)) continue;
+      if (playerInside || (area.entryOwner && area.entryOwner !== keyOf(car))) {
+        const fraction = slowing ? Math.max(0, Math.min(1, (approach - radius) / slowing)) : 0;
+        entryFractions.set(keyOf(car), Math.min(entryFractions.get(keyOf(car)) ?? 1, fraction));
+      }
     }
   }
   for (const car of proposedTraffic) {
@@ -1005,7 +1015,7 @@ export const step = (run, now) => {
     if (start === null || !car.junction.scheduled) continue;
     const ownKey = keyOf(car);
     let fraction = car.progress === 1 ? followingFraction(car.pose, car.vehicle, playerPose, playerVehicle) : 1;
-    if (entryBlocked.has(ownKey)) fraction = 0;
+    fraction = Math.min(fraction, entryFractions.get(ownKey) ?? 1);
     if (car.routeS !== undefined) fraction = Math.min(fraction, Math.max(0, Math.min(1, (run.s - car.routeS - 18) / 22)));
     for (const other of previousTraffic) {
       if (keyOf(other) !== ownKey && car.progress === 1) fraction = Math.min(fraction, followingFraction(car.pose, car.vehicle, other.pose, other.vehicle));
@@ -1025,7 +1035,7 @@ export const step = (run, now) => {
     frozen.add(key);
     return true;
   };
-  for (const car of candidates) if (bodiesOverlap(car.pose, car.vehicle, playerPose, playerVehicle, 0.6)) freeze(car);
+  for (const car of candidates) if (bodiesOverlap(car.pose, car.vehicle, playerPose, playerVehicle, PLAYER_CLEARANCE)) freeze(car);
   for (let pass = 0; pass < candidates.length; pass++) {
     let changed = false;
     for (let a = 0; a < candidates.length; a++) for (let b = a + 1; b < candidates.length; b++) {

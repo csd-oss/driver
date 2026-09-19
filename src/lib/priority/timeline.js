@@ -128,8 +128,19 @@ const cached = (scene, vehicle, pathCache) => {
   const key = vehicle.id;
   const path = pathCache[key] || (pathCache[key] = vehiclePath(scene, vehicle));
   if (path.throughLength === undefined) path.throughLength = lengthOf(path.through);
+  if (path.approachLength === undefined) path.approachLength = lengthOf(path.approach);
   return path;
 };
+
+// Roundabout paths vary greatly in length. A fixed traversal time made a
+// car taking a long arc much faster than one taking the first exit.
+export const traversalDuration = (scene, vehicle, pathCache) => scene.layout === 'roundabout'
+  ? Math.max(durationOf(vehicle), cached(scene, vehicle, pathCache).throughLength / 0.018)
+  : durationOf(vehicle);
+
+export const rollingDuration = (scene, vehicle, pathCache, fallback = 5500) => vehicle?.from === 'ring'
+  ? Math.max(fallback, cached(scene, vehicle, pathCache).approachLength / 0.018)
+  : fallback;
 
 /** The point `dist` units behind the waiting position, straight back along the approach. */
 /**
@@ -161,7 +172,7 @@ const tailOf = (points, dist) => {
  */
 export const clearTimeMs = (scene, vehicle, fraction, eased, queueBack, pathCache) => {
   const path = cached(scene, vehicle, pathCache);
-  const D = durationOf(vehicle);
+  const D = traversalDuration(scene, vehicle, pathCache);
   const L = path.throughLength || 1;
   const back = path.approach.length ? Math.max(0, queueBack) : 0;
   // Rolling through at cruising speed: the queue gap costs its own time.
@@ -181,13 +192,14 @@ export const clearTimeMs = (scene, vehicle, fraction, eased, queueBack, pathCach
 export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queueBack = 0, exitDistance = 0) => {
   const path = cached(scene, vehicle, pathCache);
   const L = path.throughLength || 1;
-  const D = durationOf(vehicle);
+  const D = traversalDuration(scene, vehicle, pathCache);
   const V = L / D; // units per ms at cruising speed
   const back = path.approach.length ? Math.max(0, queueBack) : 0;
   if (path.cachedBack !== back) {
     path.cachedBack = back;
     path.queued = back > 0 ? queuePoint(scene, vehicle, back) : null;
     path.queuedApproach = back > 0 ? [{ x: path.approach[0].x + path.queued.x - path.wait.x, y: path.approach[0].y + path.queued.y - path.wait.y }, path.queued] : path.approach;
+    path.queuedApproachLength = back > 0 ? lengthOf(path.queuedApproach) : path.approachLength;
     path.queueDeparture = back > 0 ? [path.queued, path.wait] : null;
     path.rollPaths = new Map();
   }
@@ -213,7 +225,7 @@ export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queu
       if (!approach.length) return { ...pointAlong(path.through, 0.001), progress: 0 };
       // Roll in along the approach itself, so a vehicle already on a
       // roundabout comes round the ring rather than across it.
-      const dist = vehicle.from === 'ring' ? lengthOf(approach) : Math.min(V * rollInMs, ROLL_IN_MAX);
+      const dist = vehicle.from === 'ring' ? path.queuedApproachLength : Math.min(V * rollInMs, ROLL_IN_MAX);
       return { ...pointAlong(rollPath(dist), Math.max(0, (now - from) / rollInMs)), progress: 0 };
     }
     // Rolling on at cruising speed: cover the queue gap, then the junction.

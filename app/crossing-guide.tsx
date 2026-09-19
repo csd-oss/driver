@@ -15,7 +15,7 @@ import { getCachedLanguage, getLanguage, setGuideFinished } from '@/src/lib/sett
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, PanResponder, ScrollView, View } from 'react-native';
+import { AppState, PanResponder, Platform, ScrollView, View } from 'react-native';
 
 const now = () => performance.now();
 const HINT_SWIPE: Record<string, SwipeDirection | null> = { giveWay: 'down', stopSign: 'down', redLight: 'down', wait: null, go: 'up', ring: 'right', rolling: null, priority: null };
@@ -83,6 +83,7 @@ export default function CrossingGuideScreen() {
     const tick = () => {
       const time = now();
       const gap = time - tickRef.current;
+      if (Platform.OS !== 'web' && gap < 31) { request = requestAnimationFrame(tick); return; }
       if (gap > 400) shiftTime(run, gap - 16);
       tickRef.current = time;
       const events = step(run, time);

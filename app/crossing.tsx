@@ -35,7 +35,7 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, PanResponder, Pressable, ScrollView, View } from 'react-native';
+import { AppState, PanResponder, Platform, Pressable, ScrollView, View } from 'react-native';
 
 type Phase = 'loading' | 'running' | 'over';
 
@@ -168,6 +168,8 @@ export default function CrossingScreen() {
       const run = runRef.current;
       const tNow = now();
       const gap = tNow - lastTickRef.current;
+      // Native transforms interpolate between 30 Hz snapshots on the UI thread.
+      if (Platform.OS !== 'web' && gap < 31) { frameRef.current = requestAnimationFrame(tick); return; }
       if (gap > 400) shiftTime(run, gap - 16);
       lastTickRef.current = tNow;
 
