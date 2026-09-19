@@ -144,7 +144,8 @@ export default function CrossingGuideScreen() {
       const lesson = LESSONS[current.lessonIndex];
       const prompt = lesson ? promptFor(run, lang, lesson.id, visibility) : null;
       const feedback = feedbackRef.current && time < feedbackRef.current.until ? feedbackRef.current.text : null;
-      const directionActive = current.scheduled && current.instruction.kind !== 'none' && (current.ring ? !current.passed : run.s < current.sLine);
+      const redundantStraight = current.instruction.kind === 'main' && current.instruction.turn === 'straight';
+      const directionActive = current.scheduled && current.instruction.kind !== 'none' && !redundantStraight && (current.ring ? !current.passed : run.s < current.sLine);
       const turnPrompt = directionActive && !current.ring && prompt?.swipe === current.instruction.turn;
       const lights: Record<number, any> = {};
       for (const j of visible) if (j.scene.control?.type === 'lights') lights[j.index] = lightState(j, time);
