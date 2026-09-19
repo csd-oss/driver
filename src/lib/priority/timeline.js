@@ -184,10 +184,21 @@ export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queu
   const D = durationOf(vehicle);
   const V = L / D; // units per ms at cruising speed
   const back = path.approach.length ? Math.max(0, queueBack) : 0;
-  const queued = back > 0 ? queuePoint(scene, vehicle, back) : null;
-  const approach = back > 0 ? [{ x: path.approach[0].x + queued.x - path.wait.x, y: path.approach[0].y + queued.y - path.wait.y }, queued] : path.approach;
+  if (path.cachedBack !== back) {
+    path.cachedBack = back;
+    path.queued = back > 0 ? queuePoint(scene, vehicle, back) : null;
+    path.queuedApproach = back > 0 ? [{ x: path.approach[0].x + path.queued.x - path.wait.x, y: path.approach[0].y + path.queued.y - path.wait.y }, path.queued] : path.approach;
+    path.queueDeparture = back > 0 ? [path.queued, path.wait] : null;
+    path.rollPaths = new Map();
+  }
+  const queued = path.queued;
+  const approach = path.queuedApproach;
+  const rollPath = (distance) => {
+    if (!path.rollPaths.has(distance)) path.rollPaths.set(distance, tailOf(approach, distance));
+    return path.rollPaths.get(distance);
+  };
   if (start === null && rollInMs > 0 && exitDistance) {
-    return { ...pointAlong(tailOf(approach, ROLL_IN_MAX), 0), progress: 0 };
+    return { ...pointAlong(rollPath(ROLL_IN_MAX), 0), progress: 0 };
   }
   const exiting = (distance) => {
     if (distance > exitDistance) return null;
@@ -203,11 +214,11 @@ export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queu
       // Roll in along the approach itself, so a vehicle already on a
       // roundabout comes round the ring rather than across it.
       const dist = vehicle.from === 'ring' ? lengthOf(approach) : Math.min(V * rollInMs, ROLL_IN_MAX);
-      return { ...pointAlong(tailOf(approach, dist), Math.max(0, (now - from) / rollInMs)), progress: 0 };
+      return { ...pointAlong(rollPath(dist), Math.max(0, (now - from) / rollInMs)), progress: 0 };
     }
     // Rolling on at cruising speed: cover the queue gap, then the junction.
     const travelled = V * (now - start);
-    if (back > 0 && travelled < back) return { ...pointAlong([queued, path.wait], travelled / back), progress: 0 };
+    if (back > 0 && travelled < back) return { ...pointAlong(path.queueDeparture, travelled / back), progress: 0 };
     const t = (travelled - back) / L;
     if (t >= 1 && exitDistance) return exiting((t - 1) * L);
     if (t >= 1.05) return null;
@@ -224,7 +235,7 @@ export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queu
   if (u >= 1 && exitDistance) return exiting((u - 1) * total);
   if (u >= 1.05) return null;
   const dist = easeIn(Math.min(1, u)) * total;
-  if (back > 0 && dist < back) return { ...pointAlong([queued, path.wait], dist / back), progress: 0 };
+  if (back > 0 && dist < back) return { ...pointAlong(path.queueDeparture, dist / back), progress: 0 };
   const fr = Math.min(1, (dist - back) / L);
   return { ...pointAlong(path.through, fr), progress: fr };
 };

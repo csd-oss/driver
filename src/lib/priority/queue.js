@@ -36,12 +36,15 @@ export const queueBackFor = (scene, order, vehicleId) => {
     .map((v, i) => ({ v, i }))
     .filter(({ v }) => v.from === me.from && (v.kind === 'tram') === tram)
     .sort((a, b) => rankOf(order, a.v.id) - rankOf(order, b.v.id) || a.i - b.i);
-  let back = 0;
+  // The path's waiting point is the centre of a ten-unit car. Longer
+  // vehicles must stand further back so their noses stay behind the line.
+  const noseAllowance = Math.max(0, lengthOf(me) / 2 - VEHICLE_LENGTH.car / 2);
+  let back = noseAllowance;
   for (let k = 1; k < peers.length; k++) {
     back += lengthOf(peers[k - 1].v) / 2 + lengthOf(peers[k].v) / 2 + QUEUE_AIR;
     if (peers[k].v.id === vehicleId) return back;
   }
-  return 0;
+  return noseAllowance;
 };
 
 /** The point `back` units behind the vehicle's waiting position, along its approach lane. */

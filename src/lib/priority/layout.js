@@ -243,18 +243,24 @@ export const vehiclePath = (scene, vehicle) =>
   scene.layout === 'roundabout' ? roundaboutPath(vehicle.from, vehicle.to, vehicle) : crossingPath(vehicle.from, vehicle.to, scene, vehicle);
 
 const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+const measurements = new WeakMap();
+const measured = (points) => {
+  let value = measurements.get(points);
+  if (!value) {
+    const cumulative = [0];
+    for (let i = 1; i < points.length; i++) cumulative.push(cumulative[i - 1] + dist(points[i - 1], points[i]));
+    value = { cumulative, total: cumulative[cumulative.length - 1] };
+    measurements.set(points, value);
+  }
+  return value;
+};
 
 const positionAlong = (points, target) => {
-  let left = target;
-  for (let i = 1; i < points.length; i++) {
-    const seg = dist(points[i - 1], points[i]);
-    if (left <= seg || i === points.length - 1) {
-      const f = seg === 0 ? 0 : Math.min(1, left / seg);
-      return lerp(points[i - 1], points[i], f);
-    }
-    left -= seg;
-  }
-  return { ...points[points.length - 1] };
+  const { cumulative } = measured(points);
+  let lo = 1, hi = points.length - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (cumulative[mid] < target) lo = mid + 1; else hi = mid; }
+  const seg = cumulative[lo] - cumulative[lo - 1];
+  return lerp(points[lo - 1], points[lo], seg === 0 ? 0 : Math.min(1, (target - cumulative[lo - 1]) / seg));
 };
 
 const HEADING_REACH = 1.5; // heading is read over this much path either side of the point
@@ -266,7 +272,7 @@ const HEADING_REACH = 1.5; // heading is read over this much path either side of
  */
 export const pointAlong = (points, t) => {
   if (points.length === 1) return { ...points[0], angle: 0 };
-  const total = points.reduce((sum, p, i) => (i ? sum + dist(points[i - 1], p) : 0), 0);
+  const { total } = measured(points);
   const target = Math.max(0, Math.min(1, t)) * total;
   const p = positionAlong(points, target);
   const back = positionAlong(points, Math.max(0, target - HEADING_REACH));

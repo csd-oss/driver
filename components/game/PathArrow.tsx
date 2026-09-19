@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { G, Path, Polygon } from 'react-native-svg';
 import { vehiclePath } from '@/src/lib/priority/layout';
 import { VEHICLE_FILL, type SceneLike, type SceneVehicle } from './types';
@@ -16,7 +17,7 @@ interface Props {
 
 /** Chevron trail with an arrowhead showing where a vehicle intends to go. */
 export const PathArrow = ({ scene, vehicle, opacity = 0.85, span = 0.62, progress = 0, from }: Props) => {
-  const path = vehiclePath(scene, vehicle);
+  const path = useMemo(() => vehiclePath(scene, vehicle), [scene, vehicle]);
   const pts = path.through;
   const n = Math.max(2, Math.round(pts.length * span));
   const startIdx = Math.min(pts.length - 2, Math.floor(progress * (pts.length - 1)));

@@ -25,7 +25,8 @@ describe('queueBackFor', () => {
     const scene = { ...base, tramTracks: [{ from: 'E', to: 'W' }], vehicles: [car('you', 'S', 'N'), car('red', 'E', 'W'), { ...car('tram1', 'E', 'W'), kind: 'tram' }] };
     const { order } = resolve(scene);
     expect(queueBackFor(scene, order, 'red')).toBe(0);
-    expect(queueBackFor(scene, order, 'tram1')).toBe(0);
+    // Its nose, rather than its centre, lines up with the car's nose.
+    expect(queueBackFor(scene, order, 'tram1')).toBe(5.5);
   });
 
   it('gives a third car on the arm two lengths', () => {

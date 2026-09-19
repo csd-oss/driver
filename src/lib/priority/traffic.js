@@ -5,9 +5,25 @@ export const vehicleSize = (v) => ({
   length: v.kind === 'tram' ? 21 : v.kind === 'van' ? 11.5 : ['truck', 'bus'].includes(v.kind) ? 13.5 : 10,
 });
 
+/** Smooth speed reduction for traffic following the same lane, before bumpers meet. */
+export const followingFraction = (pose, vehicle, leader, leaderVehicle) => {
+  const angle = pose.angle * Math.PI / 180;
+  const dx = leader.x - pose.x, dy = leader.y - pose.y;
+  if (Math.abs(dx) > 50 || Math.abs(dy) > 50) return 1;
+  if (Math.cos((leader.angle - pose.angle) * Math.PI / 180) < 0.65) return 1;
+  const ahead = dx * Math.sin(angle) - dy * Math.cos(angle);
+  const side = Math.abs(dx * Math.cos(angle) + dy * Math.sin(angle));
+  if (ahead <= 0 || side > 4.5) return 1;
+  const clearance = ahead - (vehicleSize(vehicle).length + vehicleSize(leaderVehicle).length) / 2;
+  return Math.max(0, Math.min(1, (clearance - 8) / 22));
+};
+
 /** Separating-axis test for the actual rotated vehicle bodies. */
 export const bodiesOverlap = (a, av, b, bv, margin = 0.8) => {
   if (!a || !b) return false;
+  const sizeA = vehicleSize(av), sizeB = vehicleSize(bv);
+  const reach = Math.hypot(sizeA.width / 2 + margin, sizeA.length / 2 + margin) + Math.hypot(sizeB.width / 2 + margin, sizeB.length / 2 + margin);
+  if (Math.abs(a.x - b.x) > reach || Math.abs(a.y - b.y) > reach) return false;
   const shape = (p, v) => {
     const rad = p.angle * Math.PI / 180;
     const { width, length } = vehicleSize(v);

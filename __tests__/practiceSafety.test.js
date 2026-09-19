@@ -100,3 +100,66 @@ test('continuous guide connects every lesson without restarting the route', () =
     expect(lessonVerdict(LESSONS[j.lessonIndex], j)).toEqual({ passed: true, reason: null });
   }
 }, 60000);
+
+test('stopping inside a roundabout holds position and resumes without a deadlock', () => {
+  const index = LESSONS.findIndex(l => l.id === 'roundabout');
+  const run = createRun(makeRng(1), 1, { lesson: index });
+  const junction = currentJunction(run);
+  let stopped = false, resumed = false, holdUntil = Infinity, heldAt;
+  for (let frame = 0; frame < 3000 && !junction.passed; frame++) {
+    step(run, run.now + 32);
+    if (!stopped && run.s > junction.sLine + 10) {
+      applyInput(run, 'brake');
+      stopped = true;
+    }
+    if (stopped && !resumed) {
+      if (run.stoppedAt !== null && holdUntil === Infinity) {
+        heldAt = run.s;
+        holdUntil = run.now + 8000;
+      }
+      if (heldAt !== undefined) expect(run.s).toBe(heldAt);
+      if (run.now >= holdUntil) { applyInput(run, 'go'); resumed = true; }
+    } else careful(run);
+    for (const car of vehiclePoses(run)) expect(bodiesOverlap(car.pose, car.vehicle, youPose(run), { kind: 'car' }, 0)).toBe(false);
+  }
+  expect(stopped && resumed).toBe(true);
+  expect(junction.passed).toBe(true);
+  expect(run.lives).toBe(3);
+});
+
+test('traffic stays clear during extended stops, including the next roundabout', () => {
+  let ringStops = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const run = createRun(makeRng(seed), 5);
+    let heldJunction = -1, releaseAt = 0, passedBeforeHold = 0;
+    let previous = [];
+    for (let frame = 0; frame < 5000; frame++) {
+      step(run, run.now + 32);
+      const j = currentJunction(run);
+      const current = vehiclePoses(run);
+      const player = youPose(run);
+      for (const old of previous) {
+        if (!current.some(c => c.junction.index === old.junction.index && c.vehicle.id === old.vehicle.id) && Math.hypot(old.pose.x - player.x, old.pose.y - player.y) < 70) throw new Error(`visible disappearance seed=${seed} junction=${old.junction.index} car=${old.vehicle.id} ${JSON.stringify({player,pose:old.pose,starts:old.junction.starts,current:j.index,originEnd:old.junction.sEnd,s:run.s})}`);
+      }
+      previous = current;
+      if (j.ring && j.index > 0 && heldJunction === -1 && run.s > j.sLine + 8) {
+        heldJunction = j.index; passedBeforeHold = run.passed;
+        releaseAt = run.now + 12000;
+        ringStops++;
+        applyInput(run, 'brake');
+      }
+      if (releaseAt && run.now < releaseAt) {
+        for (const car of vehiclePoses(run)) {
+          if (bodiesOverlap(car.pose, car.vehicle, youPose(run), {kind:'car'}, 0)) throw new Error(`rear contact seed=${seed} car=${car.vehicle.id} junction=${j.index}`);
+        }
+      } else {
+        if (releaseAt) { applyInput(run, 'go'); releaseAt = 0; }
+        careful(run);
+      }
+      if (heldJunction >= 0 && run.passed > passedBeforeHold + 1) break;
+    }
+    if (heldJunction >= 0 && run.passed <= passedBeforeHold + 1) throw new Error(`stalled after roundabout stop: seed=${seed}, junction=${heldJunction}, passed=${run.passed}`);
+    expect(run.lives).toBe(3);
+  }
+  expect(ringStops).toBeGreaterThan(0);
+}, 60000);

@@ -1,4 +1,4 @@
-import { Circle, G, Line, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
+import { Circle, G, Image, Line, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 import { leftOf, oppositeOf, rightOf } from '@/src/lib/priority/geometry';
 import {
   CENTER,
@@ -185,17 +185,9 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
   const marking = dark ? '#cbd5e1' : '#f8fafc';
   const isRoundabout = scene.layout === 'roundabout';
   const kerb = dark ? '#586462' : '#eee7d5';
-  const treeFill = dark ? '#3b6250' : '#88a887';
-  const treeDark = dark ? '#52755d' : '#aec3a0';
   const K = 4.2; // kerb width
   const box = boxRect(scene);
   // Deterministic tree spots per quadrant, away from the roads.
-  const trees = [
-    { x: 12, y: 12, r: 4 }, { x: 24, y: 8, r: 2.6 }, { x: 8, y: 26, r: 3 },
-    { x: 88, y: 12, r: 3.6 }, { x: 76, y: 8, r: 2.4 }, { x: 92, y: 26, r: 2.8 },
-    { x: 12, y: 88, r: 3.4 }, { x: 24, y: 92, r: 2.6 }, { x: 8, y: 74, r: 2.8 },
-    { x: 88, y: 88, r: 4 }, { x: 76, y: 92, r: 2.4 }, { x: 92, y: 74, r: 3 },
-  ];
   /** An arm's road, as the in-frame rectangle plus the (possibly tapering) extension beyond it. */
   const armShapes = (arm: string, pad: number, fill: string, tag: string) => {
     const r = armRect(scene, arm, 0);
@@ -215,25 +207,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
   };
   return (
     <G>
-      <Rect x={0} y={0} width={SIZE} height={SIZE} fill={grass} />
-      <Path d="M2 30 H30 V2 M70 2 V30 H98 M2 70 H30 V98 M70 98 V70 H98" stroke={dark ? "#3a5043" : "#afc29e"} strokeWidth={0.7} fill="none" />
-      {/* Low courtyard buildings anchor the street without hiding traffic. */}
-      {[{ x: 3, y: 34 }, { x: 79, y: 3 }, { x: 3, y: 56 }, { x: 79, y: 79 }].map((home, i) => (
-        <G key={`home-${i}`}>
-          <Rect x={home.x - 1} y={home.y - 1} width={20} height={15} rx={1.5} fill={dark ? '#35483f' : '#cbd7c3'} />
-          <Rect x={home.x + 1} y={home.y + 1.2} width={16} height={11} rx={1} fill="#000000" opacity={0.1} />
-          <Rect x={home.x} y={home.y} width={16} height={11} rx={1} fill={dark ? '#6b716d' : i % 2 ? '#c3b09a' : '#bcc9c8'} stroke={dark ? '#808981' : '#f3eee4'} strokeWidth={0.7} />
-          <Line x1={home.x + 1} y1={home.y + 5.5} x2={home.x + 15} y2={home.y + 5.5} stroke={dark ? '#515e58' : '#9ca9a4'} strokeWidth={0.6} />
-          <Rect x={home.x + 3} y={home.y + 2} width={3} height={2} rx={0.4} fill={dark ? '#b4b391' : '#e7eee8'} />
-        </G>
-      ))}
-      {trees.map((tr, i) => (
-        <G key={`tree-${i}`}>
-          <Circle cx={tr.x + 0.6} cy={tr.y + 0.8} r={tr.r} fill="rgba(0,0,0,0.18)" />
-          <Circle cx={tr.x} cy={tr.y} r={tr.r} fill={treeFill} />
-          <Circle cx={tr.x - tr.r * 0.3} cy={tr.y - tr.r * 0.3} r={tr.r * 0.55} fill={treeDark} opacity={0.5} />
-        </G>
-      ))}
+      <Image x={0} y={0} width={SIZE} height={SIZE} href={dark ? require('../../assets/images/driving/junction-dark.png') : require('../../assets/images/driving/junction-light.png')} />
       {/* Kerbs run along the road only; no cap across it, so consecutive
           junction frames join without a seam. */}
       {scene.arms.map((arm) => armShapes(arm, K, kerb, 'kerb'))}

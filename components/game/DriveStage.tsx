@@ -1,3 +1,4 @@
+import { useDrivePalette } from './drivePalette';
 import { useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,32 +24,33 @@ interface Props {
 
 /** A full-height road and a fixed bottom console; no shared page gutters. */
 export function DriveStage({ lang, detail, instruction, direction, status, paused, onPause, onBack, intent, braking, onInput, children, testID }: Props) {
+  const palette = useDrivePalette();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [overlayHeight, setOverlayHeight] = useState(100);
   return (
-    <View style={styles.outer}>
-      <StatusBar style="light" />
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']} testID={testID}>
+    <View style={[styles.outer, { backgroundColor: palette.background }]}>
+      <StatusBar style={palette.dark ? 'light' : 'dark'} />
+      <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top', 'bottom']} testID={testID}>
         <View style={styles.scene} testID="crossing.viewport" onLayout={e => {
           const { width, height } = e.nativeEvent.layout;
           setSize(prev => prev.width === width && prev.height === height ? prev : { width, height });
         }}>
           {size.width > 0 && size.height > 0 && children(size.width, size.height, overlayHeight + 14)}
-          <View style={styles.instructor} testID="crossing.instruction" onLayout={e => setOverlayHeight(e.nativeEvent.layout.height)}>
+          <View style={[styles.instructor, { backgroundColor: palette.background }]} testID="crossing.instruction" onLayout={e => setOverlayHeight(e.nativeEvent.layout.height)}>
             <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={t('a11y.goBack', lang)} style={styles.overlayButton} testID="nav.back">
-              <Text style={styles.backText}>‹</Text>
+              <Text style={[styles.backText, { color: palette.text }]}>‹</Text>
             </Pressable>
             <View style={{ flex: 1 }}>
-              <Text style={styles.eyebrow}>{direction === 'left' ? '←' : direction === 'right' ? '→' : '↑'}  {t('crossing.control.instructor', lang)}</Text>
-              <Text style={styles.instruction} maxFontSizeMultiplier={1.3}>{instruction}</Text>
+              <Text style={[styles.eyebrow, { color: palette.secondary }]}>{direction === 'left' ? '←' : direction === 'right' ? '→' : '↑'}  {t('crossing.control.instructor', lang)}</Text>
+              <Text style={[styles.instruction, { color: palette.text }]} maxFontSizeMultiplier={1.3}>{instruction}</Text>
             </View>
-            {onPause && <Pressable onPress={onPause} accessibilityRole="button" accessibilityLabel={t(`crossing.control.${paused ? 'resume' : 'pause'}`, lang)} style={styles.overlayButton} testID="crossing.pause"><Text style={styles.pauseText}>{paused ? '▶' : 'Ⅱ'}</Text></Pressable>}
+            {onPause && <Pressable onPress={onPause} accessibilityRole="button" accessibilityLabel={t(`crossing.control.${paused ? 'resume' : 'pause'}`, lang)} style={styles.overlayButton} testID="crossing.pause"><Text style={[styles.pauseText, { color: palette.text }]}>{paused ? '▶' : 'Ⅱ'}</Text></Pressable>}
           </View>
           {paused && <View pointerEvents="none" style={styles.paused}><Text style={styles.pausedText}>{t('crossing.control.paused', lang)}</Text></View>}
         </View>
-        <View style={styles.console}>
-          <Text style={styles.detail} testID="crossing.summary">{detail}</Text>
-          <View style={styles.statusRow}><View style={[styles.statusDot, { backgroundColor: braking ? '#e6c998' : '#b9dbbc' }]} /><Text style={styles.status} maxFontSizeMultiplier={1.3} accessibilityLiveRegion="polite">{status}</Text></View>
+        <View style={[styles.console, { backgroundColor: palette.background }]}>
+          <Text style={[styles.detail, { color: palette.secondary }]} testID="crossing.summary">{detail}</Text>
+          <View style={styles.statusRow}><View style={[styles.statusDot, { backgroundColor: braking ? '#d97706' : palette.accent }]} /><Text style={[styles.status, { color: palette.text }]} maxFontSizeMultiplier={1.3} accessibilityLiveRegion="polite">{status}</Text></View>
           <DriveControls lang={lang} intent={intent} braking={braking} disabled={paused} onInput={onInput} />
         </View>
       </SafeAreaView>

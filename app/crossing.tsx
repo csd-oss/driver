@@ -37,7 +37,7 @@ import { usePostHog } from 'posthog-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, PanResponder, Pressable, ScrollView, View } from 'react-native';
 
-type Phase = 'intro' | 'running' | 'over';
+type Phase = 'loading' | 'running' | 'over';
 
 interface Toast {
   kind: 'crash' | 'late' | 'ok' | 'level' | 'wrong';
@@ -84,7 +84,7 @@ export default function CrossingScreen() {
   // Development aid: driver://crossing?seed=1&level=2 replays a known road.
   const params = useLocalSearchParams<{ seed?: string; level?: string }>();
   const [lang, setLang] = useState(getCachedLanguage);
-  const [phase, setPhase] = useState<Phase>('intro');
+  const [phase, setPhase] = useState<Phase>('loading');
   const [paused, setPaused] = useState(false);
   const [motion, setMotion] = useState<'driving' | 'braking' | 'waiting'>('driving');
   const [best, setBest] = useState(0);
@@ -95,7 +95,6 @@ export default function CrossingScreen() {
   const [instruction, setInstruction] = useState<Instruction | null>(null);
   const [intent, setIntent] = useState<string | null>(null);
   const [isNewBest, setIsNewBest] = useState(false);
-  const [roundsPlayed, setRoundsPlayed] = useState<number | null>(null);
   const [records, setRecords] = useState<any[]>([]);
   const runRef = useRef<any>(null);
   const runIdRef = useRef('');
@@ -113,7 +112,6 @@ export default function CrossingScreen() {
         setLang(l);
         const stats = await GameRoundsDB.getGameStats(l, 'crossing');
         setBest(stats.best);
-        setRoundsPlayed(stats.rounds);
       });
     }, [posthog])
   );
@@ -228,7 +226,7 @@ export default function CrossingScreen() {
         }
       }
       setMotion(run.stoppedAt !== null ? 'waiting' : run.braking ? 'braking' : 'driving');
-      setHud({ level: run.level, lives: run.lives, score: run.score, streak: run.streak, passed: run.passed });
+      setHud(old => old.level === run.level && old.lives === run.lives && old.score === run.score && old.streak === run.streak && old.passed === run.passed ? old : { level: run.level, lives: run.lives, score: run.score, streak: run.streak, passed: run.passed });
 
       const you = youPose(run);
       // Turn the camera with the car, shortest way round.
@@ -272,7 +270,7 @@ export default function CrossingScreen() {
     return () => subscription.remove();
   }, []);
 
-  const startRun = () => {
+  const startRun = useCallback(() => {
     const seed = __DEV__ && params.seed ? Number(params.seed) : Date.now() % 1000003;
     const level = __DEV__ && params.level ? Math.max(1, Number(params.level)) : 1;
     runRef.current = createRun(makeRng(seed), level);
@@ -292,7 +290,11 @@ export default function CrossingScreen() {
     setHud({ level: 1, lives: LIVES, score: 0, streak: 0, passed: 0 });
     trackEvent(posthog, 'crossing_started', { language: lang });
     setPhase('running');
-  };
+  }, [params.seed, params.level, lang, posthog]);
+
+  useEffect(() => {
+    if (!runRef.current) startRun();
+  }, [startRun]);
 
   const brake = useCallback(() => {
     if (phase === 'running' && !paused && runRef.current) applyInput(runRef.current, 'brake');
@@ -336,7 +338,7 @@ export default function CrossingScreen() {
       });
       if (!confirmed) return;
       stopLoop();
-      setPhase('intro');
+      router.replace('/game');
       return;
     }
     if (router.canGoBack()) router.back();
@@ -345,43 +347,6 @@ export default function CrossingScreen() {
 
   const hearts = Array.from({ length: LIVES }, (_, i) => (i < hud.lives ? '♥' : '♡')).join(' ');
   const toastVisible = toast && now() < toast.until;
-
-  const renderIntro = () => (
-    <ScrollView className="flex-1" contentContainerClassName="pb-4" showsVerticalScrollIndicator={false}>
-      <Card className="gap-4" testID="crossing.intro">
-        <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
-          🚦 {t('crossing.title', lang)}
-        </UIText>
-        <UIText variant="body" className="text-slate-600 dark:text-slate-300">
-          {t('crossing.hubBody', lang)}
-        </UIText>
-        <View className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/70 px-3 py-3 gap-2">
-          <UIText variant="caption" className="uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-            {t('crossing.legendTitle', lang)}
-          </UIText>
-          <UIText variant="body" className="text-slate-800 dark:text-slate-100">⬇️  {t('crossing.legendDown', lang)}</UIText>
-          <UIText variant="body" className="text-slate-800 dark:text-slate-100">⬆️  {t('crossing.legendUp', lang)}</UIText>
-          <UIText variant="body" className="text-slate-800 dark:text-slate-100">↔️  {t('crossing.legendSide', lang)}</UIText>
-          <UIText variant="body" className="text-slate-800 dark:text-slate-100">🔄  {t('crossing.legendRing', lang)}</UIText>
-          <UIText variant="caption" className="text-slate-500 dark:text-slate-400">{t('crossing.legendRules', lang)}</UIText>
-        </View>
-        <Button onPress={() => router.push('/crossing-guide')} variant="outline" className="w-full" testID="crossing.openGuide">
-          {t('guide.replay', lang)}
-        </Button>
-        <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-          {t('game.best', lang)}: {best}
-        </UIText>
-        <Button onPress={startRun} variant="default" className="w-full" testID="crossing.start">
-          {t('game.start', lang)}
-        </Button>
-        {roundsPlayed !== null && roundsPlayed > 0 && (
-          <Button onPress={() => router.push('/crossing-log')} variant="outline" className="w-full" testID="crossing.log.open">
-            {t('crossing.log.open', lang)}
-          </Button>
-        )}
-      </Card>
-    </ScrollView>
-  );
 
   const renderRecordRow = (record: any, i: number) => {
     const info = explainRecord(record, lang);
@@ -475,7 +440,6 @@ export default function CrossingScreen() {
   return (
     <Screen testID="screen.crossing" header={<Header title={t('crossing.title', lang)} onBackPress={handleBack} />}>
       <View className="flex-1 gap-3">
-        {phase === 'intro' && renderIntro()}
         {phase === 'over' && renderOver()}
         {openRecord && <RecordModal record={openRecord} lang={lang} onClose={() => setOpenRecord(null)} />}
       </View>

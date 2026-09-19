@@ -1,4 +1,4 @@
-import { bodiesOverlap, spaceTraffic } from './traffic';
+import { bodiesOverlap, followingFraction, spaceTraffic } from './traffic';
 import { resolve } from './engine';
 import { generatePlayable } from './generator';
 import { leftOf, rightOf, oppositeOf, turnOf } from './geometry';
@@ -554,7 +554,7 @@ const setYourMovement = (run, junction, to, keepStarts = false) => {
  * Crossing the stop line on red is the red-light offence, though.
  */
 const moveOff = (run, junction) => {
-  if (redFor(junction, run.now) && !junction.ranRed) {
+  if (run.s < junction.sLine && redFor(junction, run.now) && !junction.ranRed) {
     junction.ranRed = true;
     run.streak = 0;
     run.events.push({ type: 'redLight', junction: junction.index });
@@ -563,6 +563,7 @@ const moveOff = (run, junction) => {
   junction.earlyResume = false;
   junction.resumedAt = run.now;
   run.stoppedAt = null;
+  run.braking = false;
   run.events.push({ type: 'resumed', junction: junction.index, early });
 };
 
@@ -597,7 +598,7 @@ export const applyInput = (run, input) => {
     return;
   }
   if (input === 'brake') {
-    if (run.s < junction.sLine && run.stoppedAt === null) run.braking = true;
+    if (run.stoppedAt === null) run.braking = true;
   } else if (input === 'go') {
     if (run.stoppedAt === null && run.braking) {
       run.braking = false; // changed your mind before the line
@@ -878,12 +879,12 @@ export const step = (run, now) => {
     const straight = oppositeOf('S');
     const beforeLine = run.s < junction.sLine;
     const noStraight = !junction.ring && !junction.scene.arms.includes(straight) && run.intent === null && !junction.needTurn;
-    const mustStop = beforeLine && (run.braking || noStraight);
+    const mustStop = run.braking || (beforeLine && noStraight);
     let target = run.speed;
     let rate = ACCEL;
     if (mustStop) {
       // React at once: slow to a creep, then follow the curve into the line.
-      const curve = Math.sqrt(2 * DECEL * Math.max(0, junction.sWait - run.s));
+      const curve = beforeLine ? Math.sqrt(2 * DECEL * Math.max(0, junction.sWait - run.s)) : 0;
       target = Math.min(target, Math.max(4, run.speed * CREEP), curve);
       rate = run.v > curve ? HARD_DECEL : SOFT_DECEL;
     } else if (target < run.v) {
@@ -892,7 +893,8 @@ export const step = (run, now) => {
     run.brakeLights = mustStop;
     run.v = target < run.v ? Math.max(target, run.v - (rate * dt) / 1000) : Math.min(target, run.v + (ACCEL * dt) / 1000);
     let next = run.s + (run.v * dt) / 1000;
-    const atLine = mustStop && (next >= junction.sWait || junction.sWait - next < 0.3);
+    const atLine = beforeLine && mustStop && (next >= junction.sWait || junction.sWait - next < 0.3);
+    if (!beforeLine && mustStop && run.v === 0) run.stoppedAt = next;
     if (atLine && noStraight && !run.braking) {
       // No straight ahead and no direction chosen: wait at the line for a swipe.
       next = junction.sWait;
@@ -937,21 +939,61 @@ export const step = (run, now) => {
   // Roundabout: at each decision point either take the exit or carry on round.
   if (!recovering && junction.ring && !junction.ring.exitTo && run.s >= junction.sLine && run.s + 1.5 >= junction.sEnd) advanceRing(run, junction);
 
-  // Traffic keeps a physical gap, including after leaving its junction.
-  // A faster follower must not drive through the player on the next approach.
+  // Advance traffic together. Comparing every moving car only with the
+  // others' previous poses can freeze two cars following a curved lane.
   const proposedTraffic = vehiclePoses(run);
   const playerPose = youPose(run);
+  const keyOf = car => `${car.junction.index}-${car.vehicle.id}`;
+  const previousByKey = new Map(previousTraffic.map(car => [keyOf(car), car]));
+  const delays = new Map();
   for (const car of proposedTraffic) {
     const start = car.junction.starts[car.vehicle.id];
     if (start === null || !car.junction.scheduled) continue;
-    const ownKey = `${car.junction.index}-${car.vehicle.id}`;
-    const blocked = bodiesOverlap(car.pose, car.vehicle, playerPose, playerVehicle, 0.6) || previousTraffic.some(other =>
-      `${other.junction.index}-${other.vehicle.id}` !== ownKey && bodiesOverlap(car.pose, car.vehicle, other.pose, other.vehicle, 1.2));
-    if (blocked) {
-      car.junction.starts[car.vehicle.id] += dt;
-      const holdsLight = car.junction.scene.control?.crossFirst && crossIdsOf(car.junction.scene).includes(car.vehicle.id);
-      if (holdsLight || car.junction.blockers.includes(car.vehicle.id)) car.junction.clearAt = Math.max(car.junction.clearAt, car.junction.starts[car.vehicle.id] + clearMsOf(car.junction, car.vehicle.id));
+    const ownKey = keyOf(car);
+    let fraction = car.progress === 1 ? followingFraction(car.pose, car.vehicle, playerPose, playerVehicle) : 1;
+    if (car.routeS !== undefined) fraction = Math.min(fraction, Math.max(0, Math.min(1, (run.s - car.routeS - 18) / 22)));
+    for (const other of previousTraffic) {
+      if (keyOf(other) !== ownKey && car.progress === 1) fraction = Math.min(fraction, followingFraction(car.pose, car.vehicle, other.pose, other.vehicle));
     }
+    const delay = dt * (1 - fraction);
+    car.junction.starts[car.vehicle.id] += delay;
+    delays.set(ownKey, delay);
+  }
+  const candidates = vehiclePoses(run);
+  const frozen = new Set();
+  const freeze = car => {
+    const key = keyOf(car), previous = previousByKey.get(key);
+    if (frozen.has(key) || !previous || car.junction.starts[car.vehicle.id] === null) return false;
+    car.junction.starts[car.vehicle.id] += dt - (delays.get(key) || 0);
+    delays.set(key, dt);
+    car.pose = previous.pose;
+    frozen.add(key);
+    return true;
+  };
+  for (const car of candidates) if (bodiesOverlap(car.pose, car.vehicle, playerPose, playerVehicle, 0.6)) freeze(car);
+  for (let pass = 0; pass < candidates.length; pass++) {
+    let changed = false;
+    for (let a = 0; a < candidates.length; a++) for (let b = a + 1; b < candidates.length; b++) {
+      const car = candidates[a], other = candidates[b];
+      if (!bodiesOverlap(car.pose, car.vehicle, other.pose, other.vehicle, 1.2)) continue;
+      const oldCar = previousByKey.get(keyOf(car)), oldOther = previousByKey.get(keyOf(other));
+      if (oldCar && !bodiesOverlap(oldCar.pose, car.vehicle, other.pose, other.vehicle, 1.2)) changed = freeze(car) || changed;
+      else if (oldOther && !bodiesOverlap(car.pose, car.vehicle, oldOther.pose, other.vehicle, 1.2)) changed = freeze(other) || changed;
+      else { changed = freeze(car) || changed; changed = freeze(other) || changed; }
+    }
+    if (!changed) break;
+  }
+  for (const car of candidates) {
+    if (!(delays.get(keyOf(car)) > 0)) continue;
+    const holdsLight = car.junction.scene.control?.crossFirst && crossIdsOf(car.junction.scene).includes(car.vehicle.id);
+    if (holdsLight || car.junction.blockers.includes(car.vehicle.id)) car.junction.clearAt = Math.max(car.junction.clearAt, car.junction.starts[car.vehicle.id] + clearMsOf(car.junction, car.vehicle.id));
+  }
+
+  // Retire departing traffic only beyond the view, never when an arbitrary
+  // timer expires or its source junction drops out of the scenery window.
+  run.retiredTraffic ||= new Set();
+  for (const car of candidates) {
+    if (car.progress === 1 && Math.hypot(car.pose.x - playerPose.x, car.pose.y - playerPose.y) > 180) run.retiredTraffic.add(`${car.junction.index}-${car.vehicle.id}`);
   }
 
   // Entering the box while a blocker is still crossing your path is a crash.
@@ -1042,9 +1084,12 @@ export const youPose = (run) => pointAtDistance(run.route, run.s);
 /** World poses of the other vehicles in the junctions near you. */
 export const vehiclePoses = (run, at = run.now) => {
   const out = [];
-  for (const junction of visibleJunctions(run)) {
+  const visible = new Set(visibleJunctions(run));
+  for (const junction of run.junctions) {
+    if (!junction.scheduled && !visible.has(junction)) continue;
     for (const v of junction.scene.vehicles) {
       if (v.id === 'you') continue;
+      if (run.retiredTraffic?.has(`${junction.index}-${v.id}`)) continue;
       // A vehicle that rolls in is not in sight until the junction is
       // scheduled; the ones that wait at a line are drawn there from the start.
       if (!junction.scheduled && junction.willRollIn.has(v.id)) continue;
@@ -1053,10 +1098,11 @@ export const vehiclePoses = (run, at = run.now) => {
       const absolute = junction.scheduled ? junction.starts[v.id] : null;
       const start = absolute === null ? null : absolute - junction.t0;
       const local = junction.scheduled ? at - junction.t0 : 0;
-      const pose = poseAt(junction.scene, v, start, local, junction.pathCache, junction.rollIn ? junction.rollIn[v.id] : 0, junction.queueBack ? junction.queueBack[v.id] : 0, 180);
+      const pose = poseAt(junction.scene, v, start, local, junction.pathCache, junction.rollIn ? junction.rollIn[v.id] : 0, junction.queueBack ? junction.queueBack[v.id] : 0, Infinity);
       if (!pose) continue;
       const w = toWorld(junction, pose);
       let worldPose = { x: w.x, y: w.y, angle: (pose.angle + junction.rot) % 360 };
+      let routeS;
       // An outgoing car on our road follows that road into the next bend.
       // Extending its old heading would cut straight across a roundabout.
       const ourExit = junction.scene.vehicles.find(other => other.id === 'you').to;
@@ -1064,8 +1110,16 @@ export const vehiclePoses = (run, at = run.now) => {
         const path = junction.pathCache[v.id];
         const end = path.through[path.through.length - 1];
         const travelled = Math.hypot(pose.x - end.x, pose.y - end.y);
+        junction.routeFollowers ||= {};
+        if (junction.routeFollowers[v.id] === undefined) junction.routeFollowers[v.id] = junction.starts.you !== null && absolute > junction.starts.you;
+        const followsPlayer = junction.routeFollowers[v.id];
         const next = run.junctions.find(j => j.index === junction.index + 1);
-        if (next || junction.departureRoutes?.[v.id]) {
+        if (followsPlayer) {
+          // A trailing car uses the road actually driven, including every
+          // committed roundabout exit, rather than a stale planned shortcut.
+          routeS = junction.sEnd + travelled;
+          worldPose = pointAtDistance(run.route, routeS);
+        } else if (next || junction.departureRoutes?.[v.id]) {
           // Use the complete intended path: the player's ring path is built
           // one exit at a time and would leave an earlier car stranded there.
           if (!junction.departureRoutes?.[v.id]) {
@@ -1080,7 +1134,7 @@ export const vehiclePoses = (run, at = run.now) => {
           worldPose = pointAtDistance(junction.departureRoutes[v.id], travelled);
         }
       }
-      out.push({ junction, vehicle: v, pose: worldPose, progress: pose.progress, local: { x: pose.x, y: pose.y } });
+      out.push({ junction, vehicle: v, pose: worldPose, progress: pose.progress, local: { x: pose.x, y: pose.y }, routeS });
     }
   }
   return out;
