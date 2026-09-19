@@ -215,9 +215,6 @@ export default function CrossingScreen() {
         } else if (e.type === 'instruction') {
           setInstruction(e.kind === 'none' ? null : { kind: e.kind, turn: e.turn, to: e.to, junction: e.junction });
           setIntent(null);
-        } else if (e.type === 'coachDone') {
-          setToast({ kind: 'level', text: t('crossing.coach.done', lang), until: tNow + TOAST_MS * 2 });
-          haptic.level();
         } else if (e.type === 'intent') {
           setIntent(e.intent);
           haptic.resumed();

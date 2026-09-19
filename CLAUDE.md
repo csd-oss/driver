@@ -35,14 +35,14 @@ PostHog setup is optional: `cp .env.example .env` and fill `EXPO_PUBLIC_POSTHOG_
 ## Architecture
 
 ### Routing
-File-based via expo-router. Top-level screens live at `app/<screen>.tsx` (`onboarding`, `language`, `home`, `study`, `mistakes`, `mock`, `stats`, `settings`). `app/index.tsx` is a ~4.5 s intro animation that routes to `/home` (onboarded) or `/onboarding` (fresh). `app/_layout.tsx` runs migrations and an initial notification sync at startup.
+File-based via expo-router. Top-level screens live at `app/<screen>.tsx`: the study flow (`onboarding`, `language`, `home`, `study`, `mistakes`, `mock`, `stats`, `settings`, `paywall`), the real-exam result (`exam`), and the games (`game` hub, `game-quiz`, `crossing`, `crossing-log`, `crossing-guide`). `app/index.tsx` is a ~4.5 s intro animation that routes to `/home` (onboarded) or `/onboarding` (fresh). `app/_layout.tsx` registers every screen, runs migrations and does an initial notification sync at startup.
 
 ### Languages
 `1 = Slovak`, `2 = English`, `3 = Hungarian`. Language is auto-detected from device locale by `src/lib/settings.js` (`detectLanguageFromDevice`) and overridden by the user on the language screen. All UI strings live in `src/i18n/strings.js`; access them with `t(key, lang)` from `src/i18n/i18n.js`. The whole question bank is translated through these three indexes.
 
 ### Data layer — event-sourced SQLite
 
-The DB is **the** source of truth; AsyncStorage is legacy. The design (see `docs/sqlite-schema.md`) is event-sourcing: every answer is written to `answer_attempts`, and every aggregate (daily, per-category, study totals, mock stats) is a SQL **view** over that table. There are *no* aggregate tables. Tables: `settings`, `category_selections`, `mistakes`, `study_sessions`, `mock_exams`, `answer_attempts`. Views: `v_questions_seen`, `v_daily_stats`, `v_category_stats`, `v_study_stats`, `v_mock_stats`.
+The DB is **the** source of truth; AsyncStorage is legacy. The design (see `docs/sqlite-schema.md`) is event-sourcing: every answer is written to `answer_attempts`, and every aggregate (daily, per-category, study totals, mock stats) is a SQL **view** over that table. There are *no* aggregate tables. Tables: `settings` (one row), `category_selections`, `mistakes`, `study_sessions`, `mock_exams`, `exam_results`, `game_rounds`, `crossing_log`, `answer_attempts`. Views: `v_questions_seen`, `v_daily_stats`, `v_category_stats`, `v_study_stats`, `v_mock_stats`.
 
 - `src/db/index.ts` — opens SQLite at module load (`openDatabaseSync('driver.db')`) and creates the Drizzle instance. Both `database` (raw) and `db` (Drizzle) are exported.
 - `src/db/migrate.ts` — hand-written raw-SQL `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` migrations. Runs from `app/_layout.tsx` at startup. **Errors are currently swallowed**; if a migration fails, the app continues against a partial schema.
@@ -77,6 +77,8 @@ The real game: an endless drive through generated junctions where every other ve
 The way into Crossings, and it must be finished once before the game unlocks. Ten fixed lessons in order (controls, right-hand rule, main road, side road, STOP sign, traffic lights, turning, turning left across oncoming traffic, trams, roundabouts), each a hand-built scene driven as junction 0 of a one-lesson run (`createRun(rng, level, { lesson: index })`). A lesson brief animates the swipes it needs (`components/game/SwipeHint.tsx`), the drive shows a live prompt from `lessonHint(run)` with the matching swipe animation over the scene, and `lessonVerdict(lesson, junction)` decides pass or fail (`crash`, `wrongWay`, `red`, `noStop`, `needlessStop`). Nothing in the guide costs points or a life (`junction.lesson` is set), lessons run at `COACH_SPEED`, and finishing writes `has_finished_guide` on the settings row, which `app/game.tsx` reads to gate the Crossings button. Full reference: `docs/game/guide-mode.md`.
 
 ### Exam-picture quiz (`src/lib/game.js`, `app/game-quiz.tsx`)
+
+Reference: `docs/game/quiz.md`. `docs/game/README.md` indexes all the game docs.
 
 A timed game built from the 88 intersection situations (questions whose image is under `obr3/ds/` or `2023/*_DS*`). `classifyQuestion` turns each one into an interaction from its answer texts alone: `order` (tap vehicles in crossing order), `pick` (tap the vehicle, paired "at the same time as" answers become two-colour chips), `ordinal` (first/second/last), or `choice` (plain three-answer fallback for reason-based questions). Rounds are `ROUND_SIZE` 10 with `LIVES` 3 and `TIME_LIMIT_MS` 20 s; `scoreAnswer` gives 100 base plus a linear speed bonus, times a streak multiplier capped at 2x. Every answer is logged to `answer_attempts` with `mode = 'game'` and goes through `applyAnswer` for mistakes; the study views, 7-day accuracy, and streak count that mode. Finished rounds land in `game_rounds` with `mode = 'quiz'`. `app/game.tsx` is the hub that offers both games. Free on every platform.
 

@@ -24,7 +24,7 @@ that (written separately, not covered here).
 | `src/lib/priority/conflict.js` | whether two paths really meet, and how far along |
 | `src/lib/priority/timeline.js` | where another vehicle is at time `t` (`poseAt`) |
 | `src/lib/priority/queue.js` | same-arm queueing offsets |
-| `src/lib/priority/tutorial.js` | the three fixed junctions of a first run |
+| `src/lib/priority/lessons.js` | the fixed junctions of the guide (`guide-mode.md`) |
 | `app/crossing.tsx` | the screen: RAF loop, swipes, HUD, toasts, game-over card |
 | `components/game/*` | the SVG layers |
 | `src/lib/crossingLog.js`, `app/crossing-log.tsx` | the drive log |
@@ -369,8 +369,8 @@ that is already standing in a queue.
 `clearTimeMs` charges the queue gap as extra distance, so a car standing second
 in line genuinely takes longer to clear your path than the one at the line.
 
-`QUEUE_GAP` (12) is a leftover: only `__tests__/queue.test.js` uses it, and the
-docstring on `queueBackFor` still describes the old flat-gap behaviour.
+`QUEUE_GAP` (12) is a nominal car-to-car gap kept for the tests; the code
+itself spaces vehicles by their own lengths.
 
 ## Junction kinds and what they do in the runner
 
@@ -533,12 +533,10 @@ queue (`run.events.splice(0)`). The screen loop in `app/crossing.tsx` walks them
 | `crash` | `junction`, `culprit`, `rule`, `record` | glow on you and the culprit, screen shake for 600 ms, double heavy haptic, a toast from `rule.<rule>`, logs the record, `crossing_crash` to PostHog |
 | `passed` | `junction`, `points`, `hesitated`, `wrongWay`, `late`, `ranRed`, `ranStop`, `early`, `record` | clears the bar; on a clean pass a `+points` toast and a light haptic; logs the record |
 | `level` | `level` | toast, success haptic |
-| `coachDone` | none | toast, success haptic |
 
-The loop also does two things every frame rather than on an event: it eases the
-camera heading towards your heading (`headingRef += diff * 0.12`), and it calls
-`coachStep(run)` so the guided prompt follows what you are doing rather than the
-last event.
+The loop also eases the camera heading towards your heading every frame
+(`headingRef += diff * 0.12`) rather than on an event. The guide screen does the
+same with `lessonHint(run)`, so its prompt follows what you are doing.
 
 `shiftTime(run, delta)` exists for backgrounding. When the RAF gap exceeds
 400 ms the screen calls it with `gap - 16`, and it pushes every absolute
@@ -688,18 +686,16 @@ npx jest __tests__/timeline.test.js __tests__/queue.test.js __tests__/junctionSt
 
 Things in the code that a new reader will trip over:
 
-- `CAMERA_Y` (74) is exported from `world.js` and never used; `WorldScene`
-  hard-codes `viewH * 0.78`.
 - `buildTimeline`, `judgeGo`, `startsAfterGo`, `scoreCrossing`, `patienceFor` and
   `FIRST_GROUP_AT` in `timeline.js` are only reachable from
   `__tests__/timeline.test.js`. The runner scores in `passJunction` and times in
   `schedule`. They are leftovers from the earlier tap-a-junction mode.
-- `QUEUE_GAP` in `queue.js` is likewise test-only, and the docstring above
-  `queueBackFor` still describes it as the spacing.
+- `QUEUE_GAP` in `queue.js` is test-only; the code spaces vehicles by length.
 - The `ringExit` event is pushed but nothing listens for it.
 - The individual penalties (`late`, `redLight`, `ranStop`) reset `run.streak` the
-  moment they fire, including on the guided junctions, where `passJunction` then
-  treats the junction as clean and increments the streak again.
+  moment they fire, including on a guide lesson, where `passJunction` then treats
+  the junction as clean and increments the streak again. Harmless there, because
+  the guide shows no score.
 - `junction.blockers` filters to ids present in `scene.vehicles`, so pedestrians
   could never be blockers. It does not matter today, because the generator never
   produces pedestrians.

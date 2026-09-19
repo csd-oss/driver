@@ -1572,11 +1572,6 @@ export const STR = {
     2: 'GO',
     3: 'MEHET',
   },
-  'crossing.swipeHint': {
-    1: 'Potiahni nahor alebo ťukni na CHOĎ, keď je rad na tebe.',
-    2: 'Swipe up or tap GO when it is your turn.',
-    3: 'Húzz felfelé vagy koppints a MEHET gombra, ha rajtad a sor.',
-  },
   'crossing.level': {
     1: 'Úroveň {n}',
     2: 'Level {n}',
@@ -1586,16 +1581,6 @@ export const STR = {
     1: 'Zrážka!',
     2: 'Crash!',
     3: 'Ütközés!',
-  },
-  'crossing.lateBody': {
-    1: 'Mal si prednosť. Nezdržuj premávku za sebou.',
-    2: 'You had priority. Do not hold up the traffic behind you.',
-    3: 'Elsőbbséged volt. Ne tartsd fel a mögötted lévő forgalmat.',
-  },
-  'crossing.goodBody': {
-    1: 'Presne v správnej chvíli.',
-    2: 'Right on time.',
-    3: 'Pont időben.',
   },
   'crossing.continue': {
     1: 'Pokračovať',
@@ -1982,11 +1967,6 @@ export const STR = {
     2: 'You stopped at the red and went on green.',
     3: 'Megálltál a pirosnál, és zöldre indultál.',
   },
-  'crossing.coach.roundabout': {
-    1: 'V kruhovom objazde krúžiš. Potiahni doprava tesne pred svojím výjazdom.',
-    2: 'In the roundabout you keep circling. Swipe right just before your exit.',
-    3: 'A körforgalomban körbe mész. Húzz jobbra közvetlenül a kijáratod előtt.',
-  },
   'crossing.legendRing': {
     1: 'V kruhovom objazde krúžiš, kým nepotiahneš doprava pred výjazdom',
     2: 'In a roundabout you keep circling until you swipe right before your exit',
@@ -2041,16 +2021,6 @@ export const STR = {
     1: 'Dobre. Pokračuj.',
     2: 'Good. Now carry on.',
     3: 'Jó. Haladj tovább.',
-  },
-  'crossing.coach.done': {
-    1: 'Ovládanie máš v rukách. Ďalej to už je tvoja jazda.',
-    2: 'You have the controls. The rest of the drive is yours.',
-    3: 'A vezérlés a tiéd. A menet többi része már rád vár.',
-  },
-  'crossing.coach.intro': {
-    1: 'Prvé tri križovatky ťa povedú: pomalšie a s pokynmi, čo potiahnuť. Nič tam nestratíš.',
-    2: 'The first three junctions guide you: slower, and they say which way to swipe. Nothing there costs you.',
-    3: 'Az első három kereszteződés végigvezet: lassabban, és megmondja, merre húzz. Ott semmit sem veszíthetsz.',
   },
   'guide.lesson.controls.title': {
     1: 'Ovládanie',

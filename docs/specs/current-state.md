@@ -1,14 +1,16 @@
 # CURRENT STATE SPECIFICATION — Driver SK (Slovakia Driving Exam App)
 
-**Last Updated:** January 28, 2026  
-**Version:** 2.0.0  
-**Status:** Production MVP (SQLite Migration Complete)
+**Last Updated:** September 19, 2026  
+**App Version:** 1.0.0 (`app.json`), iOS build 21  
+**Status:** Shipping on iOS, Android, and the web as an installable PWA
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-**Driver SK** is a fully functional Expo React Native mobile application designed to help users prepare for Slovakia driving license exams. The app provides comprehensive question bank access, adaptive study modes with intelligent question selection, mistake tracking, mock exam simulations, exam readiness scoring, and multi-language support (Slovak, English, Hungarian). All functionality works completely offline with local SQLite database storage and embedded images. The app uses Drizzle ORM for type-safe database operations and comprehensive answer attempt logging with full timing data for future analytics.
+**Driver SK** is an Expo React Native application that helps people prepare for the Slovak driving licence theory exam. It offers the whole official question bank, adaptive study with intelligent question selection, mistake tracking with spaced repetition, mock exam simulation, a composite exam-readiness score with a day-by-day forecast, a place to record the outcome of the real exam, two intersection-priority games with a teaching guide, and three languages (Slovak, English, Hungarian). Everything works offline: the question bank and its images ship with the binary, and all user data lives in a local SQLite database driven through Drizzle ORM, with every answer logged as an event so that every aggregate can be a SQL view.
+
+The same codebase ships to iOS, Android, and — as an installable, offline PWA at `driver.smartie.team` — the web.
 
 ---
 
@@ -26,24 +28,32 @@
   - Realistic mock exam simulation
 
 ### 1.2 Core Features (Implemented)
-1. **Onboarding Experience** - Premium onboarding flow with animated dot indicators, Slovakia-branded first slide, and clear value proposition across 5 slides
-2. **Smart Study** - Adaptive question selection prioritizing mistakes, unseen questions, and weak categories
-3. **Smart Study Reason Labels** - Visual indicators explaining why each question was selected (mistake, new question, weak area, review)
-4. **Mistakes Review** - Focused practice on incorrectly answered questions with clear answer indicators
+1. **Onboarding Experience** - Six-slide onboarding with animated dot indicators, a Slovakia-branded first slide, and a notifications slide that makes the permission ask
+2. **Smart Study** - Adaptive question selection prioritising mistakes, shaky questions, unseen questions, and weak categories
+3. **Smart Study Reason Labels** - Visual indicators explaining why each question was selected (mistake, shaky, new question, weak area, review)
+4. **Mistakes Review** - Focused practice on incorrectly answered questions, scheduled by spaced repetition
 5. **Mock Exams** - Full exam simulation with timer, scoring, and interactive results review
 6. **Category Filtering** - Study by topic categories (e.g., traffic signs, rules)
-7. **Progress Tracking** - Mistake tracking with mastery system (2 correct answers removes from mistakes)
-8. **Statistics Dashboard** - Comprehensive statistics tracking with visual emphasis (hero progress summary, coverage bar, and 7-day activity bars)
-9. **Exam Readiness Score** - Composite metric (0-100%) combining mistakes, performance, mock exams, and coverage with configurable calculation modes
-10. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
-11. **Offline Operation** - All data and images stored locally
-12. **Question Detail Modal** - Interactive review of wrong answers with full question context
-13. **Smart Practice Algorithm** - Intelligent question prioritization system that adapts to user's learning state
+7. **Progress Tracking** - Mistake tracking with a 0 → 1 → 3 → 7 day review ladder
+8. **Statistics Dashboard** - Hero progress summary, coverage bar, 7-day activity bars, readiness breakdown, and the forecast
+9. **Exam Readiness Score** - Composite metric (0-100%) combining mistakes, performance, mock exams, and coverage, with configurable calculation modes
+10. **Readiness Forecast and Exam-Date Planning** - Estimated days until "ready", a countdown to a user-set exam date, the daily pace that date needs, and the list of remaining blockers
+11. **Real Exam Results** - Record pass/fail and points for the actual exam; the readiness score at save time is stored for calibration
+12. **Crossings Minigame** - An endless swipe-driven junction runner built on a pure right-of-way engine, with a twelve-lesson guide and a per-junction drive log
+13. **Exam-Picture Quiz** - A timed game built from the official intersection pictures
+14. **Multi-language Support** - Slovak (1), English (2), Hungarian (3)
+15. **Offline Operation** - All data and images stored locally; the web build precaches everything into a service worker
+16. **Question Detail Modal** - Interactive review of wrong answers with full question context
+17. **Local Study Reminders** - Up to three daily notification slots, scheduled locally (no server, no push)
+18. **Subscription Gating** - Smart Study and Mistakes sit behind a RevenueCat entitlement on iOS; everything is free on Android and web
+19. **Analytics** - PostHog, opt-out in Settings, and entirely absent when the keys are not configured
 
 ### 1.3 Business Rules
 - **Scoring:** Each question has point value (`body`), exam pass threshold is `minbody` points
 - **Answer Format:** 1-based indexing (answers are 1, 2, or 3)
-- **Mistake Removal:** Questions are removed from mistakes after 2 consecutive correct answers
+- **Mistake Removal:** A mistake is reviewed on a spaced-repetition ladder — a correct answer moves its interval 0 → 1 → 3 → 7 days; a correct review at 7 days removes it; a wrong answer resets it to 0 and makes it immediately due
+- **Readiness:** "Ready" means a score of **97 or more** (`READY_THRESHOLD`); labels are ready ≥ 97, almostReady ≥ 85, gettingThere ≥ 60, otherwise needsWork
+- **Real Exam:** 100 points maximum, 90 to pass (`DEFAULT_MAX_POINTS` / `DEFAULT_MIN_TO_PASS`); one row per attempt, never updated. Passing turns every reminder off and clears the exam date
 - **Language Isolation:** Progress (mistakes/streaks) is tracked separately per language
 - **Category Persistence:** Selected category preference is saved per language
 
@@ -54,64 +64,73 @@
 ### 2.1 Application Flow
 
 ```
-App Launch
+App Launch (app/_layout.tsx: migrations + settings, then the tree mounts)
   ├─ Check hasOnboarded flag
-  │   ├─ false → IntroAnimation → Onboarding (5 slides) → LanguageSelect → Home
-  │   └─ true → Home (direct)
+  │   ├─ false → IntroAnimation → Onboarding (6 slides) → LanguageSelect → [Paywall] → Home
+  │   └─ true → Home (direct; gated features present the paywall on tap)
   │
   ├─ Onboarding Screen (first-time users)
-  │   ├─ 5 swipeable slides with animated dot indicators
+  │   ├─ 6 swipeable slides with animated dot indicators
   │   ├─ Skip button (top right) to exit early
   │   ├─ Change Language link (top left) → LanguageSelect (returns to onboarding)
   │   ├─ Next/Previous buttons for navigation
   │   ├─ Tappable dots to jump to specific slides
-  │   └─ Get Started button on final slide → LanguageSelect → Home
+  │   └─ Get Started on the notifications slide → asks for permission → LanguageSelect / Home
+  │
+  ├─ LanguageSelect — two steps: tap a language, then Continue
   │
   └─ Home Screen
-      ├─ Your Progress Card (readiness score + accuracy + streak) → StatisticsScreen
-      ├─ Smart Study → StudyScreen (adaptive question selection)
-      ├─ Mistakes → MistakesScreen (review incorrect answers)
+      ├─ Your Progress Card (readiness + forecast + exam countdown + accuracy + streak) → Stats
+      ├─ "Did you take the exam?" card (only once the exam date has passed) → ExamResult
+      ├─ Who goes first? → GameHub → Crossings runner / Guide / Drive log / Picture quiz
+      ├─ Install hint (web only)
       ├─ Mock Exam → MockScreen (full exam simulation)
-      ├─ Settings → SettingsScreen (language selection + readiness mode toggle)
-      └─ Reset Progress → Clears mistakes/streaks (keeps language/onboarding)
+      ├─ Mistakes → MistakesScreen (PRO) (review incorrect answers)
+      ├─ Smart Study → StudyScreen (PRO) (adaptive question selection)
+      └─ Settings (gear, top right) → SettingsScreen
 ```
+
+Reset Progress moved off Home: it lives at the bottom of Settings and goes through a confirm dialog.
 
 ### 2.2 Study Mode Flow
 1. User selects Smart Study from Home
 2. Screen loads current language and progress
 3. Category selector displayed (default: "All")
 4. Smart Study algorithm selects question using priority system:
-   - **Priority 1:** Questions from mistakes list (if any)
-   - **Priority 2:** Unseen questions (never displayed before)
-   - **Priority 3:** Questions from weakest category (lowest accuracy)
-   - **Priority 4:** Random fallback (if all above exhausted)
+   - **Priority 1:** Questions from the mistakes list, due first (ordered by `next_review_at`)
+   - **Priority 2:** Shaky questions — accuracy between 0.3 and 0.7 **and** either slow (> 15 s) or stale (> 7 days), and not already a mistake
+   - **Priority 3:** Unseen questions (never answered before)
+   - **Priority 4:** Questions from the weakest category (lowest accuracy)
+   - **Priority 5:** Random fallback (if all above exhausted)
    - Category filter applied at each priority level
    - **Anti-repetition:** Two-tier system prevents frequent repetition:
      - First excludes last 20 questions shown
      - If all candidates are recent, applies minimum gap (15 for mistakes, 5 for others)
      - If all within minimum gap → skips to next priority
-5. User selects answer → immediate feedback (Correct/Wrong)
+5. User selects answer → immediate feedback (Correct/Wrong) plus a success/error haptic
 6. Progress updated:
-   - Wrong answer → added to mistakes, streak reset to 0
-   - Correct answer → if in mistakes, increment streak; if streak ≥ 2, remove from mistakes
+   - Wrong answer → added to mistakes (or reset to interval 0 and made due now), streak reset
+   - Correct answer → if in mistakes, the review interval advances 0 → 1 → 3 → 7 days; a correct review at 7 removes it
 7. "Next" button loads new question via Smart Practice algorithm
 
 ### 2.3 Mistakes Review Flow
-1. User selects Mistakes from Home
-2. Screen loads mistakes list for current language
+1. User selects Mistakes from Home (gated behind the Pro entitlement on iOS)
+2. Screen loads the **due** mistakes for the current language — `MistakesDB.getMistakes(lang)` returns only rows whose `next_review_at` is null or in the past, ordered due-first
 3. Category filter applied (if selected)
 4. Mistakes shuffled for random order
 5. One question displayed at a time
-6. User answers → feedback → progress updated
-7. If question mastered (2 correct), removed from list automatically
-8. Navigation handles empty states gracefully
+6. User answers → feedback and a haptic → progress updated
+7. A correct review advances the interval; a correct review at 7 days removes the question from the list automatically
+8. Empty states are explicit: the zero-mistakes state offers Smart Study and Mock as next steps, and the category-empty state offers "Show all"
+
+**Note:** the count on Home comes from `getMistakesCount(lang)`, which counts *every* mistake row, while this screen lists only the due ones. A user with open mistakes that are all scheduled for a future day therefore sees a non-zero count on Home and the empty state here.
 
 ### 2.4 Mock Exam Flow
-1. User selects Mock Exam from Home
+1. User selects Mock Exam from Home — the one study feature that is **not** behind the paywall
 2. Random test selected from official test bank
 3. Timer starts (if test has time limit)
 4. Questions displayed one at a time with navigation bar
-5. User navigates between questions, answers stored
+5. User navigates between questions, answers stored. Leaving the screen with an exam in progress raises a confirm dialog before it finishes early
 6. "Finish" button calculates score:
    - Score = sum of points for correct answers
    - Pass = score ≥ test.minbody
@@ -143,9 +162,17 @@ The app uses SQLite with Drizzle ORM for all persistent data storage. All user-g
 ```
 SQLite → settings (single row, id=1)
   ├─ lang: integer (1-3)
-  ├─ hasOnboarded: boolean
-  ├─ hasChosenLanguage: boolean
-  └─ useConservativeReadiness: boolean (default: false)
+  ├─ has_onboarded: boolean
+  ├─ has_chosen_language: boolean
+  ├─ use_conservative_readiness: boolean (default: false)
+  ├─ analytics_opt_out: boolean (default: false)
+  ├─ notification_morning_enabled: boolean (default: true)
+  ├─ notification_lunch_enabled: boolean (default: true)
+  ├─ notification_evening_enabled: boolean (default: true)
+  ├─ exam_date: timestamp | null (the user's real exam date)
+  ├─ has_finished_guide: boolean (default: false — the crossing guide has been completed once)
+  ├─ created_at: timestamp
+  └─ updated_at: timestamp
 ```
 
 **Category Selections (`category_selections` table):**
@@ -163,19 +190,21 @@ SQLite → mistakes
   ├─ lang: integer (1, 2, or 3)
   ├─ questionId: text (qid from question bank)
   ├─ streakCount: integer (consecutive correct answers)
+  ├─ nextReviewAt: timestamp | null (null = due now)
+  ├─ intervalDays: integer (0, 1, 3, or 7)
   ├─ createdAt: timestamp
   ├─ updatedAt: timestamp
   └─ syncedAt: timestamp | null (for future cloud sync)
 ```
 
-**Answer Attempts (`answer_attempts` table - NEW):**
+**Answer Attempts (`answer_attempts` table):**
 ```
 SQLite → answer_attempts (complete history log)
   ├─ id: text (UUID, sync-ready)
   ├─ deviceId: text
   ├─ lang: integer
   ├─ questionId: text
-  ├─ mode: text ('study' | 'mock' | 'mistakes')
+  ├─ mode: text ('study' | 'mock' | 'mistakes' | 'game')
   ├─ sessionId: text (FK to study_sessions, nullable)
   ├─ mockExamId: text (FK to mock_exams, nullable)
   ├─ categoryText: text (nullable)
@@ -183,9 +212,9 @@ SQLite → answer_attempts (complete history log)
   ├─ correctAnswerIndex: integer (1, 2, or 3)
   ├─ isCorrect: boolean
   ├─ points: integer
-  ├─ questionShownAt: timestamp (NEW - timing data)
-  ├─ answerSubmittedAt: timestamp (NEW - timing data)
-  ├─ responseTimeMs: integer (NEW - calculated timing)
+  ├─ questionShownAt: timestamp
+  ├─ answerSubmittedAt: timestamp
+  ├─ responseTimeMs: integer (calculated timing)
   ├─ wasInMistakes: boolean
   ├─ createdAt: timestamp
   └─ syncedAt: timestamp | null (for future cloud sync)
@@ -211,7 +240,7 @@ SQLite → mock_exams
   └─ syncedAt: timestamp | null
 ```
 
-**Study Sessions (`study_sessions` table - NEW):**
+**Study Sessions (`study_sessions` table):**
 ```
 SQLite → study_sessions
   ├─ id: text (UUID, sync-ready)
@@ -226,13 +255,61 @@ SQLite → study_sessions
   └─ syncedAt: timestamp | null
 ```
 
+**Real Exam Results (`exam_results` table):**
+```
+SQLite → exam_results (one row per attempt, never updated)
+  ├─ id: text (UUID, sync-ready)
+  ├─ deviceId: text
+  ├─ lang: integer
+  ├─ passed: boolean
+  ├─ points: integer (0..maxPoints)
+  ├─ maxPoints: integer (default: 100)
+  ├─ minToPass: integer (default: 90)
+  ├─ readinessScore: integer | null (the score at the moment of saving, for calibration)
+  ├─ takenAt: timestamp (the exam date)
+  ├─ createdAt: timestamp
+  └─ syncedAt: timestamp | null
+```
+
+**Game Rounds (`game_rounds` table):**
+```
+SQLite → game_rounds (one row per finished round)
+  ├─ id: text (UUID, sync-ready)
+  ├─ deviceId: text
+  ├─ lang: integer
+  ├─ mode: text ('quiz' = exam-picture quiz, 'crossing' = junction runner)
+  ├─ score: integer
+  ├─ correctCount: integer
+  ├─ total: integer
+  ├─ durationSec: integer | null
+  ├─ createdAt: timestamp
+  └─ syncedAt: timestamp | null
+```
+
+**Crossing Drive Log (`crossing_log` table):**
+```
+SQLite → crossing_log (one row per junction driven)
+  ├─ id: text (UUID, sync-ready)
+  ├─ deviceId: text
+  ├─ lang: integer
+  ├─ runId: text (groups the junctions of one run)
+  ├─ outcome: text
+  ├─ points: integer
+  ├─ record: text (JSON — the scene plus the priority reasons, so the log can redraw it)
+  ├─ createdAt: timestamp
+  └─ syncedAt: timestamp | null
+```
+Purged to the newest 300 rows per language (`LOG_KEEP`) at the end of each run.
+
 **Statistics (Computed from Database Views):**
 All statistics are computed on-demand from `answer_attempts` and `mock_exams` tables using SQL views:
 - `v_study_stats` - Lifetime study statistics (attempts, correct, wrong)
-- `v_daily_stats` - Daily aggregates for last 14 days
+- `v_daily_stats` - Daily aggregates, one row per language per local date
 - `v_category_stats` - Per-category statistics with accuracy
 - `v_mock_stats` - Mock exam aggregates (exams taken, passed, best/last score)
 - `v_questions_seen` - Unique questions seen per language
+
+`v_study_stats`, `v_daily_stats` and `v_category_stats` filter on `mode IN ('study', 'mistakes', 'game')`, as do the 7-day accuracy and streak queries in `src/db/queries/` — so the exam-picture quiz counts toward accuracy and the daily bars while mock-exam answers do not (a *passed* mock still counts as an active day for the streak). `v_questions_seen` has no mode filter, so mock answers do count toward coverage. All five views are dropped and recreated on every launch, so a changed definition takes effect without a version bump.
 
 **Engagement Metrics:**
 Computed from `answer_attempts`:
@@ -274,10 +351,10 @@ data5.js → data[lang-1] → tests[] → test object
 - **Tailwind CSS:** ^3.4.19
 
 **Database & Storage:**
-- **expo-sqlite:** ~16.0.0 (SQLite database for local storage)
-- **drizzle-orm:** ^0.39.0 (Type-safe ORM for SQLite)
-- **expo-crypto:** ~14.1.0 (UUID generation for sync-ready primary keys)
-- **drizzle-kit:** ^0.30.0 (dev) (Migration generation and schema management)
+- **expo-sqlite:** ^16.0.10 (SQLite database for local storage; a Worker + SharedArrayBuffer on web)
+- **drizzle-orm:** ^0.45.2 (Type-safe ORM for SQLite)
+- **expo-crypto:** ^15.0.8 (UUID generation for sync-ready primary keys)
+- **drizzle-kit:** ^0.30.6 (dev) (Migration generation and schema management)
 - **@react-native-async-storage/async-storage:** 2.2.0 (DEPRECATED - used only for device ID caching)
 
 **Internationalization:**
@@ -288,12 +365,21 @@ data5.js → data[lang-1] → tests[] → test object
 - **expo-haptics:** ~15.0.8
 - **expo-image:** ~3.0.11
 - **react-native-safe-area-context:** ~5.6.0
-- **react-native-reanimated:** ~4.1.1
+- **react-native-reanimated:** ~4.1.1 / **react-native-worklets:** 0.5.1
+- **react-native-svg:** ^15.15.5 (every frame of the crossings game and its drive log)
+- **@react-native-community/datetimepicker:** 8.4.4 (exam date)
+- **@expo/vector-icons** / **expo-symbols**
+
+**Platform & Product Services:**
+- **expo-notifications:** ~0.32.12 (local reminders only — no push, no token registration)
+- **react-native-purchases** / **react-native-purchases-ui:** ^10.2.0 (RevenueCat, iOS only)
+- **posthog-react-native:** ^4.27.0 (analytics; a no-op without `EXPO_PUBLIC_POSTHOG_KEY`)
+- **expo-web-browser**, **expo-application**, **expo-device**, **expo-file-system**
 
 **Platform Support:**
-- iOS (with new architecture enabled)
+- iOS (new architecture enabled, `supportsTablet: false`)
 - Android (edge-to-edge enabled)
-- Web (static output)
+- Web — `web.output: "single"`, a client-rendered SPA shipped as an installable PWA
 
 ### 3.2 Architecture Overview
 
@@ -301,27 +387,36 @@ data5.js → data[lang-1] → tests[] → test object
 
 **Layers:**
 1. **Presentation Layer** (`app/`): Screen components using Expo Router
-2. **Business Logic Layer** (`src/lib/`): Core functionality (bank, engine, settings, categories)
-3. **Database Layer** (`src/db/`): SQLite database with Drizzle ORM, queries, and migrations
-4. **Data Layer** (`data/`): Static question data and image manifest
-5. **UI Components** (`components/ui/`): Reusable UI primitives
-6. **Storage Layer** (`src/lib/storage.js`): DEPRECATED - AsyncStorage wrapper (kept for backward compatibility)
+2. **Business Logic Layer** (`src/lib/`): Core functionality (bank, engine, settings, categories, readiness, smart practice, the two games)
+3. **Domain Engine** (`src/lib/priority/`): The right-of-way resolver and the runner world, both pure and test-covered, with no React and no database
+4. **Database Layer** (`src/db/`): SQLite with Drizzle ORM, typed queries, and the startup migration
+5. **Data Layer** (`data/`): Static question data, the image manifest, and the exam-picture scenes
+6. **UI Components** (`components/ui/`, `components/game/`): Reusable primitives and the SVG layers of the crossings game
+7. **Platform Services** (`src/lib/{notifications,purchases,analytics,platform,dialog}.ts`): Everything that talks to the OS, the store, or the browser
+8. **Storage Layer** (`src/lib/storage.js`): DEPRECATED - AsyncStorage wrapper (kept for backward compatibility)
 
 ### 3.3 File Structure
 
 ```
 driver/
 ├── app/                          # Expo Router screens
-│   ├── _layout.tsx               # Root layout with Stack navigator
-│   ├── index.tsx                 # IntroAnimation screen
-│   ├── onboarding.tsx            # Onboarding flow (5 slides)
-│   ├── language.tsx              # Language selection
-│   ├── home.tsx                  # Home screen (with progress preview card)
+│   ├── _layout.tsx               # Root layout: migrations, analytics gate, Stack navigator
+│   ├── index.tsx                 # IntroAnimation screen (~0.8s wordmark, then routes)
+│   ├── onboarding.tsx            # Onboarding flow (6 slides)
+│   ├── language.tsx              # Language selection (pick, then Continue)
+│   ├── home.tsx                  # Home screen (readiness + forecast + entry points)
 │   ├── study.tsx                 # Study mode
 │   ├── mistakes.tsx              # Mistakes review
 │   ├── mock.tsx                  # Mock exam
 │   ├── stats.tsx                 # Statistics dashboard
-│   └── settings.tsx             # Settings
+│   ├── settings.tsx              # Settings
+│   ├── exam.tsx                  # Record the real exam result
+│   ├── paywall.tsx               # One-shot RevenueCat paywall after onboarding (iOS)
+│   ├── game.tsx                  # "Who goes first?" hub
+│   ├── game-quiz.tsx             # Timed exam-picture quiz
+│   ├── crossing.tsx              # Crossings runner (endless junction game)
+│   ├── crossing-guide.tsx        # Twelve-lesson guide; must be finished before the runner
+│   └── crossing-log.tsx          # Drive log: every junction driven, explained
 │
 ├── src/
 │   ├── db/                       # Database layer (SQLite + Drizzle)
@@ -329,67 +424,104 @@ driver/
 │   │   ├── migrate.ts            # Migration runner (creates tables & views)
 │   │   ├── utils.ts              # UUID generation utilities
 │   │   ├── device.ts             # Device ID management
-│   │   ├── schema/               # Drizzle table schemas
+│   │   ├── schema/               # Drizzle table schemas (used for query typing only)
 │   │   │   ├── index.ts          # Export all tables
-│   │   │   ├── settings.ts      # Settings table
+│   │   │   ├── settings.ts       # Settings table
 │   │   │   ├── categorySelections.ts
 │   │   │   ├── mistakes.ts       # Mistakes table (sync-ready)
 │   │   │   ├── answerAttempts.ts # Answer attempts table (sync-ready)
-│   │   │   ├── mockExams.ts     # Mock exams table (sync-ready)
-│   │   │   └── studySessions.ts # Study sessions table (sync-ready)
-│   │   ├── queries/             # Typed query functions
-│   │   │   ├── settings.ts      # Settings CRUD
+│   │   │   ├── mockExams.ts      # Mock exams table (sync-ready)
+│   │   │   ├── studySessions.ts  # Study sessions table (sync-ready)
+│   │   │   ├── examResults.ts    # Real exam results (sync-ready)
+│   │   │   ├── gameRounds.ts     # Finished game rounds (sync-ready)
+│   │   │   └── crossingLog.ts    # Per-junction drive log (sync-ready)
+│   │   ├── queries/              # Typed query functions
+│   │   │   ├── settings.ts       # Settings CRUD
 │   │   │   ├── categorySelections.ts
-│   │   │   ├── mistakes.ts      # Mistake operations
-│   │   │   ├── attempts.ts      # Answer attempt logging
-│   │   │   ├── mockExams.ts     # Mock exam operations
-│   │   │   ├── studySessions.ts # Study session management
-│   │   │   ├── stats.ts         # Statistics queries (uses views)
-│   │   │   └── engagement.ts    # Streak calculations
-│   │   └── views.sql             # SQL view definitions
+│   │   │   ├── mistakes.ts       # Mistake operations + spaced repetition
+│   │   │   ├── attempts.ts       # Answer attempt logging
+│   │   │   ├── mockExams.ts      # Mock exam operations
+│   │   │   ├── studySessions.ts  # Study session management
+│   │   │   ├── examResults.ts    # Real exam results
+│   │   │   ├── gameRounds.ts     # Game round records and bests
+│   │   │   ├── crossingLog.ts    # Drive log writes, reads, and purge
+│   │   │   ├── stats.ts          # Statistics queries (uses views)
+│   │   │   └── engagement.ts     # Streak calculations
+│   │   └── views.sql             # SQL view definitions (reference copy; migrate.ts is authoritative)
 │   ├── lib/                      # Business logic
-│   │   ├── bank.js              # Question bank helpers
+│   │   ├── bank.ts               # Question bank helpers
 │   │   ├── engine.js             # Learning engine (mistakes/streaks) - uses DB
 │   │   ├── settings.js           # Settings management - uses DB
 │   │   ├── storage.js            # DEPRECATED - AsyncStorage wrapper
 │   │   ├── stats.js              # Statistics tracking - uses DB views
+│   │   ├── readiness.js          # Score formula, forecast, exam-date maths
 │   │   ├── categories.js         # Category helpers
-│   │   └── smartPractice.js      # Smart Practice algorithm - uses DB
+│   │   ├── smartPractice.js      # Smart Practice algorithm - uses DB
+│   │   ├── game.js               # Exam-picture quiz: classification and scoring
+│   │   ├── crossingLog.js        # Turns a junction record into readable sentences
+│   │   ├── notifications.ts      # Local study reminders
+│   │   ├── purchases.ts          # RevenueCat wrapper (iOS only)
+│   │   ├── analytics.ts          # PostHog helpers
+│   │   ├── platform.ts           # Web/PWA helpers (install prompt, standalone)
+│   │   ├── dialog.ts             # confirmDialog / alertDialog (work on web too)
+│   │   ├── dates.ts, links.ts
+│   │   └── priority/             # The crossings engine
+│   │       ├── engine.js         # Pure right-of-way resolver for a scene
+│   │       ├── geometry.js       # Whether two movements interact
+│   │       ├── conflict.js, timeline.js, queue.js
+│   │       ├── generator.js      # Seeded random scenes by level band
+│   │       ├── layout.js         # Shared top-down coordinate system
+│   │       ├── lessons.js        # The twelve fixed guide junctions
+│   │       └── world.js          # The endless run: scheduling, lights, events
 │   │
 │   └── i18n/                     # Internationalization
-│       ├── i18n.js               # Translation function
-│       └── strings.js             # Translation strings
+│       ├── i18n.js               # t / tf / tp
+│       └── strings.js            # Translation strings (all three languages)
 │
 ├── components/
-│   ├── ui/                       # UI primitives
-│   │   ├── screen.js             # Screen wrapper
-│   │   ├── card.js               # Card component
-│   │   ├── button.js             # Button component
-│   │   ├── text.js               # Typography component
-│   │   ├── divider.js            # Divider component
-│   │   ├── header.js             # Header component
-│   │   └── icon-symbol.tsx       # Icon component
-│   │
-│   └── CategorySelector.tsx      # Category selection UI
+│   ├── ui/                       # UI primitives (TypeScript)
+│   │   ├── screen.tsx            # Screen wrapper (centres at 480px on web)
+│   │   ├── card.tsx, button.tsx, text.tsx, divider.tsx, header.tsx
+│   │   ├── pressable-scale.tsx   # Reanimated press spring used by the above
+│   │   ├── animated-bar.tsx      # Animated progress bar
+│   │   ├── skeleton.tsx          # Pulsing loading placeholder
+│   │   ├── aspect-image.tsx      # Question images at their natural aspect ratio
+│   │   ├── date-field.tsx / date-field.web.tsx
+│   │   └── icon-symbol.tsx / icon-symbol.ios.tsx
+│   ├── game/                     # SVG layers for the crossings game
+│   │   ├── WorldScene.tsx        # Scrolling camera over the road
+│   │   ├── IntersectionScene.tsx # A single junction (used by the drive log)
+│   │   ├── JunctionStatic.tsx, VehicleSprite.tsx, PathArrow.tsx
+│   │   └── RecordModal.tsx, SwipeHint.tsx, roadShapes.ts, types.ts
+│   ├── CategorySelector.tsx      # Category selection UI
+│   ├── StatsOverviewSkeleton.tsx # Skeleton for the stats hero card
+│   ├── InstallHint.tsx           # "Add to Home Screen" (web only)
+│   ├── GameChip.tsx              # Vehicle chip used by the picture quiz
+│   └── ErrorBoundary.tsx
 │
 ├── data/
-│   ├── data5.js                  # Official question data (ES module)
-│   ├── imageManifest.js          # Static image require map
-│   └── minv_images/              # Local image files (90 files)
+│   ├── data5.js                  # Official question data, ~4.8 MB (ES module)
+│   ├── imageManifest.js          # Static image require map (~250 entries)
+│   ├── minv_images/              # Local image files
+│   └── game/scenes.json          # The 39 official exam pictures as scenes
 │
-├── drizzle/                      # Drizzle migration files (future)
-│   ├── migrations/               # Generated migration SQL files
-│   └── meta/                     # Migration metadata
+├── drizzle/migrations/           # Drizzle-generated SQL — present but NOT executed
 ├── drizzle.config.ts             # Drizzle Kit configuration
 ├── scripts/
 │   ├── genImageManifest.mjs      # Image manifest generator
-│   └── reset-project.js          # Project reset utility
+│   ├── build-web.mjs             # PWA export + service worker generation
+│   ├── sw.template.js            # Service worker template
+│   ├── serve-web.mjs             # Local server with COOP/COEP headers
+│   ├── bump-ios-build.js         # Bump ios.buildNumber
+│   └── reset-project.js          # create-expo-app reset utility
 │
-├── contexts/
-│   └── FontScaleContext.tsx      # Font scaling context
-│
-├── hooks/                        # Custom React hooks
-├── constants/                    # App constants
+├── public/index.html             # Web HTML template (one-tab lock, install capture)
+├── vercel.json                   # Headers + SPA rewrites for the PWA
+├── .maestro/                     # E2E flows (9 numbered + a reusable subflow)
+├── __tests__/                    # Jest suites
+├── contexts/FontScaleContext.tsx # Font scaling context
+├── hooks/                        # use-color-scheme, use-large-text, use-theme-color
+├── constants/theme.ts
 └── assets/                       # Static assets
 ```
 
@@ -397,11 +529,12 @@ driver/
 
 #### 3.4.1 Navigation (Expo Router)
 - **File-based routing:** Each screen is a file in `app/` directory
-- **Stack Navigator:** Configured in `app/_layout.tsx`
-- **Conditional Initial Route:** Based on `hasOnboarded` flag
+- **Stack Navigator:** Configured in `app/_layout.tsx`, which declares all 16 routes explicitly with `headerShown: false`
+- **Startup gate:** `_layout.tsx` runs `runMigrations()` and reads settings before mounting the tree at all, so nothing renders against a missing schema and no analytics event can fire before the opt-out preference is known. The native splash covers that window. `paywall` is the only route with `gestureEnabled: false`
+- **Conditional first screen:** `app/index.tsx` is always the entry route; it replaces itself with `/onboarding` or `/home` based on `hasOnboarded`
 - **No headers:** All screens use custom Header component
 
-#### 3.4.2 Question Bank System (`src/lib/bank.js`)
+#### 3.4.2 Question Bank System (`src/lib/bank.ts`)
 - **Cached Indices:** Question indices cached per language for performance
 - **Functions:**
   - `getTests(lang)` - Get all tests for language
@@ -415,10 +548,10 @@ driver/
   - `getTotalUniqueQuestions(lang)` - Get total count of unique questions
 
 #### 3.4.3 Learning Engine (`src/lib/engine.js`)
-- **State Management:** Immutable state updates
+- **Shape:** a single async `applyAnswer(state, lang, qid, isCorrect)`. The `state` argument is vestigial and ignored — the engine writes straight to the `mistakes` table
 - **Logic:**
-  - Wrong answer → add to mistakes (no duplicates), reset streak to 0
-  - Correct answer → if in mistakes, increment streak; if streak ≥ 2, remove
+  - Wrong answer → `addMistake()`: insert if new, otherwise reset `streak_count`, `interval_days = 0` and `next_review_at = now`
+  - Correct answer → `recordCorrectAnswer()`: advance the review interval 0 → 1 → 3 → 7 days and push `next_review_at` out by that many days; at 7 days the row is deleted (mastered)
 - **Language-aware:** All operations scoped to language
 
 #### 3.4.4 Category System (`src/lib/categories.js`)
@@ -435,18 +568,20 @@ driver/
   - `getSmartQuestion({ lang, selectedCategory, recentIds })` - Main entry point for smart question selection
   - **Return Shape:** Returns `{ question, reason }` object where:
     - `question`: Normalized question object
-    - `reason`: Object with `type` (one of: `mistake`, `unseen`, `weak`, `random`) and optional `category` (for `weak` type)
+    - `reason`: Object with `type` (one of: `mistake`, `shaky`, `unseen`, `weak`, `random`) and optional `category` (for `weak` type)
 - **Helper Functions:**
-  - `pickFromMistakes(...)` - Priority 1: Select from mistakes list
-  - `pickUnseen(...)` - Priority 2: Select questions never seen
-  - `pickFromWeakCategory(...)` - Priority 3: Select from weakest category
+  - `pickFromMistakes(...)` - Priority 1: Select from the due mistakes, due-first
+  - `pickShakyQuestion(...)` - Priority 2: Select a question that is half-learned (fed by `AttemptsDB.getQuestionPerformanceStats`)
+  - `pickUnseen(...)` - Priority 3: Select questions never answered
+  - `pickFromWeakCategory(...)` - Priority 4: Select from weakest category
   - `isRecent(qid, recentIds)` - Check if question is in recent list
   - `pushRecent(qid, recentIds, max=20)` - Add to recent list (maintains max size)
 - **Priority System:**
-  1. Mistakes (highest priority) - Questions user got wrong → reason type: `mistake`
-  2. Unseen Questions - Questions never displayed → reason type: `unseen`
-  3. Weak Categories - Questions from categories with lowest accuracy → reason type: `weak` (includes category name)
-  4. Random Fallback - Existing random selection if all above exhausted → reason type: `random`
+  1. Mistakes (highest priority) - Questions user got wrong, ordered by `next_review_at` → reason type: `mistake`
+  2. Shaky - Per-question accuracy in [0.3, 0.7] **and** (average response time > 15 s **or** last seen more than 7 days ago), excluding anything already in mistakes → reason type: `shaky`
+  3. Unseen Questions - Questions never answered → reason type: `unseen`
+  4. Weak Categories - Questions from categories with lowest accuracy → reason type: `weak` (includes category name)
+  5. Random Fallback - Existing random selection if all above exhausted → reason type: `random`
 - **Features:**
   - Category-aware: Respects selected category filter at each priority level
   - **Two-Tier Anti-Repetition System:**
@@ -472,7 +607,8 @@ driver/
 - **Languages:** Slovak (1), English (2), Hungarian (3)
 - **Onboarding Strings:** Slide titles and descriptions, navigation buttons (Next, Previous, Skip, Get Started), change language link
 - **Language Strings:** Selection title, description, language names, questions note
-- **Readiness Strings:** Title, status labels (Ready/Getting there/Needs work), component names, weight labels, warnings
+- **Readiness Strings:** Title, status labels (Ready / Almost ready / Getting there / Needs work), component names, weight labels, warnings, plus the `forecast.*` family for the day estimate and exam countdown
+- **Plurals and placeholders:** `tf(key, lang, vars)` substitutes `{name}` placeholders and `tp(keyBase, lang, n, vars)` picks `.one` / `.few` (Slovak 2..4) / `.many`. `__tests__/i18n.test.js` fails if a key is missing a language or a plural sibling
 
 #### 3.4.8 UI Components
 - **Design System:** Minimal "shadcn-like" components
@@ -495,23 +631,29 @@ driver/
 **Tables:**
 1. **`settings`** - Single row (id=1) storing user preferences
 2. **`category_selections`** - One row per language for category preference
-3. **`mistakes`** - Active mistakes with streak tracking (sync-ready with UUID)
+3. **`mistakes`** - Active mistakes with streak and spaced-repetition state (sync-ready with UUID)
 4. **`answer_attempts`** - Complete history log of every answer attempt with timing data (sync-ready)
 5. **`mock_exams`** - Mock exam sessions and results (sync-ready)
 6. **`study_sessions`** - Study/mistakes mode session tracking (sync-ready)
+7. **`exam_results`** - Outcomes of the real driving exam, one row per attempt (sync-ready)
+8. **`game_rounds`** - Finished rounds of either game, `mode` = `'quiz'` or `'crossing'` (sync-ready)
+9. **`crossing_log`** - One row per junction driven, with the scene and reasons as JSON (sync-ready)
 
 **Database Views (Computed Statistics):**
-- `v_questions_seen` - Unique questions seen per language
-- `v_daily_stats` - Daily aggregates (last 14 days)
+- `v_questions_seen` - Unique questions seen per language (no mode filter)
+- `v_daily_stats` - Daily aggregates, one row per language per local date
 - `v_category_stats` - Per-category statistics with accuracy
 - `v_study_stats` - Lifetime study statistics
 - `v_mock_stats` - Mock exam aggregates
 
+There are **no aggregate tables**: every number the app shows is derived from `answer_attempts` or `mock_exams` at read time. The views are dropped and recreated on every launch.
+
 **Migration System:**
-- **Current (v2.0.0):** Manual table creation in `src/db/migrate.ts` (runs on app startup)
-  - Uses raw SQL with `CREATE TABLE IF NOT EXISTS` for idempotency
+- **Current:** Hand-written table creation in `src/db/migrate.ts` (runs on app startup)
+  - Uses raw SQL with `CREATE TABLE IF NOT EXISTS` plus `ALTER TABLE … ADD COLUMN` inside `try/catch` for columns added later (`analytics_opt_out`, the three notification slots, `exam_date`, `has_finished_guide`, `next_review_at`, `interval_days`, `game_rounds.mode`)
   - No versioning or migration tracking
-  - Suitable for initial migration and fresh installs
+  - **Errors are swallowed.** `runMigrations()` catches and logs, so a failed migration leaves the app running against a partial schema rather than crashing
+  - **Two sources of schema truth.** `drizzle/migrations/` contains generated SQL (`0000_smooth_dark_beast.sql`, `0001_add_srs_columns.sql`, `0002_happy_king_cobra.sql`) but nothing executes it — `migrate.ts` is what actually shapes the database. A change to a table must be made in **both** the Drizzle schema file and `migrate.ts`, or they drift silently
 - **Future (Planned):** Drizzle Kit versioned migrations (`npx drizzle-kit generate`)
   - Migration files stored in `drizzle/migrations/` with version numbers
   - Migration tracking table `__drizzle_migrations` tracks applied migrations
@@ -559,28 +701,30 @@ driver/
   - Metadata (was in mistakes, etc.)
 
 **Engagement Tracking (`src/db/queries/engagement.ts`):**
-- `getCurrentStreak(lang)` - Calculated from distinct study dates in `answer_attempts`
+- `getCurrentStreak(lang)` - Consecutive days with at least one study/mistakes/game attempt or one passed mock exam; buckets by local date, and returns 0 unless the most recent active day is today or yesterday
 - `getLastStudyDate(lang)` - Most recent study date
 - `getLastOpenedDate(lang)` - Most recent activity date
-- **Readiness Score Functions:**
-  - `calculateReadinessScore(lang, mistakesCount, stats, useConservative)` - Calculate composite readiness score (0-100%)
-    - Combines: Mistakes (30%), Performance (25%), Mock Exams (30%), Coverage (15%)
-    - Respects `useConservative` setting for insufficient data handling
-  - `getReadinessBreakdown(lang, mistakesCount, stats, useConservative)` - Get detailed breakdown with component scores
-    - Returns overall score and component details (score, weight, metadata, warnings)
-- **Helper Functions:**
-  - `todayKey()`, `yesterdayKey()` - Date utilities (yyyyMMdd format)
-  - `getLast7Days()` - Get last 7 days date keys
-  - `calculateAccuracy(attempts, correct)` - Calculate percentage
-  - `calculateCoverage(lang, questionsSeen)` - Calculate question coverage percentage
-  - `getTotalUniqueQuestions(lang)` - Get total unique questions count
-  - `pruneDaily(stats, keepDays)` - Remove old daily entries
-  - `capHistory(history, max)` - Limit history array size
+
+**Readiness (`src/lib/readiness.js`):**
+- `scoreComponents({...})` is the one weighted formula — mistakes 30 / 7-day accuracy 25 / mock 30 / coverage 15. `stats.js`'s `calculateReadinessScore` and `getReadinessBreakdown` delegate to it, so there is no second copy of the maths
+- `READY_THRESHOLD = 97`; `getReadinessLabel(score)` maps to ready ≥ 97, almostReady ≥ 85, gettingThere ≥ 60, else needsWork
+- `simulateDaysToReady(inputs)` is a deterministic expected-value simulation of Smart Practice, day by day (due mistakes first, then unseen; accuracy improves at the measured weekly trend clamped to 0..5 points, or +2/week when nothing is measured; a mock is taken once accuracy reaches 92), stopping when the score crosses 97 and capped at `MAX_FORECAST_DAYS = 90`
+- `getReadinessForecast(lang, { useConservative, examDate })` gathers the inputs from the database and runs that simulation. Pace is the attempts of the last 14 calendar days (`DEFAULT_PACE = 30` when there is no usable history); with an `examDate` it also returns `daysUntilExam`, `requiredPace` (binary search via `requiredPaceForDate`) and `onTrackForExam`
+- `blockers` lists what still stands in the way, as `unseen`, `mistakes`, `accuracy`, and `mocks` entries; the stats screen renders them
+
+**Statistics helpers (`src/lib/stats.js`):**
+- `todayKey()`, `yesterdayKey()` - Date utilities
+- `getLast7Days()` - Get last 7 days date keys
+- `calculateAccuracy(attempts, correct)` - Calculate percentage
+- `calculateCoverage(lang, questionsSeen)` - Calculate question coverage percentage
+- `getTotalUniqueQuestions(lang)` - Get total unique questions count
+- `resetStats()` - Clear the user's progress (used by Settings)
+
 - **Tracking Rules:**
   - Every answer attempt logged to `answer_attempts` table with full timing
-  - Questions marked as "seen" when displayed (computed from `answer_attempts`)
-  - Streak calculated from distinct study dates in `answer_attempts`
-  - Daily stats computed from `answer_attempts` (no pruning needed - views filter by date)
+  - Questions marked as "seen" once answered (computed from `answer_attempts`; mock answers count)
+  - Streak calculated from distinct local dates in `answer_attempts` plus passed mock exams
+  - Daily stats computed from `answer_attempts` (no pruning needed — nothing is stored twice)
   - Mock history stored in `mock_exams` table (no artificial cap, can query last N)
   - Coverage computed from distinct `question_id` values in `answer_attempts`
 - **Readiness Score Calculation:**
@@ -592,18 +736,19 @@ driver/
 ### 3.5 Screen Implementations
 
 #### IntroAnimation (`app/index.tsx`)
-- **Animation:** Letter-by-letter fade, scale, and lift animation
-- **Duration:** ~3-4 seconds total
-- **Navigation:** Routes to `/onboarding` or `/home` based on onboarding status
+- **Animation:** The "Driver SK" wordmark fades and rises as a single unit (per-letter `Text` nodes inside one `Animated.View`, because a multi-character `Text` collapses to one glyph in this RN version)
+- **Duration:** ~0.8 s (300/380 ms in, a 200 ms hold, 220 ms out). Under Reduce Motion — or in a background browser tab, which gets no animation frames — it shows statically for 500 ms instead
+- **Navigation:** Routes to `/onboarding` or `/home` based on onboarding status, from the animation's completion callback. There is no skip-on-tap, and this screen carries no `screen.*` testID
 
 #### Onboarding (`app/onboarding.tsx`)
 - **Purpose:** Premium onboarding experience for first-time users
-- **Slides (5 total):**
+- **Slides (6 total):**
   1. **Slovak Driving License** (🪪) - Welcome slide with 🇸🇰 Slovakia badge, explains app purpose
   2. **Study Smarter** (🎯) - Adaptive algorithm benefits
   3. **No Mistake Left Behind** (💪) - Mistake tracking feature
   4. **Realistic Practice Tests** (⏱️) - Mock exam with 20-minute timer
   5. **Watch Yourself Improve** (🏆) - Progress and readiness tracking
+  6. **Study Reminders** (🔔) - Where the notification permission is asked for; Skip avoids it entirely
 - **Navigation:**
   - Horizontal swipeable ScrollView with paging
   - Animated dot indicators (scroll-driven, tappable)
@@ -624,30 +769,41 @@ driver/
   - `scrollX` Animated.Value drives dot indicator interpolation
   - Multi-language support for all slide content
   - Respects safe areas with `useSafeAreaInsets()`
-- **Completion:** Sets `hasOnboarded=true`, navigates to Language screen (or Home if language already chosen)
+- **Completion:** Sets `hasOnboarded=true`, navigates to the Language screen; if a language was already chosen it goes to the paywall on iOS (when not yet subscribed) or straight Home
 
 #### LanguageSelect (`app/language.tsx`)
 - **Options:** 3 language buttons (Slovak, English, Hungarian)
 - **Visual Highlight:** Amber-colored notice box emphasizing "Questions will be in this language"
-- **Action:** Sets language, sets `hasChosenLanguage=true`, navigates to onboarding (if from onboarding) or home
+- **Two steps:** tapping a language only selects it; a separate **Continue** button commits
+- **Action:** Sets language, sets `hasChosenLanguage=true`, reschedules notifications, then returns to onboarding (if it was reached from there) or moves on to the paywall/home
+
+#### Paywall (`app/paywall.tsx`)
+- A thin route that presents RevenueCat's hosted paywall once, at the end of onboarding, in the app's language (not the device locale)
+- On any platform where `isPurchasesSupported()` is false — Android, web, or an E2E build with `EXPO_PUBLIC_BYPASS_PAYWALL=true` — it immediately replaces itself with `/home`
+- Gated features present the paywall on tap instead, through `ensureProAccess()`
 
 #### Home (`app/home.tsx`)
 - **Display:** 
   - "YOUR PROGRESS" card (pressable) showing:
-    - **Exam Readiness Score** (0-100%) with progress bar and color-coded status (Ready/Getting there/Needs work)
-    - Accuracy (last 7 days)
-    - Current streak
-  - Feature buttons (Study, Mistakes, Mock, Settings)
-  - Reset progress option
-- **Data:** Loads language, progress, statistics, and readiness score on focus
-- **Navigation:** Routes to Study, Mistakes, Mock, Settings, Statistics
+    - **Exam Readiness Score** (0-100%) with an animated progress bar and color-coded status (Ready / Almost ready / Getting there / Needs work)
+    - The forecast line ("about N days at your pace")
+    - The exam countdown line when an exam date is set, with either "on track" or the daily pace it would take
+    - Accuracy (last 7 days) and current streak
+    - After a passed real exam, the whole readiness block is replaced by a "passed" card
+  - "Did you take the exam?" card — shown once the exam date has passed with no result recorded on or after it
+  - "Who goes first?" card → the game hub
+  - Install hint (web only)
+  - Mock Exam, Mistakes (PRO), and the Smart Study card (PRO)
+  - Settings gear in the top-right corner
+- **Data:** Loads language, mistake count, 7-day accuracy, streak, forecast, and the latest exam result on focus. Notification scheduling is deliberately *not* re-run here
+- **Gating:** `openGated()` routes to Study/Mistakes only if the Pro entitlement is held or just acquired; a `PRO` pill shows on those cards until then
 - **Readiness Score:** Calculated using current settings (strict or conservative mode)
 
 #### Study (`app/study.tsx`)
 - **Features:**
   - Category selector
   - Smart Practice question selection (adaptive algorithm)
-  - **Reason label pill** - Displays why question was selected (e.g., "Fixing a mistake", "New question", "Weak area: Traffic signs", "Review question")
+  - **Reason label pill** - Displays why question was selected (mistake, shaky, unseen, weak area with its name, or random)
   - **Points bubble** - Question point value displayed in pill format on the right side
   - Image rendering (if available)
   - Answer buttons with enhanced visual feedback:
@@ -736,14 +892,13 @@ driver/
 
 #### Statistics (`app/stats.tsx`)
 - **Features:**
-  - Overview Card:
-    - Mistakes remaining
-    - Study attempts (lifetime)
-    - Accuracy (lifetime)
-    - Accuracy (last 7 days)
-    - Question coverage (X / Y questions seen, Z%)
+  - Overview Card (hero):
+    - Accuracy (last 7 days) and accuracy (lifetime), with a coverage badge
+    - Coverage bar: questions seen of the total
+    - Mistakes remaining, study attempts (lifetime), current streak, question coverage
+  - **Forecast block:** days until the score reaches 97 at the current pace, the exam countdown when a date is set, the pace that date would need, and the remaining blockers (`unseen`, `mistakes`, `accuracy`, `mocks`)
   - **Exam Readiness Card:**
-    - Overall readiness score (0-100%) with progress bar and status badge
+    - Overall readiness score (0-100%) with an animated bar and status badge
     - Component breakdown showing:
       - Mistakes: score, count, weight (30%), warning if insufficient data
       - Performance: score, attempts (7d), weight (25%), warning if insufficient data
@@ -754,24 +909,65 @@ driver/
     - Daily breakdown showing attempts and accuracy per day
     - Empty state if no data
   - Mock Exams Card:
-    - Exams taken
-    - Pass rate
-    - Best score
-    - Last score
+    - Exams taken, pass rate, best score, last score
     - Empty state if no exams taken
   - Consistency Card:
     - Current streak
     - Last study date (formatted: "Today", "Yesterday", or date)
-- **Data:** Loads statistics, progress, and readiness breakdown on focus
-- **Calculations:** All metrics calculated from stored statistics data, readiness score respects user's calculation mode preference
+- **Loading:** `components/StatsOverviewSkeleton.tsx` stands in for the hero card while the queries run, rather than a spinner
+- **Data:** Loads statistics, mistake count, readiness breakdown and forecast on focus
+- **Calculations:** All metrics derived from the database at read time; the readiness score respects the user's calculation mode preference
+- **Large text:** `useLargeText()` restacks the side-by-side rows into full-width blocks so nothing clips at accessibility text sizes
 
 #### Settings (`app/settings.tsx`)
-- **Features:** 
-  - Language selection buttons (Slovak, English, Hungarian)
-  - **Readiness Score Mode Toggle:**
-    - Switch to toggle between "Strict mode" (insufficient data = 0%) and "Conservative mode" (insufficient data = partial scores capped at 30%)
-    - Setting persists across app sessions
-- **Action:** Updates language immediately, clears cache; updates readiness mode preference
+- **Language** — three buttons; changing one clears the settings cache and reschedules notifications
+- **Install hint** — web only
+- **Readiness Score Mode Toggle** — "Conservative mode" switch: insufficient data scores 0% when off, or partial scores capped at 30% when on
+- **Real exam card** — set or clear the exam date (`components/ui/date-field.tsx`, or a browser date input on web), a button through to the result screen, and the history of recorded attempts with points and a pass/fail pill
+- **Study reminders** — three switches (morning 08:30, lunch 12:30, evening 19:00). Hidden entirely on web. Turning one on triggers the permission request, and every change re-runs `syncNotificationsWithCurrentSettings()`
+- **Analytics** — opt-out switch, which also calls `posthog.optOut()` / `optIn()`
+- **Subscription** — RevenueCat Customer Center for subscribers, the paywall for everyone else. Only rendered where `isPurchasesSupported()`
+- **About** — privacy policy, terms, support email, and the native app version and build number
+- **Reset progress** — clears the user's progress behind a confirm dialog
+
+#### Record Exam Result (`app/exam.tsx`)
+- Reached from the Settings card or from the "Did you take the exam?" prompt on Home
+- A numeric `TextInput` for points (0–100) and a date field; typing the score preselects pass/fail at the 90-point threshold, which the user can still override
+- On save it writes one `exam_results` row via `ExamResultsDB.addExamResult()`, storing the **readiness score at that moment** alongside the result so the estimate can be calibrated later, and sends `exam_result_recorded` to PostHog
+- A pass turns all three reminder slots off and clears `settings.exam_date`
+- Returns with `router.back()`, or `replace('/home')` when there is nothing to go back to (a PWA deep link or reload)
+
+#### Game Hub (`app/game.tsx`)
+- Two cards: the crossings runner and the exam-picture quiz, each showing the best score from `game_rounds`
+- The crossings card leads to `/crossing-guide` until `settings.has_finished_guide` is set, and to `/crossing` afterwards, with a "replay the guide" button once it has been finished
+- A link to the drive log sits on the same card
+- Free on every platform — neither game is behind the paywall
+
+#### Crossing Guide (`app/crossing-guide.tsx`)
+- Twelve fixed lessons (`src/lib/priority/lessons.js`), in order, covering every kind of junction the generator produces: the controls, the right-hand rule, main road, side road, turning, trams, lights, roundabouts, and so on
+- Nothing is random, so every player is taught the same thing, and a lesson must be passed before the next one unlocks
+- Each lesson opens with a brief (the swipes it will ask for), runs the junction at reduced speed, then shows a verdict
+- Finishing the last lesson calls `setGuideFinished(true)`, which is what unlocks the runner card on the hub
+
+#### Crossings Runner (`app/crossing.tsx`)
+- An endless drive: junctions are placed along the exit direction of the previous one, with other vehicles scheduled against the player's expected arrival so the decision is always live
+- Controls are swipes only — down to give way, up to move off, left/right to turn at the junction ahead. The car never moves off by itself
+- Three lives; a crash costs one, and a needless stop, a late start, a red light, or taking the wrong way costs the points and the streak
+- Every junction driven produces a record (outcome flags, the instruction, the way taken, the priority reasons involving the player, and a drawable scene) written to `crossing_log`; the log is purged to the newest 300 rows per language at the end of a run
+- A finished run writes one `game_rounds` row with `mode = 'crossing'`
+- Haptics carry the feedback: heavy on a crash, medium on stopping, light on moving off and on a junction cleared, a warning buzz on a honk, and a success pattern on a level up
+
+#### Drive Log (`app/crossing-log.tsx`)
+- A list of the junctions driven, newest first, each as an `IntersectionScene` thumbnail
+- `explainRecord()` (`src/lib/crossingLog.js`) turns a stored record into an outcome label, a headline, and one sentence per rule that applied, using the `rule.*` and `crossing.log.*` strings
+- The instructor bar stays above the road and the scene takes the remaining height
+
+#### Exam-Picture Quiz (`app/game-quiz.tsx`)
+- Built from the official intersection situations — questions whose image lives under `obr3/ds/` or matches `2023/*_DS*`
+- `classifyQuestion` (`src/lib/game.js`) reads the answer texts alone and turns each question into one of four interactions: `order` (tap the vehicles in crossing order), `pick` (tap the vehicle; "at the same time as" answers become two-colour chips), `ordinal` (first / second / last), or `choice` (a plain three-answer fallback for reason-based questions)
+- Rounds are `ROUND_SIZE` 10, with `LIVES` 3 and a `TIME_LIMIT_MS` of 20 s per item. `scoreAnswer` gives 100 base points plus a linear speed bonus, multiplied by a streak multiplier capped at 2×
+- Every answer is logged to `answer_attempts` with `mode = 'game'` and run through `applyAnswer`, so the quiz feeds mistakes, the study views, 7-day accuracy, and the streak
+- A finished round writes one `game_rounds` row with `mode = 'quiz'`
 
 ### 3.6 Data Structure
 
@@ -831,19 +1027,22 @@ driver/
 
 ### 3.8 Error Handling
 
+- **Component crashes:** `components/ErrorBoundary.tsx` wraps the whole tree and reports `app_crash` to PostHog (with the component stack) when analytics is on
 - **Missing Images:** Placeholder text displayed, no crashes
 - **Missing Questions:** "Question not found" message, reload option
-- **Empty States:** Proper empty state UI for mistakes, categories
+- **Empty States:** Explicit empty states with next steps — the zero-mistakes screen offers Smart Study and Mock, the category-empty screen offers "Show all"
 - **Database Errors:** Console errors logged, graceful degradation, migration errors don't crash app
-- **Invalid Data:** Fallbacks to defaults (lang 1, empty arrays)
-- **Migration Failures:** Tables created with `IF NOT EXISTS` for idempotency
+- **Invalid Data:** Fallbacks to defaults (lang 1, empty arrays). `addExamResult()` is the exception and throws on out-of-range points or an invalid date, which `app/exam.tsx` surfaces as a dialog
+- **Migration Failures:** Tables created with `IF NOT EXISTS` for idempotency, and `runMigrations()` catches rather than rethrows — so a failure is silent from the user's point of view
+- **Analytics failure mode:** if migrations fail, `_layout.tsx` defaults to opted-out so a broken launch never leaks tracking events
+- **Web storage unavailable:** `index.js` gives up after three warm-up attempts and `public/index.html` renders a localised "cannot start here" message with a retry button
 - **Sync Errors:** Future sync operations will handle conflicts gracefully (local-first approach)
 
 ### 3.9 Platform-Specific Considerations
 
-- **iOS:** Uses Avenir Next font, supports Dynamic Type scaling
-- **Android:** Uses sans-serif-medium, edge-to-edge enabled
-- **Web:** Static output, favicon support
+- **iOS:** Uses Avenir Next font, supports Dynamic Type scaling. The only platform with purchases and the paywall
+- **Android:** Uses sans-serif-medium, edge-to-edge enabled. Everything is free
+- **Web:** A client-rendered SPA (`web.output: "single"`) shipped as an installable, offline PWA. SQLite runs in a Worker over `SharedArrayBuffer`, so the page must be cross-origin isolated (COOP/COEP headers in `vercel.json` and `scripts/serve-web.mjs`) and `index.js` warms the worker before loading the router. Only one tab per origin — `public/index.html` holds a Web Lock and shows an overlay in a second tab. Notification rows are hidden, purchases are skipped, `components/ui/screen.tsx` centres the app at 480 px, and `date-field.web.tsx` uses a browser date input. Both games run unchanged. `Alert.alert` does nothing here, so `src/lib/dialog.ts` is used instead. Full detail in `docs/pwa.md`
 - **Dark Mode:** Automatic via system preference
 - **Safe Areas:** Handled via SafeAreaView and SafeAreaProvider
   - Modal components use `useSafeAreaInsets()` to respect notch/dynamic island areas
@@ -859,10 +1058,15 @@ driver/
 - **react-native:** 0.81.5
 - **expo-router:** ~6.0.22
 - **nativewind:** ^4.2.1
-- **expo-sqlite:** ~16.0.0 (SQLite database)
-- **drizzle-orm:** ^0.39.0 (Type-safe ORM)
-- **drizzle-kit:** ^0.30.0 (Migration management - dev dependency)
-- **expo-crypto:** ~14.1.0 (UUID generation)
+- **expo-sqlite:** ^16.0.10 (SQLite database)
+- **drizzle-orm:** ^0.45.2 (Type-safe ORM)
+- **drizzle-kit:** ^0.30.6 (dev dependency; installed but not wired into startup)
+- **expo-crypto:** ^15.0.8 (UUID generation)
+- **react-native-svg:** ^15.15.5 (the crossings game and the drive log)
+- **react-native-reanimated:** ~4.1.1 + **react-native-worklets:** 0.5.1
+- **expo-notifications:** ~0.32.12 (local reminders)
+- **react-native-purchases** / **-ui:** ^10.2.0 (RevenueCat, iOS only)
+- **posthog-react-native:** ^4.27.0
 - **@react-native-async-storage/async-storage:** 2.2.0 (Deprecated - used only for device ID caching)
 - **i18n-js:** ^4.5.1
 
@@ -870,11 +1074,16 @@ driver/
 
 **app.json:**
 - App name: "Driver SK"
-- Bundle ID: com.mishabuyalo.driver
-- New architecture enabled
-- Splash screen configured
-- Typed routes enabled
-- React compiler enabled
+- Bundle ID / Android package: **com.smartie.driver**
+- New architecture enabled, portrait only, `supportsTablet: false`
+- iOS privacy manifest declared (tracking off; analytics and crash-data purposes listed)
+- Android: edge-to-edge, adaptive icon, predictive back disabled
+- `web.output: "single"` with the PWA name, theme, and description
+- Plugins: `expo-router`, `expo-splash-screen` (no `image` — see the Android splash caveat in `.maestro/README.md`), `./plugins/withDarkSplash`, `expo-notifications`, `expo-localization`
+- Typed routes enabled, React compiler enabled
+
+**app.config.js:**
+- Wraps `app.json` and injects `extra`: `posthogKey`, `posthogHost`, `revenueCatIosKey` (only when explicitly set — the default key is chosen at runtime from `__DEV__`), and `bypassPaywall` from `EXPO_PUBLIC_BYPASS_PAYWALL`, which the Maestro suite uses to get past the paywall
 
 **tailwind.config.js:**
 - Content paths: app, src, components
@@ -886,11 +1095,19 @@ driver/
 **metro.config.js:**
 - Standard Expo Metro configuration
 
+**vercel.json:**
+- `buildCommand: npm run build:web`, output `dist/`
+- COOP/COEP/CORP and `X-Content-Type-Options` on every path; immutable caching for `/_expo/*` and `/assets/*`; `no-cache` for `/sw.js` and `/index.html`
+- A rewrite sending every non-file path to `/index.html`
+
+**jest.config.js:**
+- `jest-expo` preset, `jest.setup.js` mocks AsyncStorage, `expo-sqlite`, and `drizzle-orm/expo-sqlite` so suites that transitively import `src/db/index` can load
+
 **drizzle.config.ts:**
 - Schema path: `./src/db/schema/index.ts`
 - Migration output: `./drizzle/migrations`
 - Dialect: `sqlite`
-- Used for generating migrations with `npx drizzle-kit generate`
+- Used for generating migrations with `npx drizzle-kit generate` — but nothing runs the generated files; `src/db/migrate.ts` is what shapes the database
 
 ---
 
@@ -899,11 +1116,13 @@ driver/
 ### 5.1 Current Limitations
 1. **No Backend:** All data is local, no sync across devices (schema is sync-ready for future implementation)
 2. **No User Accounts:** No login or user profiles
-3. **No Offline Updates:** Question data updates require app update
-4. **Timer Only in Mock:** Study mode has no timer
-5. **No Charts:** Statistics displayed as text/metrics only (no visual charts)
-6. **Manual Migrations:** Current migration system uses manual SQL (will migrate to Drizzle Kit versioning)
-7. **No Migration Versioning:** Tables created directly without migration tracking (planned for future)
+3. **No Offline Updates:** Question data updates require an app update (or, on web, a redeploy)
+4. **Timer Only in Mock and the games:** Study mode has no timer
+5. **Limited Charts:** Progress and coverage bars and the 7-day activity bars; no trend lines or long-range charts
+6. **Manual Migrations:** Migration is hand-written SQL in `src/db/migrate.ts`; the generated files under `drizzle/migrations/` are not executed
+7. **No Migration Versioning:** Tables created directly without migration tracking, and migration errors are caught and logged rather than raised — a failed migration leaves the app on a partial schema
+8. **Mistake count vs due list:** Home counts every open mistake; the Mistakes screen lists only the ones due today (see 2.3)
+9. **Web caveats:** one tab per origin, no SQLite in private browsing, and a large first download (the whole question bank and its images are precached)
 
 ### 5.2 Potential Enhancements
 1. **Visual Charts:** Add charts/graphs for accuracy trends, study activity over time
@@ -927,7 +1146,9 @@ driver/
 ### 6.1 Running the App
 ```bash
 npm install
-npx expo start
+npx expo start                                   # Metro + dev menu
+npx expo run:ios --configuration Release         # build onto a simulator or device
+npx expo run:android --variant release
 ```
 
 ### 6.2 Generating Image Manifest
@@ -935,29 +1156,48 @@ npx expo start
 node scripts/genImageManifest.mjs
 ```
 
-### 6.3 Project Reset
+### 6.3 Checks and the Web Build
+```bash
+npm test                    # Jest
+npm run lint                # expo lint
+npx tsc --noEmit            # type-check (noisy; not a build gate — see 6.4)
+npm run build:web           # export the PWA into dist/ and generate its service worker
+npm run serve:web           # serve dist/ locally with the COOP/COEP headers SQLite needs
+npm run bump:ios            # bump ios.buildNumber before a TestFlight upload
+cd .maestro && maestro test .   # E2E suite
+```
+
+### 6.4 Project Reset
 ```bash
 npm run reset-project
 ```
+The `create-expo-app` starter script. It moves `app/`, `components/`, `hooks/`, `constants/` and `scripts/` into `app-example/` — i.e. it wipes this app. Only useful when reusing the repo as a template.
 
-### 6.4 Code Style
+### 6.5 Code Style
 - Uses ESLint with Expo config
-- TypeScript for database layer (`src/db/`), some components (CategorySelector, contexts)
-- JavaScript for most screens and lib files
+- TypeScript for the database layer (`src/db/`), the UI primitives, and most components
+- JavaScript for several screens, the i18n strings, and the domain libraries (`readiness.js`, `smartPractice.js`, `game.js`, `src/lib/priority/*`)
 - NativeWind for styling (className prop)
+- `npx tsc --noEmit` currently reports 183 errors, almost all of them in `app/stats.tsx`, `app/mock.tsx`, and `app/mistakes.tsx` — screens that hold loaded data in untyped `useState(null)` and then read properties off it (mostly TS2339 and implicit-`any` parameters). Builds are unaffected, because Babel strips types; treat the output as a guide, not a gate
 
-### 6.5 Database Migrations
+### 6.6 Database Migrations
 
-**Current Approach (v2.0.0):**
-- Manual table creation in `src/db/migrate.ts` using raw SQL
-- Tables created with `CREATE TABLE IF NOT EXISTS` for idempotency
-- Views created on app startup via `CREATE VIEW IF NOT EXISTS`
+**Current Approach:**
+- Hand-written table creation in `src/db/migrate.ts` using raw SQL
+- Tables created with `CREATE TABLE IF NOT EXISTS` for idempotency; columns added later go in as `ALTER TABLE … ADD COLUMN` wrapped in `try/catch`
+- Views are **dropped and recreated** on every startup, so an edited definition takes effect immediately
 - No migration versioning (tables created if missing)
-- Migration function `runMigrations()` called on app startup in `app/_layout.tsx`
-- Suitable for initial migration and fresh installs
-- **Limitation:** Cannot track schema evolution or rollback changes
+- Migration function `runMigrations()` called on app startup in `app/_layout.tsx`, before the React tree mounts
+- **Limitation:** Cannot track schema evolution or roll back changes, and `runMigrations()` swallows its errors — a failure is logged and the app continues against whatever schema exists
+- **Limitation:** `drizzle/migrations/` holds generated SQL from earlier `drizzle-kit generate` runs that nothing executes, so the Drizzle schema files and `migrate.ts` are two independent sources of truth that must be changed together
 
-**Future Migration Strategy (Planned):**
+**Future Migration Strategy (not implemented):** the steps below describe
+Drizzle Kit's versioned migrations. Nothing in the app runs them today: there
+is no `useMigrations` call and no `__drizzle_migrations` table, and the three
+files in `drizzle/migrations/` stop at `analytics_opt_out`, before
+`exam_results`, `game_rounds`, `crossing_log`, `exam_date` and
+`has_finished_guide`. Treat them as history, not as the schema.
+
 - **Goal:** Migrate to proper versioned migrations using Drizzle Kit
 - **Benefits:**
   - Track schema changes over time with versioned migration files
@@ -972,7 +1212,7 @@ npm run reset-project
    - Use `npx drizzle-kit generate` to create migration SQL files
    - Migration files stored in `drizzle/migrations/` directory
    - Each migration file named with timestamp and description (e.g., `0001_initial_schema.sql`)
-   - Migration metadata stored in `drizzle/meta/` directory
+   - Migration metadata stored in `drizzle/migrations/meta/`
 
 2. **Migration Tracking:**
    - Drizzle Kit creates `__drizzle_migrations` table automatically
@@ -1023,10 +1263,25 @@ drizzle/
 
 ## 7. TESTING STATUS
 
+**Automated — Jest (`npm test`):**
+18 suites under `__tests__/`, covering the pure logic rather than the screens:
+- `priority.test.js`, `scenes.test.js`, `geometry`-backed cases — the right-of-way engine. `scenes.test.js` replays all 39 official exam pictures from `data/game/scenes.json` and fails if the engine stops reproducing an official answer, so the engine may only be changed with that suite green
+- `generator.test.js`, `world.test.js`, `runnerFuzz.test.js`, `timeline.test.js`, `queue.test.js`, `junctionStatic.test.js`, `swipeHint.test.js` — the runner, its scheduling, and its drawing
+- `readiness.test.js` — the score formula and the forecast simulation
+- `smartPractice.test.js`, `engine.test.js`, `stats.test.js`, `categories.test.js` — study selection, mistakes, and statistics
+- `game.test.js`, `crossingLog.test.js` — the picture quiz and the drive-log explanations
+- `examResults.test.js` — validation and storage of real exam results
+- `i18n.test.js` — fails if any key is missing one of the three languages or a plural sibling
+
+`jest.setup.js` mocks AsyncStorage, `expo-sqlite`, and `drizzle-orm/expo-sqlite`, so any suite that transitively imports `src/db/index` can load.
+
+**Automated — Maestro E2E (`.maestro/`):**
+Nine numbered flows plus a reusable onboarding subflow, run against iOS simulators and Android emulators. Selectors are `testID`s, with `screen.<name>` for screens and the i18n key for labelled controls, so the flows are language-independent. See `.maestro/README.md` — including the two flows that are currently stale.
+
 **Manual Testing:**
 - ✅ All screens render correctly
 - ✅ Navigation flows work
-- ✅ Onboarding flow: All 5 slides display correctly with proper content
+- ✅ Onboarding flow: all 6 slides display correctly with proper content
 - ✅ Onboarding navigation: Swipe, Next/Previous buttons, dot indicators work
 - ✅ Onboarding animations: Scroll-driven dots animate smoothly without flickering
 - ✅ Onboarding skip: Skip button exits to language/home correctly
@@ -1047,28 +1302,35 @@ drizzle/
 - ✅ Statistics tracking: Study attempts, mock exams, streaks tracked correctly
 - ✅ Statistics screen: All metrics display correctly
 - ✅ Question coverage: Questions seen tracking works
-- ✅ Home progress card: Displays readiness score, accuracy, and streak correctly
-- ✅ Smart Practice Mode: Adaptive question selection prioritizes mistakes, unseen questions, and weak categories
+- ✅ Home progress card: Displays readiness score, forecast, accuracy, and streak correctly
+- ✅ Smart Practice Mode: Adaptive question selection prioritizes mistakes, shaky and unseen questions, and weak categories
 - ✅ Anti-repetition: Two-tier system prevents frequent repetition (20-question window + minimum gaps: 15 for mistakes, 5 for others)
-- ✅ Smart Study Reason Labels: Reason pills display correctly for all question types (mistake, unseen, weak, random)
+- ✅ Smart Study Reason Labels: Reason pills display correctly for all question types
 - ✅ Points Display: Points bubble displays correctly on right side with proper styling
 - ✅ Readiness Score: Composite score calculates correctly with all four components
-- ✅ Readiness Score Display: Home screen shows score with progress bar and color-coded status
 - ✅ Readiness Breakdown: Statistics screen shows detailed component breakdown with weights and warnings
 - ✅ Readiness Mode Toggle: Settings screen allows switching between strict and conservative modes
 - ✅ Insufficient Data Handling: Minimum thresholds work correctly for mistakes and performance components
 - ✅ Mock Exam Integration: Mock exam scores contribute correctly to readiness calculation
 
-**Automated Testing:**
-- Not implemented (future consideration)
-
 ---
 
 ## END OF CURRENT STATE SPECIFICATION
 
-This document reflects the current implementation state as of January 28, 2026. 
+This document reflects the implementation state as of September 19, 2026.
 
-**Recent Updates (v2.0.0):**
+**Since the last revision of this document (January 2026):**
+- **Readiness forecast and exam-date planning** — `src/lib/readiness.js` became the single home of the score formula, a day-by-day simulation of how long the user still needs, and the maths around a user-set exam date (countdown, required pace, on-track). Home and Stats both render it, and Stats also lists the remaining blockers
+- **Real exam results** — `app/exam.tsx` and the `exam_results` table record the outcome of the actual exam, storing the readiness score at save time for calibration. A pass turns the reminders off, clears the exam date, and changes what Home shows
+- **The crossings minigame** — a pure right-of-way engine (`src/lib/priority/`), an endless swipe-driven runner, SVG rendering in `components/game/`, a twelve-lesson guide that gates the runner through `settings.has_finished_guide`, and a per-junction drive log in `crossing_log` that can explain each decision
+- **The exam-picture quiz** — a timed game built from the official intersection pictures, feeding `answer_attempts` with `mode = 'game'` so it counts toward accuracy, mistakes, and the streak
+- **Spaced repetition for mistakes** — the flat "two correct answers" rule became a 0 → 1 → 3 → 7 day review ladder with `next_review_at` and `interval_days`
+- **PWA** — the same code ships as an installable, offline web app at `driver.smartie.team`, with a generated service worker, cross-origin isolation for SQLite, and a one-tab lock
+- **Subscriptions** — Smart Study and Mistakes are gated behind a RevenueCat entitlement on iOS; Android and web are free
+- **Notifications, analytics, and accessibility** — local reminders in three slots, PostHog with an opt-out, and a pass over VoiceOver names, roles, and large-text layouts
+- **Automated testing** — a Jest suite and a nine-flow Maestro E2E suite, where this document previously said none existed
+
+**Previous Updates (v2.0.0):**
 - **SQLite Migration:** Complete migration from AsyncStorage to SQLite database
   - All user data now stored in normalized SQLite database using Drizzle ORM
   - Comprehensive `answer_attempts` table logs every answer with full timing data (`questionShownAt`, `answerSubmittedAt`, `responseTimeMs`)
@@ -1082,7 +1344,7 @@ This document reflects the current implementation state as of January 28, 2026.
 
 **Previous Updates (v1.6.0):**
 - Premium Onboarding Experience: Complete redesign of first-time user experience
-  - 5-slide onboarding flow with clear Slovakia driving exam focus
+  - 5-slide onboarding flow with clear Slovakia driving exam focus (a sixth, notifications slide was added later)
   - Animated scroll-driven dot indicators (replaces progress bar to eliminate flickering)
   - Slovakia badge (🇸🇰) on welcome slide for clear branding
   - Updated slide content: compelling, action-oriented copy highlighting key features
@@ -1148,3 +1410,5 @@ This document reflects the current implementation state as of January 28, 2026.
 - Modal Enhancements: Proper safe zone handling, full-width images, smooth scrolling
 
 For the original build specification, see `docs/specs/spec.md`. For category feature details, see `docs/specs/categories.md`. For statistics feature specification, see `docs/specs/statistics.md`. For Smart Practice Mode specification, see `docs/specs/smart-practice.md`. For Smart Study Reason Labels specification, see `docs/specs/why-q-smart.md`. For Readiness Score implementation plan, see `.cursor/plans/readiness_score_implementation_eae787b5.plan.md`. For SQLite migration plan, see `.cursor/plans/sqlite_migration_with_drizzle_98d9308c.plan.md`.
+
+For the database design, see `docs/sqlite-schema.md`. For the crossings game — its rules, their legal citations, the scene format, the runner, and the guide — see `docs/game/`. For the web build and its deployment, see `docs/pwa.md`. For the E2E suite, see `.maestro/README.md`. For a tour of the architecture as a whole, see `CLAUDE.md`.
