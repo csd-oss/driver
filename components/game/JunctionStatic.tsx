@@ -36,7 +36,6 @@ interface Props {
   sideExtend?: number;
   /** The arm you arrive on: only its signs face you, the other arms show grey sign backs (their shape still tells what they are). */
   ownArm?: string;
-  connectingTracks?: { from: string; to: string }[];
 }
 
 // Rotation that turns "up" into "towards the junction" for traffic arriving on an arm.
@@ -176,11 +175,8 @@ const RoundaboutSign = ({ x, y }: { x: number; y: number }) => {
 };
 
 /** Roads, markings, signs, tracks, officer, lights, pedestrians of one junction, in its local frame. */
-export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0, ownArm, connectingTracks = [] }: Props) => {
+export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0, ownArm }: Props) => {
   const ext = (arm: string) => extendArms[arm] ?? sideExtend;
-  // Only an arm the run continues along meets the next junction's plain road, so
-  // only that one tapers; a tram street cut off by the frame keeps its width.
-  const tapers = (arm: string) => extendArms[arm] != null;
   const grass = dark ? '#233831' : '#c6d5b7';
   const asphalt = dark ? '#38464c' : '#66777a';
   const marking = dark ? '#cbd5e1' : '#f8fafc';
@@ -189,7 +185,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
   const K = 4.2; // kerb width
   const box = boxRect(scene);
   // Deterministic tree spots per quadrant, away from the roads.
-  /** An arm's road, as the in-frame rectangle plus the (possibly tapering) extension beyond it. */
+  /** An arm's road and its continuation at the same lane width. */
   const armShapes = (arm: string, pad: number, fill: string, tag: string) => {
     const r = armRect(scene, arm, 0);
     const vertical = arm === 'N' || arm === 'S';
@@ -200,7 +196,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
         ) : (
           <Rect x={r.x} y={r.y - pad} width={r.w} height={r.h + 2 * pad} fill={fill} />
         )}
-        {extensionShapes(scene, arm, ext(arm), tapers(arm)).map((s, i) => (
+        {extensionShapes(scene, arm, ext(arm)).map((s, i) => (
           <Polygon key={i} points={pointsAttr(extensionPoints(arm, s, pad))} fill={fill} />
         ))}
       </G>
@@ -247,7 +243,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
           return <Line key={`ll-${arm}`} {...approachLine(scene, arm)} stroke={marking} strokeWidth={1.4} />;
         })}
       {/* Two tracks per line, one per direction, in the middle of the wide road. */}
-      {[...(scene.tramTracks ?? []), ...connectingTracks].map((t, i) => (
+      {(scene.tramTracks ?? []).map((t, i) => (
         <G key={`t-${i}`}>
           {trackRailPaths(scene, t, ext(t.from), ext(t.to)).map((d, j) => (
             <Path key={j} d={d} fill="none" stroke="#4b5563" strokeWidth={0.5} />

@@ -35,15 +35,15 @@ const armPoint = (arm, d, lane) => {
 
 // Roads with tram tracks are wider: the tracks run down the middle (one per
 // direction, TRACK_OFFSET right of the axis), the car lanes sit outside them.
-export const WIDE_HALF = 18;     // half width of an arm carrying tracks
-export const TRACK_OFFSET = 2.5; // a tram runs this far right of the road axis
+export const WIDE_HALF = 20;     // two road lanes beside a 16-unit double-track corridor
+export const TRACK_OFFSET = 4.5; // opposing tram bodies have clearance, including collision margins
 export const LANE_HALF = 6;      // half a lane
 
 /** Does this arm carry tram tracks (as the start or the end of a track)? */
 export const hasTrack = (scene, arm) => Boolean(scene && (scene.tramTracks || []).some((t) => t.from === arm || t.to === arm));
 /** Half width of the road on `arm`. */
 export const roadHalf = (scene, arm) => (hasTrack(scene, arm) ? WIDE_HALF : ROAD_HALF);
-/** Car lane centre offset from the axis on `arm` (6 on a plain road, 12 beside tracks). */
+/** Car lane centre offset from the axis on `arm` (6 on a plain road, 14 beside tracks). */
 export const laneOffset = (scene, arm) => roadHalf(scene, arm) - LANE_HALF;
 /** Half extent of the crossing box along `arm`: the half width of the road it crosses. */
 export const boxHalf = (scene, arm) => {

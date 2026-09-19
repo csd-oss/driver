@@ -127,10 +127,11 @@ export default function CrossingGuideScreen() {
       setFrame({ junctions: visible, vehicles, you, heading: headingRef.current,
         youVehicle: { ...current.scene.vehicles.find((v: any) => v.id === 'you'), from: 'S' },
         lights, blink: Math.floor(time / 350) % 2 === 0, signal: youSignalFor(run), braking: run.brakeLights || run.stoppedAt !== null,
-        index: current.lessonIndex ?? LESSON_COUNT - 1,
+        index: current.lessonIndex ?? Math.max(0, (current.resumeLessonIndex ?? LESSON_COUNT) - 1),
+        connectingStreet: current.tramStreet,
         instruction: current.instruction.kind === 'none' ? null : instructionText(current.instruction, lang),
         direction: current.instruction.turn,
-        status: feedback || prompt?.text || t('guide.continuous.observe', lang),
+        status: feedback || prompt?.text || t(current.tramStreet ? 'guide.continuous.tramStreet' : 'guide.continuous.observe', lang),
         swipe: feedback ? null : prompt?.swipe,
       });
       request = requestAnimationFrame(tick);
@@ -151,7 +152,7 @@ export default function CrossingGuideScreen() {
   }), [input]);
   const back = () => router.canGoBack() ? router.back() : router.replace('/game');
   if (phase === 'driving') return <DriveStage lang={lang}
-    detail={`${Math.min((frame?.index ?? 0) + 1, LESSON_COUNT)} / ${LESSON_COUNT}  ·  ${t(`guide.lesson.${LESSONS[frame?.index ?? 0]?.id ?? 'controls'}.title`, lang)}`}
+    detail={`${Math.min((frame?.index ?? 0) + 1, LESSON_COUNT)} / ${LESSON_COUNT}  ·  ${t(frame?.connectingStreet ? 'guide.continuous.driving' : `guide.lesson.${LESSONS[frame?.index ?? 0]?.id ?? 'controls'}.title`, lang)}`}
     instruction={paused ? t('crossing.control.paused', lang) : frame?.instruction ?? frame?.status ?? t('guide.continuous.controls', lang)} direction={frame?.direction}
     status={!paused && frame?.instruction ? frame.status : undefined} swipe={frame?.swipe}
     paused={paused} onPause={() => setPaused(value => !value)} onBack={back} intent={frame?.signal} braking={frame?.braking} onInput={input} testID="screen.crossingGuide">

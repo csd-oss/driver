@@ -1,5 +1,5 @@
 import { bodiesOverlap, followingFraction, spaceTraffic, vehicleSize } from './traffic';
-import { railLinks } from './railLinks';
+import { entersTramStreet, tramStreet } from './streetNetwork';
 import { resolve } from './engine';
 import { generatePlayable } from './generator';
 import { leftOf, rightOf, oppositeOf, turnOf } from './geometry';
@@ -316,15 +316,18 @@ const applyResolution = (junction) => {
 };
 
 const createJunction = (rng, level, prev, lessonIndex = null) => {
-  const lesson = lessonIndex === null ? null : lessonAt(lessonIndex);
-  const scene = lesson ? lessonScene(lessonIndex) : generatePlayable(rng, level);
+  const corridor = entersTramStreet(prev);
+  const lesson = corridor || lessonIndex === null ? null : lessonAt(lessonIndex);
+  const scene = corridor ? tramStreet() : lesson ? lessonScene(lessonIndex) : generatePlayable(rng, level);
   const you = scene.vehicles.find((v) => v.id === 'you');
   const junction = prev
     ? placeAfter(prev, scene, spacingFor(level))
     : { scene, cx: CENTER, cy: CENTER, rot: 0, gapBefore: LEAD_ROAD, gapAfter: spacingFor(level) - 2 * CENTER };
   junction.lesson = lesson ? lesson.id : null;
   junction.lessonIndex = lesson ? lessonIndex : null;
-  junction.instruction = lesson ? { ...lesson.instruction } : instructionFor(rng, scene, you.to);
+  junction.tramStreet = corridor;
+  junction.resumeLessonIndex = corridor ? lessonIndex : null;
+  junction.instruction = corridor ? { kind: 'right', turn: 'right', to: 'E' } : lesson ? { ...lesson.instruction } : instructionFor(rng, scene, you.to);
   // The car goes straight unless the player turns; where there is no
   // straight ahead the frame is placed as if the instruction is followed.
   const straight = oppositeOf('S');
@@ -424,8 +427,6 @@ const rebuildRoute = (run) => {
     offset += measure(through).length;
   });
   run.route = measure(points);
-  const rails = railLinks(run.junctions);
-  for (const junction of run.junctions) junction.railKey = rails.get(junction.index).map(track => track.from + track.to).join(',');
 };
 
 const ensureAhead = (run) => {
@@ -433,7 +434,7 @@ const ensureAhead = (run) => {
   const ahead = run.junctions.filter((j) => j.index > current.index).length;
   if (ahead < 2) {
     const last = run.junctions[run.junctions.length - 1];
-    const nextLesson = run.continuousGuide && last.lessonIndex !== null ? last.lessonIndex + 1 : null;
+    const nextLesson = run.continuousGuide ? last.resumeLessonIndex ?? (last.lessonIndex !== null ? last.lessonIndex + 1 : null) : null;
     run.junctions.push(createJunction(run.rng, run.level, last, nextLesson));
     rebuildRoute(run);
   }
@@ -822,7 +823,7 @@ const crash = (run, junction, culprit) => {
   completeRing(run, junction);
   // The guided junctions are for learning: a bump there explains itself
   // and costs nothing.
-  if (!junction.lesson) run.lives -= 1;
+  if (!run.coach) run.lives -= 1;
   run.streak = 0;
   run.s = Math.min(run.s, junction.sWait);
   run.crashUntil = Math.max(run.now + CRASH_PAUSE_MS, junction.clearAt + 600);
@@ -874,7 +875,7 @@ export const step = (run, now) => {
 
   ensureAhead(run);
   const junction = currentJunction(run);
-  run.speed = speedFor(run.level, run.coach && junction.lesson !== null);
+  run.speed = speedFor(run.level, run.coach);
   if (!junction.scheduled && junction.sWait - run.s < run.speed * SCHEDULE_AHEAD_S) {
     schedule(run, junction);
     run.events.push({ type: 'instruction', junction: junction.index, ...junction.instruction, blockers: [...junction.blockers], stopSign: stopSignFor(junction) });
@@ -1160,7 +1161,9 @@ export const vehiclePoses = (run, at = run.now) => {
       // An outgoing car on our road follows that road into the next bend.
       // Extending its old heading would cut straight across a roundabout.
       const ourExit = junction.scene.vehicles.find(other => other.id === 'you').to;
-      if (pose.progress === 1 && (v.to === ourExit || junction.departureRoutes?.[v.id])) {
+      // Tram corridors are straight. The tram stays on its own track even
+      // when the player joins the street or turns off at the next junction.
+      if (v.kind !== 'tram' && pose.progress === 1 && (v.to === ourExit || junction.departureRoutes?.[v.id])) {
         const path = junction.pathCache[v.id];
         const end = path.through[path.through.length - 1];
         const travelled = Math.hypot(pose.x - end.x, pose.y - end.y);

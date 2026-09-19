@@ -33,6 +33,8 @@ stopping positions also allow for turning vehicles' swept corners. Changing
 the player's turn rechecks dependencies before releasing newly prioritised
 traffic. Departing traffic continues beyond the end of its cached road path.
 
-`railLinks.test.js` checks visual continuity between independently generated
-junctions. Additional rails connect to side streets without changing traffic
-priority rules, and roundabout rails curve around the island.
+Build 28 replaces the visual rail-connection workaround with compatible street
+layouts. `streetNetwork.test.js` checks track continuity, constant road widths,
+opposing-tram clearance, and guide recovery after joining a tram street by
+mistake. Trams continue on their own straight tracks, independently of the
+player. `pathHint.test.js` checks that roundabout previews stay on the road.

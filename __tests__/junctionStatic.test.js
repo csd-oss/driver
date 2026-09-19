@@ -28,12 +28,12 @@ describe('road shapes', () => {
   });
 
   it('widens only the arms that carry tracks', () => {
-    expect(halfOf(tram, 'W')).toBe(18);
-    expect(halfOf(tram, 'E')).toBe(18);
+    expect(halfOf(tram, 'W')).toBe(20);
+    expect(halfOf(tram, 'E')).toBe(20);
     expect(halfOf(tram, 'N')).toBe(12);
     expect(halfOf(tram, 'S')).toBe(12);
     // The box is as wide as the N–S road and as tall as the (wide) E–W road.
-    expect(boxRect(tram)).toEqual({ x: 38, y: 32, w: 24, h: 36 });
+    expect(boxRect(tram)).toEqual({ x: 38, y: 30, w: 24, h: 40 });
   });
 
   it('leaves roundabouts alone', () => {
@@ -41,52 +41,43 @@ describe('road shapes', () => {
     for (const arm of ring.arms) expect(halfOf(ring, arm)).toBe(12);
   });
 
-  it('tapers an extended wide arm down to the plain road', () => {
-    const segs = extensionShapes(tram, 'W', 40, true);
-    expect(segs[0].halfFrom).toBe(18);
-    expect(segs[segs.length - 1].halfTo).toBe(12);
-    expect(segs).toEqual([
-      { from: 0, to: 10, halfFrom: 18, halfTo: 18 },
-      { from: 10, to: 24, halfFrom: 18, halfTo: 12 },
-      { from: 24, to: 40, halfFrom: 12, halfTo: 12 },
-    ]);
-    // Half way into the taper is half way between the two widths.
-    expect(extensionShapes(tram, 'W', 17, true)[1]).toEqual({ from: 10, to: 17, halfFrom: 18, halfTo: 15 });
-    // A tram street only cut off by the frame keeps its width, and a plain arm never tapers.
-    expect(extensionShapes(tram, 'W', 40)).toEqual([{ from: 0, to: 40, halfFrom: 18, halfTo: 18 }]);
-    expect(extensionShapes(base, 'S', 40, true)).toEqual([{ from: 0, to: 40, halfFrom: 12, halfTo: 12 }]);
-    expect(extensionShapes(base, 'S', 0, true)).toEqual([]);
+  it('keeps tram tracks and road lanes at full width between junctions', () => {
+    for (const distance of [17, 40, 190]) {
+      expect(extensionShapes(tram, 'W', distance)).toEqual([{ from: 0, to: distance, halfFrom: 20, halfTo: 20 }]);
+      expect(extensionShapes(base, 'S', distance)).toEqual([{ from: 0, to: distance, halfFrom: 12, halfTo: 12 }]);
+    }
+    expect(extensionShapes(base, 'S', 0)).toEqual([]);
   });
 
   it('replaces the centre line with a lane line each side of the tracks', () => {
     expect(laneLines(base, 'N', 0)).toEqual([{ x1: 50, y1: 0, x2: 50, y2: 38 }]);
     expect(laneLines(tram, 'W', 0)).toEqual([
-      { x1: 0, y1: 56, x2: 38, y2: 56 },
-      { x1: 0, y1: 44, x2: 38, y2: 44 },
+      { x1: 0, y1: 58, x2: 38, y2: 58 },
+      { x1: 0, y1: 42, x2: 38, y2: 42 },
     ]);
     // A plain arm crossing a tram road still stops at the (taller) box.
-    expect(laneLines(tram, 'N', 0)).toEqual([{ x1: 50, y1: 0, x2: 50, y2: 32 }]);
+    expect(laneLines(tram, 'N', 0)).toEqual([{ x1: 50, y1: 0, x2: 50, y2: 30 }]);
   });
 
   it('runs four rails along a track and bends them through the box', () => {
     const straight = trackRailPaths(tram, tram.tramTracks[0], 10, 0);
     expect(straight).toHaveLength(4);
-    expect(straight[0]).toBe('M -10 51.6 L 38 51.6 L 62 51.6 L 100 51.6');
+    expect(straight[0]).toBe('M -10 53.6 L 38 53.6 L 62 53.6 L 100 53.6');
     expect(straight.some((d) => d.includes('Q'))).toBe(false);
-    // A turning track widens both its arms, so the box it bends through is 36 x 36.
+    // A turning track widens both its arms, so the box it bends through is 40 x 40.
     const turn = { from: 'W', to: 'S' };
     const bent = trackRailPaths({ ...base, tramTracks: [turn] }, turn);
     expect(bent).toHaveLength(4);
-    expect(bent[0]).toBe('M 0 51.6 L 32 51.6 Q 48.4 51.6 48.4 68 L 48.4 100');
+    expect(bent[0]).toBe('M 0 53.6 L 30 53.6 Q 46.4 53.6 46.4 70 L 46.4 100');
   });
 
   it('keeps the plain stop line and moves the one beside tracks into the car lane', () => {
     expect(approachLine(base, 'N')).toEqual({ x1: 38, y1: 37, x2: 50, y2: 37 });
-    expect(approachLine(tram, 'W')).toEqual({ x1: 37, y1: 56, x2: 37, y2: 68 });
-    expect(approachLine(tram, 'N')).toEqual({ x1: 38, y1: 31, x2: 50, y2: 31 });
+    expect(approachLine(tram, 'W')).toEqual({ x1: 37, y1: 58, x2: 37, y2: 70 });
+    expect(approachLine(tram, 'N')).toEqual({ x1: 38, y1: 29, x2: 50, y2: 29 });
     // A pedestrian waits at the kerb, where the plain-road position has always been.
     expect(pedestrianPoint(base, 'N')).toEqual({ x: 38, y: 35.5 });
-    expect(pedestrianPoint(tram, 'W')).toEqual({ x: 35.5, y: 68 });
+    expect(pedestrianPoint(tram, 'W')).toEqual({ x: 35.5, y: 70 });
   });
 
   it('draws every official scene with finite coordinates', () => {
