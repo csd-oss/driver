@@ -25,15 +25,17 @@ const instructionText = (i: { kind: string; turn: string }, lang: number) =>
 /** The prompt for the moment, as a sentence, plus the swipe to animate. */
 const promptFor = (run: any, lang: number, lessonId: string, visibility: any): { text: string; swipe: SwipeDirection | null } | null => {
   const hint = lessonHint(run, visibility);
-  if (lessonId === 'controls' && (!hint || ['observe', 'priority', 'rolling'].includes(hint.step))) {
-    return { text: t('guide.lesson.controls.goal', lang), swipe: run.stoppedAt === null ? 'down' : 'up' };
+  const junction = currentJunction(run);
+  if (lessonId === 'controls' && !junction.stopped && !run.braking && (!hint || ['observe', 'priority', 'rolling'].includes(hint.step))) {
+    return { text: t('guide.lesson.controls.goal', lang), swipe: 'down' };
   }
   if (!hint) return null;
-  const junction = currentJunction(run);
+  if (['observe', 'rolling'].includes(hint.step)) return null;
+  if (run.braking && ['giveWay', 'stopSign', 'redLight'].includes(hint.step)) return null;
+  if (lessonId === 'controls' && hint.step === 'priority') return null;
   const car = hint.vehicle ? junction.scene.vehicles.find((v: any) => v.id === hint.vehicle) : null;
   const vehicle = car ? vehicleName(car, lang) : '';
   const swipe = hint.step === 'turn' ? (hint.dir as SwipeDirection) : HINT_SWIPE[hint.step] ?? null;
-  if (hint.step === 'observe') return { text: t('guide.continuous.observe', lang), swipe: null };
   if (['giveWay', 'priority'].includes(hint.step)) return { text: t(`guide.lesson.${lessonId}.goal`, lang), swipe };
   if (hint.step === 'wait') return { text: tf('crossing.coach.waitSwipe', lang, { vehicle: vehicle || t('crossing.log.someone', lang) }), swipe };
   if (hint.step === 'go') return { text: t('crossing.coach.goSwipe', lang), swipe };
@@ -43,7 +45,6 @@ const promptFor = (run: any, lang: number, lessonId: string, visibility: any): {
   if (hint.step === 'turn') {
     return { text: tf('crossing.coach.turn', lang, { dir: t(hint.dir === 'left' ? 'crossing.coach.dirLeft' : 'crossing.coach.dirRight', lang) }), swipe };
   }
-  if (hint.step === 'rolling') return { text: t('crossing.coach.rolling', lang), swipe };
   return { text: t('crossing.coach.priority', lang), swipe };
 };
 
@@ -60,6 +61,9 @@ export default function CrossingGuideScreen() {
   const tickRef = useRef(0);
   const feedbackRef = useRef<{ text: string; until: number } | null>(null);
   const loggedRef = useRef(new Set<number>());
+  const reportedRef = useRef(new Set<string>());
+  const learnedSwipesRef = useRef(new Set<SwipeDirection>());
+  const seenRef = useRef({ junction: -1, road: false, vehicles: new Set<string>() });
   useEffect(() => { getLanguage().then(setLang); }, []);
   useEffect(() => {
     const sub = AppState.addEventListener('change', state => { if (state !== 'active') setPaused(true); });
@@ -72,6 +76,9 @@ export default function CrossingGuideScreen() {
     headingRef.current = 0;
     feedbackRef.current = null;
     loggedRef.current.clear();
+    reportedRef.current.clear();
+    learnedSwipesRef.current.clear();
+    seenRef.current = { junction: -1, road: false, vehicles: new Set() };
     setResults([]); setPaused(false); setPhase('driving');
   };
   useEffect(() => {
@@ -90,6 +97,7 @@ export default function CrossingGuideScreen() {
       for (const e of events) {
         if (e.type === 'wrongWay' || e.type === 'ranStop' || e.type === 'redLight') {
           const key = e.type === 'wrongWay' ? 'wrongWay' : e.type === 'ranStop' ? 'noStop' : 'red';
+          reportedRef.current.add(`${e.junction}:${key}`);
           feedbackRef.current = { text: t(`guide.fail.${key}`, lang), until: time + 6000 };
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
         }
@@ -100,9 +108,12 @@ export default function CrossingGuideScreen() {
           loggedRef.current.add(e.junction);
           const verdict = lessonVerdict(lesson, j);
           setResults(prev => [...prev, { lesson: lesson.id, ...verdict }]);
-          const text = verdict.passed ? t('guide.continuous.safe', lang) : t(`guide.fail.${verdict.reason}`, lang);
-          feedbackRef.current = { text, until: time + (verdict.passed ? 1800 : 6000) };
-          Haptics.notificationAsync(verdict.passed ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => {});
+          const failure = `${e.junction}:${verdict.reason}`;
+          if (!verdict.passed && !reportedRef.current.has(failure)) {
+            reportedRef.current.add(failure);
+            feedbackRef.current = { text: t(`guide.fail.${verdict.reason}`, lang), until: time + 6000 };
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+          }
         }
       }
       const current = currentJunction(run);
@@ -118,11 +129,23 @@ export default function CrossingGuideScreen() {
       const visible = visibleJunctions(run);
       const vehicles = vehiclePoses(run);
       const view = cameraView(sizeRef.current.width, sizeRef.current.height, you, headingRef.current, sizeRef.current.occludedTop);
-      const visibility = { junctionVisible: visibleInRoad({ x: current.cx, y: current.cy }, view),
-        visibleVehicles: vehicles.filter((v: any) => v.junction.index === current.index && visibleInRoad(v.pose, view)).map((v: any) => v.vehicle.id) };
+      if (seenRef.current.junction !== current.index) seenRef.current = { junction: current.index, road: false, vehicles: new Set() };
+      const seen = seenRef.current;
+      seen.road ||= visibleInRoad({ x: current.cx, y: current.cy }, view);
+      // Expanding a message must not hide its trigger and make the panel
+      // repeatedly expand/collapse. Forget a car once it leaves the road view.
+      const visibility = { junctionVisible: seen.road,
+        visibleVehicles: vehicles.filter((v: any) => {
+          if (v.junction.index !== current.index) return false;
+          if (visibleInRoad(v.pose, view)) seen.vehicles.add(v.vehicle.id);
+          if (!visibleInRoad(v.pose, { ...view, occludedTop: 0 })) seen.vehicles.delete(v.vehicle.id);
+          return seen.vehicles.has(v.vehicle.id);
+        }).map((v: any) => v.vehicle.id) };
       const lesson = LESSONS[current.lessonIndex];
       const prompt = lesson ? promptFor(run, lang, lesson.id, visibility) : null;
       const feedback = feedbackRef.current && time < feedbackRef.current.until ? feedbackRef.current.text : null;
+      const directionActive = current.scheduled && current.instruction.kind !== 'none' && (current.ring ? !current.passed : run.s < current.sLine);
+      const turnPrompt = directionActive && !current.ring && prompt?.swipe === current.instruction.turn;
       const lights: Record<number, any> = {};
       for (const j of visible) if (j.scene.control?.type === 'lights') lights[j.index] = lightState(j, time);
       setFrame({ junctions: visible, vehicles, you, heading: headingRef.current,
@@ -130,10 +153,10 @@ export default function CrossingGuideScreen() {
         lights, blink: Math.floor(time / 350) % 2 === 0, signal: youSignalFor(run), braking: run.brakeLights || run.stoppedAt !== null,
         index: current.lessonIndex ?? Math.max(0, (current.resumeLessonIndex ?? LESSON_COUNT) - 1),
         connectingStreet: current.tramStreet,
-        instruction: current.instruction.kind === 'none' ? null : instructionText(current.instruction, lang),
-        direction: current.instruction.turn,
-        status: feedback || prompt?.text || t(current.tramStreet ? 'guide.continuous.tramStreet' : 'guide.continuous.observe', lang),
-        swipe: feedback ? null : prompt?.swipe,
+        instruction: directionActive ? instructionText(current.instruction, lang) : null,
+        direction: directionActive ? current.instruction.turn : undefined,
+        status: feedback || (turnPrompt ? null : prompt?.text) || null,
+        swipe: feedback || !prompt?.swipe || learnedSwipesRef.current.has(prompt.swipe) ? null : prompt.swipe,
       });
       request = requestAnimationFrame(tick);
     };
@@ -141,7 +164,10 @@ export default function CrossingGuideScreen() {
     return () => cancelAnimationFrame(request);
   }, [lang, paused, phase]);
   const input = useCallback((value: 'left' | 'right' | 'brake' | 'go') => {
-    if (phase === 'driving' && !paused) applyInput(runRef.current, value);
+    if (phase === 'driving' && !paused) {
+      applyInput(runRef.current, value);
+      learnedSwipesRef.current.add(value === 'brake' ? 'down' : value === 'go' ? 'up' : value);
+    }
   }, [phase, paused]);
   const pan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -154,7 +180,7 @@ export default function CrossingGuideScreen() {
   const back = () => router.canGoBack() ? router.back() : router.replace('/game');
   if (phase === 'driving') return <DriveStage lang={lang}
     detail={`${Math.min((frame?.index ?? 0) + 1, LESSON_COUNT)} / ${LESSON_COUNT}  ·  ${t(frame?.connectingStreet ? 'guide.continuous.driving' : `guide.lesson.${LESSONS[frame?.index ?? 0]?.id ?? 'controls'}.title`, lang)}`}
-    instruction={paused ? t('crossing.control.paused', lang) : frame?.instruction ?? frame?.status ?? t('guide.continuous.controls', lang)} direction={frame?.direction}
+    instruction={paused ? t('crossing.control.paused', lang) : frame?.instruction ?? frame?.status} direction={frame?.direction}
     status={!paused && frame?.instruction ? frame.status : undefined} swipe={frame?.swipe}
     paused={paused} onPause={() => setPaused(value => !value)} onBack={back} intent={frame?.signal} braking={frame?.braking} onInput={input} testID="screen.crossingGuide">
     {(width, height, occludedTop) => {

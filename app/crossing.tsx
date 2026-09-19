@@ -89,7 +89,7 @@ export default function CrossingScreen() {
   const [motion, setMotion] = useState<'driving' | 'braking' | 'waiting'>('driving');
   const [best, setBest] = useState(0);
   const [hud, setHud] = useState({ level: 1, lives: LIVES, score: 0, streak: 0, passed: 0 });
-  const [frame, setFrame] = useState<{ junctions: any[]; vehicles: WorldVehicle[]; you: any; heading: number; youVehicle: any; blink: boolean; shake: number; lights: Record<number, any>; youSignal: 'left' | 'right' | null; youBraking: boolean } | null>(null);
+  const [frame, setFrame] = useState<{ junctions: any[]; vehicles: WorldVehicle[]; you: any; heading: number; youVehicle: any; blink: boolean; shake: number; lights: Record<number, any>; youSignal: 'left' | 'right' | null; youBraking: boolean; welcome: boolean } | null>(null);
   const [openRecord, setOpenRecord] = useState<any | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [instruction, setInstruction] = useState<Instruction | null>(null);
@@ -101,6 +101,7 @@ export default function CrossingScreen() {
   const frameRef = useRef<number | null>(null);
   const headingRef = useRef(0);
   const lastTickRef = useRef(0);
+  const drivingTimeRef = useRef(0);
   const shakeUntilRef = useRef(0);
   const highlightRef = useRef<string[]>([]);
   const finishedRef = useRef(false);
@@ -172,6 +173,7 @@ export default function CrossingScreen() {
       if (Platform.OS !== 'web' && gap < 31) { frameRef.current = requestAnimationFrame(tick); return; }
       if (gap > 400) shiftTime(run, gap - 16);
       lastTickRef.current = tNow;
+      drivingTimeRef.current += Math.min(gap, 100);
 
       const events = step(run, tNow);
       // The crash glow lasts for the pause only.
@@ -202,12 +204,10 @@ export default function CrossingScreen() {
           highlightRef.current = [];
           setInstruction(null);
           if (!e.hesitated && !e.wrongWay && !e.late && !e.ranRed && !e.ranStop) {
-            setToast({ kind: 'ok', text: tf('game.plusPoints', lang, { points: e.points }), until: tNow + 900 });
             haptic.passed();
           }
           if (e.record) logRecord(e.record);
         } else if (e.type === 'level') {
-          setToast({ kind: 'level', text: tf('crossing.levelUp', lang, { n: e.level }), until: tNow + TOAST_MS });
           haptic.level();
         } else if (e.type === 'stopped') {
           haptic.stopped();
@@ -252,6 +252,7 @@ export default function CrossingScreen() {
         lights,
         youSignal,
         youBraking: Boolean(run.brakeLights || run.stoppedAt !== null),
+        welcome: drivingTimeRef.current < 6500,
       });
       if (run.over && tNow >= run.crashUntil) {
         finishRun();
@@ -281,6 +282,7 @@ export default function CrossingScreen() {
     runIdRef.current = generateId();
     setPaused(false);
     lastTickRef.current = 0;
+    drivingTimeRef.current = 0;
     setRecords([]);
     setInstruction(null);
     setIntent(null);
@@ -424,8 +426,8 @@ export default function CrossingScreen() {
   if (phase === 'running') return (
     <DriveStage lang={lang}
       detail={`${tf('crossing.level', lang, { n: hud.level })}  ·  ${t('game.score', lang)}: ${hud.score}  ·  ${hearts}`}
-      instruction={instruction ? instructionText(instruction, lang) : t('crossing.runnerHint', lang)} direction={instruction?.turn}
-      status={paused ? t('crossing.control.paused', lang) : toastVisible ? toast.text : t(`crossing.control.${motion}`, lang)}
+      instruction={paused ? t('crossing.control.paused', lang) : instruction ? instructionText(instruction, lang) : frame?.welcome ? t('crossing.runnerHint', lang) : null} direction={instruction?.turn}
+      status={!paused && toastVisible ? toast.text : undefined}
       paused={paused} onPause={() => setPaused(value => !value)} onBack={handleBack}
       intent={intent} braking={motion !== 'driving'} onInput={input => {
         if (input === 'brake') brake(); else if (input === 'go') go(); else turn(input);

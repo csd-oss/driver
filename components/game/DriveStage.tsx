@@ -10,7 +10,7 @@ import { t } from '@/src/i18n/i18n';
 interface Props {
   lang: number;
   detail: string;
-  instruction: string;
+  instruction?: string | null;
   direction?: string;
   status?: string;
   swipe?: SwipeDirection | null;
@@ -43,8 +43,8 @@ export function DriveStage({ lang, detail, instruction, direction, status, swipe
               <Text style={[styles.backText, { color: palette.text }]}>‹</Text>
             </Pressable>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.eyebrow, { color: palette.secondary }]}>{direction === 'left' ? '←' : direction === 'right' ? '→' : '↑'}  {t('crossing.control.instructor', lang)}</Text>
-              <Text style={[styles.instruction, { color: palette.text }]} maxFontSizeMultiplier={1.3}>{instruction}</Text>
+              <Text style={[styles.eyebrow, { color: palette.secondary, marginBottom: instruction || status ? 4 : 0 }]}>{direction === 'left' ? '←  ' : direction === 'right' ? '→  ' : instruction ? '↑  ' : ''}{t('crossing.control.instructor', lang)}</Text>
+              {!!instruction && <Text style={[styles.instruction, { color: palette.text }]} maxFontSizeMultiplier={1.3}>{instruction}</Text>}
               {status && status !== instruction && <Text testID="crossing.coaching" style={[styles.coaching, { color: palette.secondary }]} maxFontSizeMultiplier={1.3} accessibilityLiveRegion="polite">{status}</Text>}
               {swipe && !paused && <View style={styles.swipe} testID="crossing.swipeHint"><SwipeHint direction={swipe} size={36} colour={palette.accent} /><Text style={[styles.swipeText, { color: palette.secondary }]}>{t(`guide.swipe.${swipe}`, lang)}</Text></View>}
             </View>
