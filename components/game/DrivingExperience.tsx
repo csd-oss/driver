@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, PanResponder, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { usePostHog } from 'posthog-react-native';
 import { DriveStage } from './DriveStage';
@@ -34,6 +35,7 @@ const now = () => performance.now();
 /** One drive, instructor and recorder, from the first lesson into practice. */
 export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }) {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const posthog = usePostHog();
   const params = useLocalSearchParams<{ seed?: string; level?: string }>();
   const [lang, setLang] = useState(getCachedLanguage);
@@ -134,7 +136,7 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
   }, [lang, posthog, saveDrive, stopLoop]);
 
   useEffect(() => {
-    if (phase !== 'running' || paused) return;
+    if (phase !== 'running' || paused || !isFocused) return;
     const run = runRef.current;
     if (lastTickRef.current) {
       const duration = Math.max(0, now() - lastTickRef.current);
@@ -192,7 +194,7 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
       const speech = instructorFrame(instructorRef.current, run, { lang, events, visibility, traffic: vehicles });
       const lights: Record<number, any> = {};
       for (const junction of visible) if (junction.scene.control?.type === 'lights') lights[junction.index] = lightState(junction, time);
-      setFrame({ junctions: visible, vehicles, you, heading: headingRef.current,
+      setFrame({ time, junctions: visible, vehicles, you, heading: headingRef.current,
         youVehicle: { ...current.scene.vehicles.find((vehicle: any) => vehicle.id === 'you'), from: 'S' },
         lights, blink: Math.floor(time / 350) % 2 === 0, signal: youSignalFor(run), braking: Boolean(run.brakeLights || run.stoppedAt !== null),
         intent: run.intent, shake: time < shakeUntilRef.current ? Math.sin(time / 18) * 1.6 : 0,
@@ -205,7 +207,9 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     };
     frameRef.current = requestAnimationFrame(tick);
     return stopLoop;
-  }, [finishRun, lang, paused, phase, stopLoop]);
+  }, [finishRun, isFocused, lang, paused, phase, stopLoop]);
+
+  useEffect(() => { if (!isFocused) setPaused(true); }, [isFocused]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => { if (state !== 'active') setPaused(true); });
@@ -213,10 +217,10 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
   }, [stopLoop]);
 
   const input = useCallback((value: Input) => {
-    if (phase !== 'running' || paused) return;
+    if (phase !== 'running' || paused || !isFocused) return;
     applyInput(runRef.current, value);
     learnedSwipesRef.current.add(value === 'brake' ? 'down' : value === 'go' ? 'up' : value);
-  }, [phase, paused]);
+  }, [phase, paused, isFocused]);
   const pan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: (_event, gesture) => Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) > 10,
@@ -247,7 +251,7 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     {(width, height, occludedTop) => {
       sizeRef.current = { width, height, occludedTop };
       return frame && <View {...pan.panHandlers} style={{ width, height }} testID={frame.guided ? 'guide.scene' : 'crossing.scene'}>
-        <WorldScene width={width} height={height} junctions={frame.junctions} vehicles={frame.vehicles} you={frame.you}
+        <WorldScene width={width} height={height} snapshotTime={frame.time} motionActive={!paused && isFocused} junctions={frame.junctions} vehicles={frame.vehicles} you={frame.you}
           youVehicle={frame.youVehicle} heading={frame.heading} lights={frame.lights} blinkOn={frame.blink} youSignal={frame.signal}
           youBraking={frame.braking} shake={frame.shake} highlight={highlightRef.current} />
       </View>;

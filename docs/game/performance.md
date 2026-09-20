@@ -178,3 +178,64 @@ Build 37's production-Hermes simulator check passed Stop/Go, turning, pause/resu
 and saving the drive review. Its recording contained 2,133 road frames with no
 missing-road frames. This checks the retained-road behavior and interaction
 regressions; physical-iPhone frame pacing still needs confirmation.
+
+Build 38 replaces repeatedly restarted 33 ms movement timers with timestamped
+pose interpolation. Every car and the camera read one monotonic UI clock, with
+a 66.7 ms presentation buffer to absorb uneven JS/React delivery. Six snapshots
+bound the history. Movement never extrapolates past an authoritative stopping
+point; long pauses and teleports reset the history. The RN 0.81 and Worklets 0.7
+`performance.now()` implementations share the steady-clock epoch, so delayed
+initial mounting cannot permanently offset playback. Backgrounding or leaving
+the driving screen suspends both the simulation and native frame callback.
+
+A deterministic 10-second replay with uneven snapshot intervals and up to 11 ms
+delivery jitter reproduced 80 stationary frames at 60 Hz and 217 at 120 Hz with
+the old timers. Timestamped playback produced none in either replay. These are
+timing-model results, not physical-device FPS. The buffer adds about 67 ms of
+visual latency; input and safety decisions still enter the simulation directly.
+Path hints remain fixed to their world geometry under the same camera, with
+their local layout and SVG updates committed together.
+
+Road snapshots now reuse the entire unchanged SVG subtree. Captured geometry
+primitives detect route and connecting-road changes even when simulation objects
+are mutated in place. The two immutable retained patches remain in use to avoid
+reintroducing blank road frames. Complete verge images bake existing gardens,
+trees and fence lines into the same two image draws per lot. A representative
+environment uses 56 SVG nodes instead of 277, with 288 KB of additional image
+assets. Unchanged signal lamps, straight-car indicators and parked path artwork
+also avoid unrelated repainting.
+
+A follow-up native profile isolated remaining repaint spikes in CoreText font
+setup and bitmap resampling. STOP road/sign lettering now uses outlines generated
+from the iOS system-bold font at the original sizes, baselines and colours, so
+each label is one path without runtime font discovery. Native scenery sources
+use six pixels per world unit, close to the phone's cached raster density;
+web retains the original ten. Across the 26 native verge/landscape images,
+decoded source pixels fall 64%, from 19.77 MiB to 7.12 MiB. Comparisons at the
+actual output size preserve the layout and colours, with differences at raster
+edges. Both retained patches still receive real geometry updates together;
+their painting/coverage order is unchanged.
+
+Traffic reservations cache stable trajectory samples and skip retries whose
+waiting-position collision cannot change. The reproduced expensive reservation
+fell from a 5.77 ms median / 9.55 ms p95 to 0.236 ms / 0.608 ms across 100 desktop
+repetitions; sampled poses fell from 28,772 to 772. Completed traffic junctions
+no longer add repeated sampling work throughout a long drive. A differential
+replay against build 37 matched player/traffic positions, reservations, events,
+score and lives across 126,000 frames, including guide-to-practice and six
+10-minute drives. These measurements establish reduced CPU work and unchanged
+driving rules; they do not establish sustained 120 fps on an iPhone.
+
+Release validation passed 136 targeted motion/safety/experience tests and a
+subsequent 20-test artwork/cache check after the final image/lettering changes.
+The native Stop/Go, turning, pause/resume and saved-review flow passed; its final
+recording contained 2,307 road frames with no missing-road frames. The web guide
+completed all 11 lessons, continued into practice, saved 11 junction records,
+and retained the returning player's guide/practice choice without runtime errors.
+
+The final 25-second native Time Profiler recording ran after interaction
+automation exited. It contains no RNSVGTSpan/CTFontCopyVariationAxes samples.
+Road painting still produced occasional bursts in the simulator, so these checks
+do not prove zero hitches or sustained 120 fps on the physical iPhone. Avoid
+treating total "mounting" samples as React commits: this configuration's native
+transform fast path also appears under RCTMountingManager in the profiler.

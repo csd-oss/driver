@@ -9,13 +9,13 @@ import { WorldSignals } from './WorldSignals.native';
 import type { WorldSceneProps } from './WorldScene';
 
 /** All moving native artwork is composited, with no per-display-frame SVG paints. */
-export function WorldScene({ width, height, junctions, vehicles, you, youVehicle, heading, highlight = [], blinkOn = true, shake = 0, lights = {}, youSignal, youBraking = false }: WorldSceneProps) {
+export function WorldScene({ width, height, junctions, vehicles, you, youVehicle, heading, highlight = [], blinkOn = true, shake = 0, lights = {}, youSignal, youBraking = false, snapshotTime = performance.now(), motionActive = true }: WorldSceneProps) {
   const view = cameraView(width, height, you, heading);
   const layer = { width, height, span: view.span, viewHeight: view.viewHeight, you, heading, shake };
-  const sprite = { width, height, scale: width / view.span, shake, blinkOn };
+  const sprite = { width, height, scale: width / view.span, shake, blinkOn, snapshotTime };
   const drawn = vehicles.filter(p => trafficInView(p.pose, view));
   return <View style={{ width, height, backgroundColor: '#c6d5b7', overflow: 'hidden' }}>
-    <SceneCamera you={you} heading={heading}>
+    <SceneCamera you={you} heading={heading} snapshotTime={snapshotTime} motionActive={motionActive}>
       <RoadSurface {...layer} junctions={junctions} lights={lights} />
       <WorldSignals {...layer} junctions={junctions} lights={lights} />
       {drawn.map(p => !p.junction.passed && (p.progress ?? 0) < .9 && p.local && <WorldPathHint key={`hint-${p.junction.index}-${p.vehicle.id}`} {...sprite} traffic={p} local={p.local} />)}

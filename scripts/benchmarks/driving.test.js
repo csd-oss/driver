@@ -1,22 +1,48 @@
 import { performance } from 'perf_hooks';
 import { makeRng } from '../../src/lib/priority/generator';
-import { createRun, step, currentJunction, applyInput, vehiclePoses } from '../../src/lib/priority/world';
+import { createRun, step, currentJunction, applyInput, vehiclePoses, drivingHint } from '../../src/lib/priority/world';
 
-test('profile a deterministic busy drive', () => {
- const samples=[];const schedules=[];
- for (const seed of [1,2,5,8]) {
-  const run=createRun(makeRng(seed),5);
-  for(let i=0;i<1800&&!run.over;i++) {
-   const before=performance.now(); const scheduled=currentJunction(run).scheduled;
-   step(run,run.now+32);vehiclePoses(run);
-   const elapsed=performance.now()-before;samples.push(elapsed);if(!scheduled)schedules.push(elapsed);
-   const j=currentJunction(run);
-   if(j.scheduled&&run.s<j.sWait&&!j.stopped)applyInput(run,'brake');
-   if(!j.ring&&j.instruction.turn!=='straight'&&run.s<j.sWait)applyInput(run,j.instruction.turn);
-   if(j.ring&&j.ring.order[j.ring.next]===j.instruction.to&&!j.ring.armed)applyInput(run,'right');
-   if(run.stoppedAt!==null&&run.now>j.clearAt+1200)applyInput(run,'go');
+const summarise = values => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return {
+    p50: sorted[Math.floor(sorted.length * .5)],
+    p95: sorted[Math.floor(sorted.length * .95)],
+    p99: sorted[Math.floor(sorted.length * .99)],
+    max: sorted.at(-1),
+    totalMs: values.reduce((sum, value) => sum + value, 0),
+  };
+};
+
+// Ten minutes per route includes generation, turn changes, signal queues,
+// roundabout exits, traffic carried into later junctions, and growing history.
+// Inputs are measured too: choosing a turn can release/reserve a traffic wave.
+// Run separately from release checks; timings describe this host, not device FPS.
+test.each([
+  { seed: 1000, guide: true },
+  ...[1, 2, 5, 8, 19, 37].map(seed => ({ seed, guide: false })),
+])('profile a ten-minute drive: %j', ({ seed, guide }) => {
+  const run = createRun(makeRng(seed), guide ? 1 : 5,
+    guide ? { lesson: 0, continuousGuide: true, continueAfterGuide: true } : {});
+  const samples = [], inputs = [], lateDrive = [];
+  for (let frame = 0; frame < 18000 && !run.over; frame++) {
+    const before = performance.now();
+    step(run, run.now + 1000 / 30);
+    const traffic = vehiclePoses(run);
+    const inputAt = performance.now();
+    const hint = drivingHint(run, { traffic });
+    if (['controlsStop', 'giveWay', 'stopSign', 'redLight'].includes(hint?.step) && !run.braking) applyInput(run, 'brake');
+    if (hint?.step === 'go') applyInput(run, 'go');
+    if (hint?.step === 'turn') applyInput(run, hint.dir);
+    if (hint?.step === 'ring') applyInput(run, 'right');
+    const after = performance.now();
+    inputs.push(after - inputAt);
+    samples.push(after - before);
+    if (frame >= 15000) lateDrive.push(after - before);
   }
- }
- samples.sort((a,b)=>a-b);
- console.log(JSON.stringify({frames:samples.length,p50:samples[Math.floor(samples.length*.5)],p95:samples[Math.floor(samples.length*.95)],max:samples.at(-1),schedulingMax:Math.max(...schedules),totalMs:samples.reduce((a,b)=>a+b,0)}));
-});
+  expect(run.lives).toBe(3);
+  expect(run.over).toBe(false);
+  expect(currentJunction(run).index).toBeGreaterThanOrEqual(20);
+  if (guide) expect(run.guideComplete).toBe(true);
+  console.log(JSON.stringify({ seed, guide, frames: samples.length, junctions: run.junctions.length,
+    all: summarise(samples), inputs: summarise(inputs), last100Seconds: summarise(lateDrive) }));
+}, 60000);

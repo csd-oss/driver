@@ -1099,7 +1099,8 @@ export const step = (run, now) => {
 
   // Keep the actual bodies apart, even on an approach or after the crossing.
   // Braking can stop short of the line when traffic occupies that space.
-  const obstacle = previousTraffic.find(car => bodiesOverlap(youPose(run), playerVehicle, car.pose, car.vehicle, PLAYER_CLEARANCE));
+  const movedPlayer = youPose(run);
+  const obstacle = previousTraffic.find(car => bodiesOverlap(movedPlayer, playerVehicle, car.pose, car.vehicle, PLAYER_CLEARANCE));
   if (obstacle && run.s > previousS) {
     run.s = previousS;
     run.v = 0;
@@ -1115,7 +1116,7 @@ export const step = (run, now) => {
   // others' previous poses can freeze two cars following a curved lane.
   const proposedTraffic = vehiclePoses(run);
   const playerPose = youPose(run);
-  const keyOf = car => `${car.junction.index}-${car.vehicle.id}`;
+  const keyOf = car => car.key;
   const previousByKey = new Map(previousTraffic.map(car => [keyOf(car), car]));
   const delays = new Map();
   const entryFractions = new Map();
@@ -1169,12 +1170,13 @@ export const step = (run, now) => {
     }
     const radius = area.ring ? RING_R + RING_WAIT + 4 : WAIT + 4;
     const inner = area.ring ? RING_R + 9 : 0;
+    const angle = rad(area.rot), c = Math.cos(angle), sn = Math.sin(angle);
+    const halfWidth = boxHalf(area.scene, 'E'), halfHeight = boxHalf(area.scene, 'N');
     const distance = car => {
       const dx = car.pose.x - area.cx, dy = car.pose.y - area.cy;
       const allowance = car.vehicle ? Math.max(0, vehicleSize(car.vehicle).length / 2 - 5) + (car.vehicle.kind === 'tram' ? 4 : 0) : 0;
       if (area.ring) return Math.hypot(dx, dy) - allowance;
-      const angle = rad(area.rot), c = Math.cos(angle), sn = Math.sin(angle);
-      return Math.max(Math.abs(dx * c + dy * sn) - boxHalf(area.scene, 'E'), Math.abs(-dx * sn + dy * c) - boxHalf(area.scene, 'N')) - allowance;
+      return Math.max(Math.abs(dx * c + dy * sn) - halfWidth, Math.abs(-dx * sn + dy * c) - halfHeight) - allowance;
     };
     if (area.earlyTraffic && run.s < area.sEnd + 10) {
       for (const car of proposedTraffic) {
@@ -1264,7 +1266,12 @@ export const step = (run, now) => {
   // timer expires or its source junction drops out of the scenery window.
   run.retiredTraffic ||= new Set();
   for (const car of candidates) {
-    if (car.progress === 1 && Math.hypot(car.pose.x - playerPose.x, car.pose.y - playerPose.y) > 180) run.retiredTraffic.add(`${car.junction.index}-${car.vehicle.id}`);
+    if (car.progress === 1 && Math.hypot(car.pose.x - playerPose.x, car.pose.y - playerPose.y) > 180) {
+      run.retiredTraffic.add(car.key);
+      // Completed junctions remain in the drive history, but sampling their
+      // retired traffic four times per frame should not grow with the run.
+      car.junction.trafficFinished = car.junction.scene.vehicles.every(vehicle => vehicle.id === 'you' || run.retiredTraffic.has(car.junction.trafficKeys[vehicle.id]));
+    }
   }
 
   // Judge the signal as the car crosses its stop line, before the deeper
@@ -1376,10 +1383,14 @@ export const vehiclePoses = (run, at = run.now) => {
   const out = [];
   const visible = new Set(visibleJunctions(run));
   for (const junction of run.junctions) {
+    if (junction.trafficFinished) continue;
     if (!junction.scheduled && !visible.has(junction)) continue;
+    junction.trafficKeys ||= Object.fromEntries(junction.scene.vehicles.map(vehicle => [vehicle.id, `${junction.index}-${vehicle.id}`]));
+    const ourExit = junction.scene.vehicles.find(other => other.id === 'you').to;
     for (const v of junction.scene.vehicles) {
       if (v.id === 'you') continue;
-      if (run.retiredTraffic?.has(`${junction.index}-${v.id}`)) continue;
+      const key = junction.trafficKeys[v.id];
+      if (run.retiredTraffic?.has(key)) continue;
       // A vehicle that rolls in is not in sight until the junction is
       // scheduled; the ones that wait at a line are drawn there from the start.
       if (!junction.scheduled && junction.willRollIn.has(v.id)) continue;
@@ -1395,7 +1406,6 @@ export const vehiclePoses = (run, at = run.now) => {
       let routeS;
       // An outgoing car on our road follows that road into the next bend.
       // Extending its old heading would cut straight across a roundabout.
-      const ourExit = junction.scene.vehicles.find(other => other.id === 'you').to;
       // Tram corridors are straight. The tram stays on its own track even
       // when the player joins the street or turns off at the next junction.
       if (v.kind !== 'tram' && pose.progress === 1 && (v.to === ourExit || junction.departureRoutes?.[v.id])) {
@@ -1439,7 +1449,7 @@ export const vehiclePoses = (run, at = run.now) => {
           }
         }
       }
-      out.push({ junction, vehicle: v, pose: worldPose, progress: pose.progress, local: { x: pose.x, y: pose.y }, routeS });
+      out.push({ key, junction, vehicle: v, pose: worldPose, progress: pose.progress, local: { x: pose.x, y: pose.y }, routeS });
     }
   }
   return out;

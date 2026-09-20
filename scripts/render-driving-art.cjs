@@ -25,11 +25,20 @@ artwork._compile(source, filename);
       await page.setContent(`<html><body style="margin:0"><svg xmlns="http://www.w3.org/2000/svg" width="310" height="330" viewBox="-1 -1 31 33">${body}</svg></body></html>`);
       await page.screenshot({ path: path.resolve(__dirname, `../assets/images/driving/lot-${variant}.png`), omitBackground: true });
     }
-    await page.setViewportSize({ width: 1000, height: 1000 });
-    for (const dark of [false, true]) {
-      const body = renderToStaticMarkup(React.createElement(artwork.exports.JunctionLandscape, { dark }));
-      await page.setContent(`<html><body style="margin:0"><svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 100 100">${body}</svg></body></html>`);
-      await page.screenshot({ path: path.resolve(__dirname, `../assets/images/driving/junction-${dark ? 'dark' : 'light'}.png`) });
+    for (const density of [10, 6]) {
+      const suffix = density === 6 ? '-native' : '';
+      await page.setViewportSize({ width: 39 * density, height: 34 * density });
+      for (const left of [false, true]) for (let variant = 0; variant < 12; variant++) {
+        const body = renderToStaticMarkup(React.createElement(artwork.exports.RoadsideStrip, { variant, left }));
+        await page.setContent(`<html><body style="margin:0"><svg xmlns="http://www.w3.org/2000/svg" width="${39 * density}" height="${34 * density}" viewBox="${left ? -52 : 13} -1 39 34">${body}</svg></body></html>`);
+        await page.screenshot({ path: path.resolve(__dirname, `../assets/images/driving/verge-${left ? 'left' : 'right'}-${variant}${suffix}.png`), omitBackground: true });
+      }
+      await page.setViewportSize({ width: 100 * density, height: 100 * density });
+      for (const dark of [false, true]) {
+        const body = renderToStaticMarkup(React.createElement(artwork.exports.JunctionLandscape, { dark }));
+        await page.setContent(`<html><body style="margin:0"><svg xmlns="http://www.w3.org/2000/svg" width="${100 * density}" height="${100 * density}" viewBox="0 0 100 100">${body}</svg></body></html>`);
+        await page.screenshot({ path: path.resolve(__dirname, `../assets/images/driving/junction-${dark ? 'dark' : 'light'}${suffix}.png`) });
+      }
     }
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

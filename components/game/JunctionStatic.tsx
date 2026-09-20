@@ -1,4 +1,6 @@
-import { Circle, G, Image, Line, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
+import { Circle, G, Image, Line, Path, Polygon, Rect } from 'react-native-svg';
+import { StopLabel } from './StopLabel';
+import { junctionLandscapes } from './drivingArtwork';
 import { leftOf, oppositeOf, rightOf } from '@/src/lib/priority/geometry';
 import {
   CENTER,
@@ -51,7 +53,7 @@ const LaneMarking = ({ scene, arm, kind, colour }: { scene: SceneLike; arm: stri
       {kind === 'yield' ? (
         <Polygon points="-2.6,2.4 2.6,2.4 0,-3" fill="none" stroke={colour} strokeWidth={0.9} strokeLinejoin="round" />
       ) : (
-        <SvgText x={0} y={1.2} fontSize={3.4} fontWeight="700" fill={colour} textAnchor="middle">STOP</SvgText>
+        <StopLabel x={0} y={1.2} variant="road" fill={colour} />
       )}
     </G>
   );
@@ -109,7 +111,7 @@ const Sign = ({ kind, x, y }: { kind: string; x: number; y: number }) => {
     return (
       <G>
         <Polygon points={pts} fill="#dc2626" stroke="#ffffff" strokeWidth={0.6} />
-        <SvgText x={x} y={y + 1.1} fontSize={2.6} fontWeight="700" fill="#ffffff" textAnchor="middle">STOP</SvgText>
+        <StopLabel x={x} y={y + 1.1} variant="sign" fill="#ffffff" />
       </G>
     );
   }
@@ -206,7 +208,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
   };
   return (
     <G>
-      <Image x={0} y={0} width={SIZE} height={SIZE} href={dark ? require('../../assets/images/driving/junction-dark.png') : require('../../assets/images/driving/junction-light.png')} />
+      <Image x={0} y={0} width={SIZE} height={SIZE} href={junctionLandscapes[dark ? 'dark' : 'light']} />
       {/* Kerbs run along the road only; no cap across it, so consecutive
           junction frames join without a seam. */}
       {scene.arms.map((arm) => armShapes(arm, K, kerb, 'kerb'))}

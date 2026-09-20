@@ -33,6 +33,10 @@ export interface WorldVehicle {
 }
 
 export interface WorldSceneProps {
+  /** Monotonic simulation snapshot time for native buffered playback. */
+  snapshotTime?: number;
+  /** Suspend native display callbacks while paused, covered or backgrounded. */
+  motionActive?: boolean;
   width: number;
   height: number;
   junctions: WorldJunction[];

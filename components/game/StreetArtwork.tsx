@@ -32,6 +32,16 @@ export const Garden = ({ variant }: { variant: number }) => (
   </G>
 );
 
+/** One unchanged verge, including the garden and the small roadside tree.
+ * Baked together so cache handovers do not mount ten tree nodes per lot. */
+export const RoadsideStrip = ({ variant, left }: { variant: number; left: boolean }) => (
+  <G>
+    <G transform={`translate(${left ? -21 : 21} 0)${left ? ' scale(-1 1)' : ''}`}><Garden variant={variant} /></G>
+    <Tree x={left ? -17.5 : 17.5} y={left ? 26 : 10} size={2.1} />
+    {left && <Line x1={-15.5} y1={0} x2={-15.5} y2={29} stroke="#a6b59b" strokeWidth={0.35} />}
+  </G>
+);
+
 
 export const JunctionLandscape = ({ dark }: { dark: boolean }) => {
   const SIZE = 100;

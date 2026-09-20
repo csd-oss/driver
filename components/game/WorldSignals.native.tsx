@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View } from 'react-native';
 import Svg from 'react-native-svg';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
@@ -9,7 +10,7 @@ import { LightHead, type LightPhase } from './JunctionStatic';
 import { useSceneCamera } from './SceneCamera.native';
 import type { WorldJunction, WorldSceneProps } from './WorldScene';
 
-function Signal({ junction, arm, phase, width, height, scale, shake }: {
+const Signal = memo(function Signal({ junction, arm, phase, width, height, scale, shake }: {
   junction: WorldJunction; arm: string; phase: LightPhase; width: number; height: number; scale: number; shake: number;
 }) {
   const local = signPoint(arm, junction.scene.layout, junction.scene);
@@ -28,7 +29,7 @@ function Signal({ junction, arm, phase, width, height, scale, shake }: {
       </Svg>
     </View>
   </Animated.View>;
-}
+});
 
 /** A changing signal repaints a tiny lamp, never either full road texture. */
 export function WorldSignals({ junctions, lights = {}, width, height, you, heading, shake = 0 }: Pick<WorldSceneProps, 'junctions' | 'lights' | 'width' | 'height' | 'you' | 'heading' | 'shake'>) {

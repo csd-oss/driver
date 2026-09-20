@@ -56,19 +56,44 @@ export const spaceTraffic = (junction, now, newIds = null) => {
   const fixed = newIds ? vehicles.filter(v => !newIds.includes(v.id)) : [];
   const pending = vehicles.filter(v => !fixed.includes(v)).sort((a, b) => junction.starts[a.id] - junction.starts[b.id]);
   const position = (v, t) => poseAt(junction.scene, v, junction.starts[v.id] - junction.t0, t - junction.t0, junction.pathCache, junction.rollIn[v.id] || 0, junction.queueBack[v.id] || 0, 100);
+  // A reserved car's trajectory stays fixed while the next car tries later
+  // start times. Reuse its samples instead of rebuilding the same poses for
+  // every candidate delay. The cache belongs to this reservation only: the
+  // live simulation may subsequently delay cars or change their movement.
+  const samples = new Map();
+  const fixedPosition = (vehicle, index, time) => {
+    let poses = samples.get(vehicle);
+    if (!poses) { poses = []; samples.set(vehicle, poses); }
+    if (poses[index] === undefined) poses[index] = position(vehicle, time);
+    return poses[index];
+  };
   for (const v of pending) {
     // A newly released car waits at its line while we find a safe slot.
     let attempts = 0;
+    let waitingConflict = false;
     const overlaps = () => {
       if (!fixed.length) return false;
       const until = junction.starts[v.id] + traversalDuration(junction.scene, v, junction.pathCache) * 2 + 3000;
-      for (let t = now; t <= until; t += 80) {
+      let index = 0;
+      for (let t = now; t <= until; t += 80, index++) {
         const p = position(v, t);
-        if (fixed.some(other => bodiesOverlap(p, v, position(other, t), other, 1.5))) return true;
+        if (fixed.some(other => bodiesOverlap(p, v, fixedPosition(other, index, t), other, 1.5))) {
+          // Without a rolling approach the car stays at exactly this waiting
+          // position until its start. Every later trial has the same overlap
+          // at this time, so those trials cannot produce a different answer.
+          waitingConflict = !junction.rollIn[v.id] && t < junction.starts[v.id];
+          return true;
+        }
       }
       return false;
     };
-    while (attempts++ < 100 && overlaps()) junction.starts[v.id] += 250;
+    while (attempts++ < 100 && overlaps()) {
+      junction.starts[v.id] += 250;
+      if (waitingConflict) {
+        junction.starts[v.id] += (100 - attempts) * 250;
+        break;
+      }
+    }
     fixed.push(v);
   }
 };
