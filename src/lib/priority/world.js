@@ -406,6 +406,7 @@ export const createRun = (rng, level = 1, { lesson = null, continuousGuide = fal
     continuousGuide,
     lesson,             // index into LESSONS while the guide is running
     coach: lesson !== null,
+    controlsStage: lessonAt(lesson)?.id === 'controls' ? 'stop' : null,
     intent: null,
     braking: false,
     stoppedAt: null,    // distance where you are stopped
@@ -646,6 +647,19 @@ const moveOff = (run, junction) => {
 export const applyInput = (run, input) => {
   if (run.over || run.now < run.crashUntil) return;
   const junction = currentJunction(run);
+  // The first exercise waits for the learner, even if they need a long time
+  // to read. Go cannot accidentally skip practising the brake.
+  if (junction.lesson === 'controls' && run.controlsStage !== 'done') {
+    if (input === 'brake' && run.controlsStage === 'stop') {
+      run.controlsStage = 'braking';
+      run.braking = true;
+    } else if (input === 'go' && run.controlsStage === 'go') {
+      run.controlsStage = 'done';
+      run.stoppedAt = null;
+      run.braking = false;
+    }
+    return;
+  }
   if (input === 'left' || input === 'right') {
     if (junction.ring) {
       // Roundabout: right arms the blinker for the next exit, left keeps you circling.
@@ -966,7 +980,14 @@ export const step = (run, now) => {
     const mustStop = run.braking || (beforeLine && noStraight);
     let target = run.speed;
     let rate = ACCEL;
-    if (mustStop) {
+    const learningStop = junction.lesson === 'controls' && run.controlsStage !== 'done';
+    if (learningStop) {
+      // A gentle roll gives the instruction time to be read. Hold safely
+      // before the junction indefinitely; the exercise only ends on input.
+      const remaining = Math.max(0, junction.sWait - run.s);
+      target = run.controlsStage === 'braking' ? 0 : Math.min(4, Math.sqrt(2 * SOFT_DECEL * remaining));
+      rate = SOFT_DECEL;
+    } else if (mustStop) {
       // React at once: slow to a creep, then follow the curve into the line.
       const curve = beforeLine ? Math.sqrt(2 * DECEL * Math.max(0, junction.sWait - run.s)) : 0;
       target = Math.min(target, Math.max(4, run.speed * CREEP), curve);
@@ -981,6 +1002,18 @@ export const step = (run, now) => {
     run.brakeLights = mustStop || target < run.v;
     run.v = target < run.v ? Math.max(target, run.v - (rate * dt) / 1000) : Math.min(target, run.v + (ACCEL * dt) / 1000);
     let next = run.s + (run.v * dt) / 1000;
+    if (learningStop) {
+      next = Math.min(next, junction.sWait);
+      if (junction.sWait - next < .01) { next = junction.sWait; run.v = 0; }
+      if (run.controlsStage === 'braking' && run.v === 0) {
+        run.stoppedAt = next;
+        run.braking = false;
+        run.controlsStage = 'go';
+        junction.stopped = true;
+        junction.stoppedAtTime = now;
+        run.events.push({ type: 'stopped', junction: junction.index });
+      }
+    }
     if (Number.isFinite(queueGap)) {
       next = Math.min(next, run.s + Math.max(0, queueGap - 6));
       if (queueGap < 6.1) {
@@ -989,7 +1022,7 @@ export const step = (run, now) => {
         if (run.braking) run.stoppedAt = next;
       }
     }
-    const atLine = beforeLine && mustStop && (next >= junction.sWait || junction.sWait - next < 0.3);
+    const atLine = !learningStop && beforeLine && mustStop && (next >= junction.sWait || junction.sWait - next < 0.3);
     if (!beforeLine && mustStop && run.v === 0) run.stoppedAt = next;
     if (atLine && noStraight && !run.braking) {
       // No straight ahead and no direction chosen: wait at the line for a swipe.
@@ -1243,6 +1276,9 @@ export const step = (run, now) => {
 export const lessonHint = (run, { visibleVehicles = null, junctionVisible = true } = {}) => {
   if (!run.coach || run.over) return null;
   const junction = currentJunction(run);
+  if (junction.lesson === 'controls' && run.controlsStage !== 'done') {
+    return { step: run.controlsStage === 'go' ? 'go' : run.controlsStage === 'braking' ? 'rolling' : 'controlsStop' };
+  }
   if (!junction.lesson || !junction.scheduled || junction.passed) return null;
   if (!junctionVisible && run.s < junction.sWait) return { step: 'observe' };
   const instr = junction.instruction;

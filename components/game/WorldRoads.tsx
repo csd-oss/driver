@@ -16,24 +16,28 @@ interface FrameProps {
   gapAfter: number;
   youTo: string | null;
   dark: boolean;
-  lights: Record<string, LightPhase> | null;
+  lightKey: string;
+  renderLights: boolean;
 }
 
 // The static drawing of one junction does not change from frame to frame
 // (only the camera above it does), so it is rebuilt only when these
 // primitive props change. That keeps a turning camera smooth.
-const JunctionFrame = memo(({ scene, index, gapBefore, gapAfter, youTo, dark, lights }: FrameProps) => {
+const JunctionFrame = memo(({ scene, index, gapBefore, gapAfter, youTo, dark, lightKey, renderLights }: FrameProps) => {
   // The first junction owns its whole lead road; later ones meet halfway.
   const before = index === 0 ? gapBefore + SIDE_ROAD : gapBefore / 2 + 2;
   const extendArms: Record<string, number> = { S: before };
   if (youTo) extendArms[youTo] = gapAfter / 2 + 2;
-  return <><StreetEnvironment scene={scene} extensions={extendArms} seed={index} /><JunctionStatic scene={scene} dark={dark} extendArms={extendArms} lights={lights} sideExtend={SIDE_ROAD} ownArm="S" /></>;
+  const phases = lightKey.split(',');
+  const lights = Object.fromEntries(['N', 'E', 'S', 'W'].flatMap((arm, i) => phases[i] ? [[arm, phases[i] as LightPhase]] : []));
+  return <><StreetEnvironment scene={scene} extensions={extendArms} seed={index} /><JunctionStatic scene={scene} dark={dark} extendArms={extendArms} lights={lights} renderLights={renderLights} sideExtend={SIDE_ROAD} ownArm="S" /></>;
 });
 JunctionFrame.displayName = 'JunctionFrame';
 
 
-export function WorldRoads({ junctions, lights = {} }: { junctions: WorldJunction[]; lights?: Record<number, Record<string, LightPhase> | null> }) {
+export function WorldRoads({ junctions, lights = {}, renderLights = true }: { junctions: WorldJunction[]; lights?: Record<number, Record<string, LightPhase> | null>; renderLights?: boolean }) {
   return <>{junctions.map(j => <G key={j.index} transform={`translate(${j.cx} ${j.cy}) rotate(${j.rot}) translate(${-CENTER} ${-CENTER})`}>
-    <JunctionFrame scene={j.scene} index={j.index} gapBefore={j.gapBefore ?? 80} gapAfter={j.gapAfter ?? 80} youTo={j.scene.vehicles.find((v: SceneVehicle) => v.id === 'you')?.to ?? null} dark={false} lights={lights[j.index] ?? null} />
+    <JunctionFrame scene={j.scene} index={j.index} gapBefore={j.gapBefore ?? 80} gapAfter={j.gapAfter ?? 80} youTo={j.scene.vehicles.find((v: SceneVehicle) => v.id === 'you')?.to ?? null} dark={false}
+      renderLights={renderLights} lightKey={renderLights ? ['N', 'E', 'S', 'W'].map(arm => lights[j.index]?.[arm] ?? '').join(',') : ''} />
   </G>)}</>;
 }

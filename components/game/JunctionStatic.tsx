@@ -36,6 +36,8 @@ interface Props {
   sideExtend?: number;
   /** The arm you arrive on: only its signs face you, the other arms show grey sign backs (their shape still tells what they are). */
   ownArm?: string;
+  /** Native driving composites live lamps separately from the cached road. */
+  renderLights?: boolean;
 }
 
 // Rotation that turns "up" into "towards the junction" for traffic arriving on an arm.
@@ -56,7 +58,7 @@ const LaneMarking = ({ scene, arm, kind, colour }: { scene: SceneLike; arm: stri
 };
 
 /** Three-lamp traffic light head beside the lane, lit for the given phase. */
-const LightHead = ({ scene, arm, phase }: { scene: SceneLike; arm: string; phase: LightPhase }) => {
+export const LightHead = ({ scene, arm, phase }: { scene: SceneLike; arm: string; phase: LightPhase }) => {
   const p = signPoint(arm, scene.layout, scene);
   const on = (lamp: 'red' | 'yellow' | 'green') =>
     (lamp === 'red' && (phase === 'red' || phase === 'redyellow')) ||
@@ -175,7 +177,7 @@ const RoundaboutSign = ({ x, y }: { x: number; y: number }) => {
 };
 
 /** Roads, markings, signs, tracks, officer, lights, pedestrians of one junction, in its local frame. */
-export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0, ownArm }: Props) => {
+export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, sideExtend = 0, ownArm, renderLights = true }: Props) => {
   const ext = (arm: string) => extendArms[arm] ?? sideExtend;
   const grass = dark ? '#233831' : '#c6d5b7';
   const asphalt = dark ? '#38464c' : '#66777a';
@@ -296,7 +298,7 @@ export const JunctionStatic = ({ scene, dark, extendArms = {}, lights = null, si
           {scene.control.pose === 'arm-raised' && <Circle cx={2.4} cy={-3} r={1} fill="#fcd9b6" />}
         </G>
       )}
-      {scene.control?.type === 'lights' &&
+      {renderLights && scene.control?.type === 'lights' &&
         scene.arms.map((arm) => {
           const live = lights?.[arm];
           const colour = scene.control?.arms?.[arm];

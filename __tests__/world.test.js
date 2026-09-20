@@ -973,7 +973,7 @@ describe('the guide', () => {
   const obey = (run) => {
     const hint = lessonHint(run);
     if (!hint) return;
-    if (hint.step === 'giveWay' || hint.step === 'redLight' || hint.step === 'stopSign') applyInput(run, 'brake');
+    if (hint.step === 'controlsStop' || hint.step === 'giveWay' || hint.step === 'redLight' || hint.step === 'stopSign') applyInput(run, 'brake');
     if (hint.step === 'go') applyInput(run, 'go');
     if (hint.step === 'turn') applyInput(run, hint.dir);
     if (hint.step === 'ring') applyInput(run, 'right');

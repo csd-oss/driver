@@ -1,8 +1,22 @@
-import { patchKey, retainRoadPatches, roadPatch } from '../src/lib/priority/render';
+import { patchKey, retainRoadPatches, roadPatch, roadRasterScale } from '../src/lib/priority/render';
 
 const patch = (x, y = 0) => roadPatch(x, y, 138, 246);
 
 describe('road cache handover', () => {
+  test('high-density scenery uses a bounded texture without changing world coordinates', () => {
+    const p = patch(45, 85), pointsPerUnit = 393 / 138;
+    for (const density of [1, 2, 2.625, 3, 3.5, 4]) {
+      const resolution = roadRasterScale(density);
+      const size = p.half * 2 * pointsPerUnit;
+      expect(size * resolution * density).toBeLessThanOrEqual(size * 2);
+      for (const worldX of [p.anchorX - p.half, 45, p.anchorX + p.half]) {
+        const rasterX = (worldX - p.anchorX + p.half) * pointsPerUnit * resolution;
+        const displayedX = (p.anchorX - p.half) * pointsPerUnit + rasterX / resolution;
+        expect(displayedX).toBeCloseTo(worldX * pointsPerUnit, 8);
+      }
+    }
+    expect(roadRasterScale(3) ** 2).toBeLessThan(.45); // under 45% of the old pixel area
+  });
   test('the painted surface stays mounted when a new origin appears', () => {
     const painted = patch(31.9);
     const replacement = patch(32.1);

@@ -8,6 +8,11 @@ export const roadPatch = (x, y, span, viewHeight) => ({
 
 export const patchKey = ({ anchorX, anchorY, half }) => `${anchorX}:${anchorY}:${half}`;
 
+// Overscan patches are much larger than the viewport. A 3x-density phone can
+// otherwise allocate ~70 MB for each road texture, then allocate it again at
+// the next cache boundary. Draw scenery at up to 2 physical pixels per point.
+export const roadRasterScale = pixelRatio => Math.min(1, 2 / pixelRatio);
+
 /** Keep the last painted origin beneath its replacement while SVG mounts.
  * Both use world coordinates, so overlapping patches show exactly the same road.
  * Two slots bound memory and also reuse mounted views when crossing back again.

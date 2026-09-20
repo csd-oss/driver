@@ -23,6 +23,12 @@ the first Stop prompt now takes about 6.7 seconds to reach the line, versus 26.7
 seconds previously in the same deterministic simulation. Normal practice keeps
 its existing road distances and speed-dependent spacing.
 
+Build 35 makes the controls exercise learner-paced. It rolls at no more than
+4 units/second and waits before the first junction until Stop is pressed. That
+input brakes to a halt immediately rather than creeping to the line, then the
+instructor waits for Go. Taking 30 seconds to read cannot skip the exercise.
+The compact road and the later lessons keep their existing pacing.
+
 Trams do not have universal priority. The two tram lessons demonstrate how
 signs and the applicable priority rule affect the decision. Rules are documented
 in `priority-rules.md` and resolved by the shared priority engine.

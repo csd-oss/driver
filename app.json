@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.smartie.driver",
-      "buildNumber": "34",
+      "buildNumber": "35",
       "infoPlist": {
         "CADisableMinimumFrameDurationOnPhone": true
       },

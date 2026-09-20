@@ -2,19 +2,27 @@ import { makeRng } from '../src/lib/priority/generator';
 import { applyInput, createRun, currentJunction, lessonHint, step } from '../src/lib/priority/world';
 import { LESSONS } from '../src/lib/priority/lessons';
 
-test('following the first Stop prompt reaches a full stop within eight seconds', () => {
+test.each([0, 3000, 10000, 30000])('the first Stop exercise waits for a learner who reacts after %i ms', delay => {
   const run = createRun(makeRng(1000), 1, { lesson: 0, continuousGuide: true });
   step(run, 32);
   const junction = currentJunction(run);
+  while (run.now < delay) step(run, run.now + 32);
+  expect(junction.passed).toBe(false);
+  expect(run.s).toBeLessThanOrEqual(junction.sWait);
+  expect(lessonHint(run).step).toBe('controlsStop');
+  applyInput(run, 'go');
+  expect(run.controlsStage).toBe('stop'); // cannot skip the brake exercise
+  const pressedAt = run.now;
   applyInput(run, 'brake');
-  while (run.stoppedAt === null && run.now < 8000) step(run, run.now + 32);
+  while (run.stoppedAt === null && run.now < pressedAt + 1500) step(run, run.now + 32);
   expect(run.stoppedAt).not.toBeNull();
-  expect(run.s).toBe(junction.sWait);
+  expect(run.s).toBeLessThanOrEqual(junction.sWait);
+  expect(lessonHint(run).step).toBe('go');
   const stoppedAt = run.s;
   for (let i = 0; i < 60; i++) step(run, run.now + 32);
   expect(run.s).toBe(stoppedAt);
   applyInput(run, 'go');
-  while (!junction.passed && run.now < 15000) step(run, run.now + 32);
+  while (!junction.passed && run.now < pressedAt + 15000) step(run, run.now + 32);
   expect(junction.passed).toBe(true);
   expect(junction.crashed).toBe(false);
 });

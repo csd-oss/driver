@@ -128,3 +128,33 @@ turns. The guide pacing changes are covered separately by `guidePacing.test.js`.
 The production-Hermes simulator Stop/Go recording contained 1,073 driving
 frames with no missing-road frames. This is a targeted blink regression check;
 it does not establish physical-device FPS or rule out every type of visual glitch.
+
+Build 35 separates live traffic lamps into small native layers. Signal phases no
+longer invalidate either full road texture. Web road frames compare lamp colours
+by value, so a new light-state object every snapshot does not redraw unchanged
+scenery. `roadRendering.test.js` checks stable painting over 90 snapshots and
+confirms that real road-layout edits still redraw.
+
+Overscanned road textures are capped at two physical pixels per point. On a
+3x-density iPhone that uses 44% of the previous pixel area for each replacement
+texture, reducing cache-boundary allocation and image-resampling work. The
+native compositor scales this static surface around its top-left origin; world
+coordinates, camera alignment, and retained-patch coverage do not change.
+
+The animation runtime is pinned to Reanimated 4.2.3 and Worklets 0.7.4, both
+compatible with React Native 0.81.5. The iOS native transform fast path and
+React-only commit hook are enabled in package.json. This removes layout-tree
+commits from camera/car transforms, a cost visible in the earlier native profile.
+PressableScale uses React Native's native animation driver so animated buttons
+do not use the fast path that bypasses Fabric touch bookkeeping.
+
+These pins require a native development/release build, not the Expo Go binary
+bundled for SDK 54. After dependency changes, run pod install and rebuild native
+targets. See the runtime's [compatibility table](https://docs.swmansion.com/react-native-reanimated/docs/guides/compatibility/)
+and [feature-flag documentation](https://docs.swmansion.com/react-native-reanimated/docs/guides/feature-flags/).
+
+Build 35's release simulator passed Stop/Go and pause/resume interaction checks.
+Two recordings, including cache handovers and a turn, contained 3,176 road frames
+with no missing-road frames. A native sample confirms that moving layers use
+`synchronouslyUpdateUIProps`. Physical-device frame pacing still needs checking;
+these simulator checks do not establish sustained 120 fps.

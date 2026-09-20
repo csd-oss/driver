@@ -2056,9 +2056,9 @@ export const STR = {
     3: 'A vezérlés',
   },
   'guide.lesson.controls.goal': {
-    1: 'Auto ide samo. Skús Zastaviť alebo potiahni nadol po ceste. Potom stlač Rozjazd alebo potiahni nahor.',
-    2: 'I’ll guide you. Try Stop or swipe down on the road to brake. Then tap Go or swipe up.',
-    3: 'Én vezetlek végig. Fékezz a Megállás gombbal vagy lefelé húzással az úton. Ezután az Indulás gombbal vagy felfelé húzással indulj.',
+    1: 'Skús Zastaviť alebo potiahni nadol. Máš čas, počkám na teba. Potom stlač Rozjazd alebo potiahni nahor.',
+    2: 'Try Stop or swipe down to brake. Take your time, I’ll wait. Then tap Go or swipe up.',
+    3: 'Próbáld ki a Megállást, vagy húzz lefelé. Ráérsz, megvárlak. Utána nyomd meg az Indulást, vagy húzz felfelé.',
   },
   'guide.lesson.rightHand.title': {
     1: 'Pravidlo pravej ruky',

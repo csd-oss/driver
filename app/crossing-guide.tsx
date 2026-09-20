@@ -27,6 +27,7 @@ const instructionText = (i: { kind: string; turn: string }, lang: number) =>
 const promptFor = (run: any, lang: number, lessonId: string, visibility: any): { text: string; swipe: SwipeDirection | null } | null => {
   const hint = lessonHint(run, visibility);
   const junction = currentJunction(run);
+  if (hint?.step === 'controlsStop') return { text: t('guide.lesson.controls.goal', lang), swipe: 'down' };
   if (lessonId === 'controls' && !junction.stopped && !run.braking && (!hint || ['observe', 'priority', 'rolling'].includes(hint.step))) {
     return { text: t('guide.lesson.controls.goal', lang), swipe: 'down' };
   }
