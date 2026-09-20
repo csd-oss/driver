@@ -77,3 +77,27 @@ can run concurrently instead of waiting for an entire previous approach and trav
 `roundaboutMotion.test.js` checks speed bounds across generated paths, yielding
 outside an occupied ring, and resuming after it clears. Existing traffic-stall,
 body-separation and prolonged-roundabout-stop tests remain release checks.
+
+Build 32 removes animated SVG transforms from the scrolling native game. Cars
+are small cached native layers, and roads, path hints and cars use one shared
+camera. Vehicle artwork is still shared with the web and junction previews.
+Moving a car no longer requires repainting the SVG vehicle layer at display rate.
+
+Road patches now have immutable world origins. The camera worklet never captures
+the changing cache anchor; a replacement patch is mounted with its own position
+and viewBox. This removes the old race between an updated compositor translation
+and the previous cached SVG image. Patch coverage includes diagonal anchor error.
+The player's position uses the camera's shared values so it cannot drift for a
+frame while the separate road and vehicle animations catch up.
+
+The native snapshot scheduler keeps a fixed 30 Hz timeline, tolerates 2 ms of
+callback jitter and drops missed slots after a stall. It no longer resets its
+deadline to the last callback, which could repeatedly add a display frame of
+waiting. `nativeProjection.test.js` checks 60/120 Hz scheduling with jitter,
+stall recovery, camera alignment, and patch coverage at all headings.
+
+High-refresh iPhone opt-in is now explicit in app.json as well as the local iOS
+plist. The installed Reanimated runtime requests 120 Hz; simulation snapshots
+remain separate from native display-rate interpolation. Sustained 120 fps has
+not been verified on a physical iPhone. Simulator recordings and production
+Hermes interaction checks are useful for regressions, not a device FPS guarantee.

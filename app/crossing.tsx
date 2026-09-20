@@ -16,6 +16,7 @@ import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { explainRecord } from '@/src/lib/crossingLog';
 import { confirmDialog } from '@/src/lib/dialog';
 import { makeRng } from '@/src/lib/priority/generator';
+import { nextSnapshotAt, SNAPSHOT_MS } from '@/src/lib/priority/render';
 import {
   LIVES,
   applyInput,
@@ -165,12 +166,17 @@ export default function CrossingScreen() {
   useEffect(() => {
     if (phase !== 'running' || paused) return;
     if (lastTickRef.current) shiftTime(runRef.current, Math.max(0, now() - lastTickRef.current));
+    let snapshotAt = now() + SNAPSHOT_MS;
     const tick = () => {
       const run = runRef.current;
       const tNow = now();
       const gap = tNow - lastTickRef.current;
       // Native transforms interpolate between 30 Hz snapshots on the UI thread.
-      if (Platform.OS !== 'web' && gap < 31) { frameRef.current = requestAnimationFrame(tick); return; }
+      if (Platform.OS !== 'web') {
+        const next = nextSnapshotAt(snapshotAt, tNow);
+        if (next === snapshotAt) { frameRef.current = requestAnimationFrame(tick); return; }
+        snapshotAt = next;
+      }
       if (gap > 400) shiftTime(run, gap - 16);
       lastTickRef.current = tNow;
       drivingTimeRef.current += Math.min(gap, 100);

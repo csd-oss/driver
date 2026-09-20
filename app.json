@@ -12,6 +12,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.smartie.driver",
       "buildNumber": "32",
+      "infoPlist": {
+        "CADisableMinimumFrameDurationOnPhone": true
+      },
       "config": {
         "usesNonExemptEncryption": false
       },

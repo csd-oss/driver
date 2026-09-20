@@ -32,7 +32,7 @@ export interface WorldVehicle {
   local?: { x: number; y: number };
 }
 
-interface Props {
+export interface WorldSceneProps {
   width: number;
   height: number;
   junctions: WorldJunction[];
@@ -56,7 +56,7 @@ interface Props {
  * Scrolling top-down view of the run. The camera sits above your car and
  * turns with it; junctions are drawn in their own rotated frames.
  */
-export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle, heading, highlight = [], blinkOn = true, shake = 0, lights = {}, youSignal, youBraking = false }: Props) => {
+export const WorldScene = ({ width, height, junctions, vehicles, you, youVehicle, heading, highlight = [], blinkOn = true, shake = 0, lights = {}, youSignal, youBraking = false }: WorldSceneProps) => {
   const dark = false; // Daylight road training stays readable in either app theme.
   const grass = dark ? '#233831' : '#c6d5b7';
   const view = cameraView(width, height, you, heading);

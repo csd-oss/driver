@@ -8,6 +8,7 @@ import { UIText } from '@/components/ui/text';
 import { t, tf } from '@/src/i18n/i18n';
 import { LESSONS, LESSON_COUNT, lessonVerdict } from '@/src/lib/priority/lessons';
 import { makeRng } from '@/src/lib/priority/generator';
+import { nextSnapshotAt, SNAPSHOT_MS } from '@/src/lib/priority/render';
 import { applyInput, createRun, currentJunction, lessonHint, lightState, shiftTime, step, vehiclePoses, visibleJunctions, youPose, youSignalFor } from '@/src/lib/priority/world';
 import { cameraView, visibleInRoad } from '@/src/lib/priority/view';
 import { vehicleName } from '@/src/lib/priority/vehicleName';
@@ -86,11 +87,16 @@ export default function CrossingGuideScreen() {
     const run = runRef.current;
     if (tickRef.current) shiftTime(run, Math.max(0, now() - tickRef.current));
     tickRef.current = now();
+    let snapshotAt = tickRef.current + SNAPSHOT_MS;
     let request = 0;
     const tick = () => {
       const time = now();
       const gap = time - tickRef.current;
-      if (Platform.OS !== 'web' && gap < 31) { request = requestAnimationFrame(tick); return; }
+      if (Platform.OS !== 'web') {
+        const next = nextSnapshotAt(snapshotAt, time);
+        if (next === snapshotAt) { request = requestAnimationFrame(tick); return; }
+        snapshotAt = next;
+      }
       if (gap > 400) shiftTime(run, gap - 16);
       tickRef.current = time;
       const events = step(run, time);
