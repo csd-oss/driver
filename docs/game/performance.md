@@ -101,3 +101,14 @@ plist. The installed Reanimated runtime requests 120 Hz; simulation snapshots
 remain separate from native display-rate interpolation. Sustained 120 fps has
 not been verified on a physical iPhone. Simulator recordings and production
 Hermes interaction checks are useful for regressions, not a device FPS guarantee.
+
+Build 33 keeps the preceding road patch mounted underneath the current patch.
+Build 32's keyed replacement could remove the painted surface before its new
+SVG acquired backing contents, producing a blink on a physical iPhone even
+though camera motion was smooth. Both retained patches share immutable world
+coordinates and live road/signal content. Only the oldest patch is removed on
+the next handover; reversing over a boundary reuses both mounted views. Two
+patches bound the additional texture memory. Path hints remain a single layer
+so their translucent arrows do not become darker through duplicate compositing.
+`roadCache.test.js` covers retention, retirement, reversal, and old-patch coverage
+at a diagonal handover. Camera animation and simulation cadence are unchanged.

@@ -6,6 +6,19 @@ export const roadPatch = (x, y, span, viewHeight) => ({
   half: Math.ceil(Math.hypot(span / 2, viewHeight * 0.72) + Math.SQRT2 * 32 + 8),
 });
 
+export const patchKey = ({ anchorX, anchorY, half }) => `${anchorX}:${anchorY}:${half}`;
+
+/** Keep the last painted origin beneath its replacement while SVG mounts.
+ * Both use world coordinates, so overlapping patches show exactly the same road.
+ * Two slots bound memory and also reuse mounted views when crossing back again.
+ */
+export function retainRoadPatches(patches, next) {
+  const key = patchKey(next);
+  if (patches.length && patchKey(patches[patches.length - 1]) === key) return patches;
+  const existing = patches.find(patch => patchKey(patch) === key);
+  return [...patches.filter(patch => patchKey(patch) !== key).slice(-1), existing ?? next];
+}
+
 /** Native compositor projection. One shared camera drives roads and all cars. */
 export function projectVehicle(x, y, angle, cameraX, cameraY, heading, scale, width, height, shake) {
   'worklet';
