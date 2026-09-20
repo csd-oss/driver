@@ -161,17 +161,20 @@ test('moving off on red records the actual entry and costs exactly one life', ()
   expect(run.lives).toBe(2);
 });
 
-test('the instructor uses the same cadence in guide and practice, and does not repeat', () => {
+test('the instructor does not announce priority in either guide or practice', () => {
   const run = sceneRun('mainRoad');
   step(run, 32);
   const guided = createInstructor(), practice = createInstructor();
   const options = { lang: 2, visibility: { junctionVisible: true, visibleVehicles: ['blue'] } };
   for (let tick = 0; tick < 300; tick++) {
     run.now += 32;
-    expect(instructorFrame(guided, run, options)).toEqual(instructorFrame(practice, { ...run, coach: false }, options));
+    const speech = instructorFrame(guided, run, options);
+    expect(speech).toEqual(instructorFrame(practice, { ...run, coach: false }, options));
+    expect(speech.instruction).toBeNull();
+    expect(speech.status).toBeNull();
   }
   expect(instructorFrame(guided, run, options).instruction).toBeNull();
-  expect(guided.said.size).toBe(1);
+  expect(guided.said.size).toBe(0);
 });
 
 test('pause preserves an explanation, and unseen traffic is not announced', () => {

@@ -65,7 +65,6 @@ export function instructorFrame(state, run, { lang, events = [], visibility = {}
     else if (hint.step === 'giveWay' && !run.braking && car) candidate = prompt('crossing.coach.giveWay', 'down');
     else if (hint.step === 'ring') candidate = prompt('practice.coach.exit', 'right');
     else if (hint.step === 'turn') candidate = prompt('crossing.coach.turn', hint.dir);
-    else if (hint.step === 'priority' && visibility.junctionVisible && visibility.visibleVehicles?.length && junction.sWait - run.s < 65) candidate = prompt('practice.coach.priority');
   }
 
   // No timed repetition. A new state can speak once; obsolete advice vanishes
