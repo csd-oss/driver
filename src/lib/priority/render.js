@@ -19,6 +19,19 @@ export function retainRoadPatches(patches, next) {
   return [...patches.filter(patch => patchKey(patch) !== key).slice(-1), existing ?? next];
 }
 
+// A preview travels at most 35 world units, plus its 3.2-unit arrowhead.
+export const PREVIEW_HALF = 40;
+export const PREVIEW_SPAN = 0.5;
+
+/** Mount traffic before it enters view, but don't animate distant sprites. */
+export function trafficInView(pose, view) {
+  const a = -view.heading * Math.PI / 180;
+  const dx = pose.x - view.you.x, dy = pose.y - view.you.y;
+  const x = view.span / 2 + dx * Math.cos(a) - dy * Math.sin(a);
+  const y = view.viewHeight * .72 + dx * Math.sin(a) + dy * Math.cos(a);
+  return x > -PREVIEW_HALF && x < view.span + PREVIEW_HALF && y > -PREVIEW_HALF && y < view.viewHeight + PREVIEW_HALF;
+}
+
 /** Native compositor projection. One shared camera drives roads and all cars. */
 export function projectVehicle(x, y, angle, cameraX, cameraY, heading, scale, width, height, shake) {
   'worklet';

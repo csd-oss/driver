@@ -1022,10 +1022,8 @@ describe('the guide', () => {
 
   it('passes every lesson when the player does as it says', () => {
     LESSONS.forEach((lesson, index) => {
-      const { run, j, verdict } = play(index, (r, junction, now) => {
-        obey(r);
-        if (r.stoppedAt !== null && !junction.needTurn && (!junction.blockers.length || r.now >= junction.clearAt) && now > junction.stoppedAtTime + 500) applyInput(r, 'go');
-      });
+      // Follow Go only when the instructor says the light and traffic are clear.
+      const { run, j, verdict } = play(index, obey);
       expect(j.crashed).toBe(false);
       expect(verdict).toEqual({ passed: true, reason: null });
       expect(run.lives).toBe(LIVES); // the guide never takes a life
@@ -1033,7 +1031,7 @@ describe('the guide', () => {
   });
 
   it('fails the lesson, without cost, when the player ignores it', () => {
-    const cases = { rightHand: 'crash', sideRoad: 'crash', stopSign: 'noStop', lights: 'crash', turn: 'wrongWay', leftTurn: 'wrongWay' };
+    const cases = { sideRoad: 'crash', stopSign: 'noStop', lights: 'crash', turn: 'wrongWay', leftTurn: 'wrongWay' };
     for (const [id, reason] of Object.entries(cases)) {
       const index = LESSONS.findIndex((l) => l.id === id);
       const { run, verdict } = play(index, (r, junction) => {
@@ -1045,6 +1043,16 @@ describe('the guide', () => {
       expect(verdict.reason).toBe(reason);
       expect(run.lives).toBe(LIVES);
     }
+  });
+
+  it('allows a clear gap before right-hand traffic reaches the short approach', () => {
+    const index = LESSONS.findIndex(l => l.id === 'rightHand');
+    const { j, verdict } = play(index, () => {});
+    // The compact lead-in lets this car clear before the other car arrives.
+    // Stopping is advised, but a safe gap must not become an artificial crash.
+    expect(j.passed).toBe(true);
+    expect(j.crashed).toBe(false);
+    expect(verdict).toEqual({ passed: true, reason: null });
   });
 
   it('fails a lesson for moving off on red, and it still costs nothing', () => {
@@ -1072,7 +1080,8 @@ describe('the guide', () => {
       if (hint && seen[seen.length - 1] !== hint.step) seen.push(hint.step);
       obey(run);
     }
-    expect(seen[0]).toBe('giveWay');
+    expect(seen[0]).toBe('observe');
+    expect(seen).toContain('giveWay');
     expect(seen).toContain('go');
     expect(seen.indexOf('go')).toBeGreaterThan(seen.indexOf('giveWay'));
   });

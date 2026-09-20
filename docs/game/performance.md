@@ -112,3 +112,19 @@ patches bound the additional texture memory. Path hints remain a single layer
 so their translucent arrows do not become darker through duplicate compositing.
 `roadCache.test.js` covers retention, retirement, reversal, and old-patch coverage
 at a diagonal handover. Camera animation and simulation cadence are unchanged.
+
+Build 34 replaces the oversized scrolling path-hint SVG with an 80-by-80
+world-unit surface around each visible traffic vehicle. At a 393-by-700-point
+viewport, the old surface covered 488-by-488 world units; three compact hints
+cover 92% less total surface area. This is a canvas-area comparison, not an FPS
+measurement. Each hint shares the road camera and moves through native view
+transforms. Vehicle and hint views are culled outside the viewport plus a
+40-unit margin; off-screen traffic still participates in the simulation.
+The two retained road patches from build 33 remain unchanged.
+
+`nativePreview.test.js` checks preview bounds and camera alignment across every
+guide path and cardinal road rotation, plus visibility margins through camera
+turns. The guide pacing changes are covered separately by `guidePacing.test.js`.
+The production-Hermes simulator Stop/Go recording contained 1,073 driving
+frames with no missing-road frames. This is a targeted blink regression check;
+it does not establish physical-device FPS or rule out every type of visual glitch.

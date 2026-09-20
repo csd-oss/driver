@@ -20,6 +20,11 @@ interface Props {
 export const PathArrow = ({ scene, vehicle, opacity = 0.85, span = 0.62, progress = 0, from }: Props) => {
   const path = useMemo(() => vehiclePath(scene, vehicle), [scene, vehicle]);
   const shown = pathHint(path, progress, from, span);
+  return <PathTrail points={shown} color={vehicle.color} opacity={opacity} />;
+};
+
+/** Shared artwork for web/world paths and compact native preview surfaces. */
+export const PathTrail = ({ points: shown, color, opacity = 0.85 }: { points: { x: number; y: number }[]; color: string; opacity?: number }) => {
   if (shown.length < 2) return null;
   const d = shown.map((p, i) => `${i ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
   const tip = shown[shown.length - 1];
@@ -32,7 +37,7 @@ export const PathArrow = ({ scene, vehicle, opacity = 0.85, span = 0.62, progres
     `${tip.x - size * 0.45 * Math.cos(angle)},${tip.y - size * 0.45 * Math.sin(angle)}`,
     `${tip.x - size * Math.cos(angle + 0.55)},${tip.y - size * Math.sin(angle + 0.55)}`,
   ].join(' ');
-  const colour = VEHICLE_FILL[vehicle.color] ?? '#ffffff';
+  const colour = VEHICLE_FILL[color] ?? '#ffffff';
   return (
     <G opacity={opacity}>
       <Path d={d} stroke="rgba(255,255,255,0.55)" strokeWidth={2.2} fill="none" strokeLinecap="round" />

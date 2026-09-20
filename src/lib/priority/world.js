@@ -31,6 +31,8 @@ export const SPACING = 180;            // smallest distance between junction cen
 export const MAX_SPACING = 320;
 export const SECONDS_BETWEEN = 7.5;    // junction spacing grows with speed so this much time stays between lines
 export const LEAD_ROAD = 160;          // open road before the first junction of a run
+export const GUIDE_LEAD_ROAD = 16;     // start near the first demonstration, not a long empty approach
+export const GUIDE_SPACING = 140;      // compact connecting streets between guided junctions
 export const BASE_SPEED = 20;          // units per second at level 1
 export const SPEED_STEP = 0.4;
 export const MAX_SPEED = 24;
@@ -332,9 +334,10 @@ const createJunction = (rng, level, prev, lessonIndex = null) => {
   const lesson = corridor || lessonIndex === null ? null : lessonAt(lessonIndex);
   const scene = corridor ? tramStreet() : lesson ? lessonScene(lessonIndex) : generatePlayable(rng, level);
   const you = scene.vehicles.find((v) => v.id === 'you');
+  const spacing = lessonIndex !== null ? GUIDE_SPACING : spacingFor(level);
   const junction = prev
-    ? placeAfter(prev, scene, spacingFor(level))
-    : { scene, cx: CENTER, cy: CENTER, rot: 0, gapBefore: LEAD_ROAD, gapAfter: spacingFor(level) - 2 * CENTER };
+    ? placeAfter(prev, scene, spacing)
+    : { scene, cx: CENTER, cy: CENTER, rot: 0, gapBefore: lesson ? GUIDE_LEAD_ROAD : LEAD_ROAD, gapAfter: spacing - 2 * CENTER };
   junction.lesson = lesson ? lesson.id : null;
   junction.lessonIndex = lesson ? lessonIndex : null;
   junction.tramStreet = corridor;
@@ -421,7 +424,7 @@ export const createRun = (rng, level = 1, { lesson = null, continuousGuide = fal
 /** Recompute the route polyline from all junctions and mark their distances. */
 const rebuildRoute = (run) => {
   const first = run.junctions[0];
-  const points = [approachPoint('S', CENTER + LEAD_ROAD, first.scene, first.scene.vehicles.find((v) => v.id === 'you'))]; // open road before the first junction
+  const points = [approachPoint('S', CENTER + first.gapBefore, first.scene, first.scene.vehicles.find((v) => v.id === 'you'))]; // open road before the first junction
   let offset = 0;
   run.junctions.forEach((junction, i) => {
     const through = junction.through;
@@ -1264,6 +1267,10 @@ export const lessonHint = (run, { visibleVehicles = null, junctionVisible = true
   }
   if (!junction.stopped) {
     const visibleBlocker = blockers.find(id => visibleVehicles === null || visibleVehicles.includes(id));
+    // Announce turns early, but ask for braking only near the stopping zone.
+    // Otherwise following the coach creates a long crawl at the creep speed.
+    const brakingZone = Math.max(28, run.speed * 2.5 + run.speed * run.speed / (2 * DECEL));
+    if (junction.sWait - run.s > brakingZone && (visibleBlocker || red || stopSignFor(junction))) return { step: 'observe' };
     if (visibleBlocker) return { step: 'giveWay', vehicle: visibleBlocker };
     if (blockers.length && !red && !stopSignFor(junction)) return { step: 'observe' };
     if (red) return { step: 'redLight' };

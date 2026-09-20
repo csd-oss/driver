@@ -14,6 +14,15 @@ instructor directions, left turns, a tram approaching from the right, a tram
 yielding from a side road, and roundabouts. Scenes are joined by the same road
 builder as practice. The guide uses 60% of the regular cruise speed.
 
+Build 34 starts the first lesson 16 units before its junction frame instead of
+160, and spaces guide junctions 140 units apart instead of the practice minimum
+of 180. Turn instructions still appear early; braking prompts wait until the
+stopping zone (current-speed braking distance plus 2.5 seconds to react, minimum
+28 units). This avoids asking learners to creep down a long empty road. Following
+the first Stop prompt now takes about 6.7 seconds to reach the line, versus 26.7
+seconds previously in the same deterministic simulation. Normal practice keeps
+its existing road distances and speed-dependent spacing.
+
 Trams do not have universal priority. The two tram lessons demonstrate how
 signs and the applicable priority rule affect the decision. Rules are documented
 in `priority-rules.md` and resolved by the shared priority engine.
@@ -44,6 +53,8 @@ simulation clocks so traffic does not jump forward.
 ## Validation
 
 - `__tests__/world.test.js`: individual lessons, controls, lights, scoring.
+- `__tests__/guidePacing.test.js`: short approaches, prompt timing, complete
+  stops and safe resumption without shortening normal practice roads.
 - `__tests__/practiceSafety.test.js`: complete continuous route, translated
   vehicle names, visibility-gated coaching, tram yielding, physical separation
   and forward progress across deterministic drives.
