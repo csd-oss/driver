@@ -1,4 +1,4 @@
-import { bodiesOverlap, followingFraction, spaceTraffic, vehicleSize } from './traffic';
+import { bodiesOverlap, followingFraction, followingGap, spaceTraffic, vehicleSize } from './traffic';
 import { entersTramStreet, tramStreet } from './streetNetwork';
 import { resolve } from './engine';
 import { generatePlayable } from './generator';
@@ -10,7 +10,7 @@ import {
 } from './layout';
 import { queueBackFor } from './queue';
 import { lessonAt, lessonScene } from './lessons';
-import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt, rollingDuration } from './timeline';
+import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt, rollingDuration, traversalDuration } from './timeline';
 
 /**
  * Endless road for the Crossings runner.
@@ -526,6 +526,26 @@ const schedule = (run, junction) => {
       if (v.id !== 'you' && junction.starts[v.id] === null) junction.starts[v.id] = run.now + 300;
     }
   } else spaceTraffic(junction, run.now);
+  if (!junction.ring && !junction.lesson && !scene.control && !junction.tramStreet) {
+    // A distant priority vehicle does not reserve an empty junction. Let
+    // one waiting car use a gap, keeping the next car for the yielding case.
+    // Use maximum player speed and the entire exit path, not just its centre.
+    const earliestPlayer = run.now + Math.max(0, junction.sWait - run.s) / MAX_SPEED * 1000;
+    for (const v of scene.vehicles) {
+      const deps = resolution.yields[v.id] || [];
+      if (v.id === 'you' || v.kind === 'tram' || junction.starts[v.id] !== null || !deps.includes('you') || junction.queueBack[v.id] > 2) continue;
+      if (deps.some(id => id !== 'you' && junction.starts[id] === null)) continue;
+      let at = run.now + 700;
+      for (const id of deps) if (id !== 'you') at = Math.max(at, junction.starts[id] + clearMsOf(junction, id) + 700);
+      const duration = traversalDuration(scene, v, junction.pathCache);
+      if (at + duration + 1800 >= earliestPlayer) continue;
+      junction.starts[v.id] = at;
+      spaceTraffic(junction, run.now, [v.id]);
+      if (junction.starts[v.id] + duration + 1800 >= earliestPlayer) { junction.starts[v.id] = null; continue; }
+      junction.earlyTraffic = new Set([v.id]);
+      break;
+    }
+  }
   clearAtReal = -Infinity;
   for (const id of holdIds) {
     if (junction.starts[id] !== null) clearAtReal = Math.max(clearAtReal, junction.starts[id] + clearMsOf(junction, id));
@@ -606,7 +626,7 @@ const setYourMovement = (run, junction, to, keepStarts = false) => {
  * Crossing the stop line on red is the red-light offence, though.
  */
 const moveOff = (run, junction) => {
-  if (run.s < junction.sLine && redFor(junction, run.now) && !junction.ranRed) {
+  if (run.s >= junction.sWait - 0.5 && run.s < junction.sLine && redFor(junction, run.now) && !junction.ranRed) {
     junction.ranRed = true;
     run.streak = 0;
     run.events.push({ type: 'redLight', junction: junction.index });
@@ -703,7 +723,14 @@ export const lightPlan = (junction) => {
   const yourArms = Object.keys(control.arms || {}).filter((a) => control.arms[a] !== 'red');
   const crossArms = Object.keys(control.arms || {}).filter((a) => control.arms[a] === 'red');
   if (control.crossFirst && cross.length) {
-    return { yourArms, crossArms, yourGreenAt: junction.clearAt + ALL_RED_MS, crossGreenAt: junction.t0, next: 'you' };
+    // Only the cross phase controls this change. A car on our own phase
+    // may still have priority over our turn, but must not hold its own
+    // light red while waiting for that light to turn green.
+    const crossClearAt = Math.max(junction.t0, ...cross.map(id => {
+      const v = junction.scene.vehicles.find(car => car.id === id);
+      return junction.starts[id] === null ? junction.t0 : junction.starts[id] + clearTimeMs(junction.scene, v, 0.8, !junction.rollIn[id], junction.queueBack[id] || 0, junction.pathCache);
+    }));
+    return { yourArms, crossArms, yourGreenAt: crossClearAt + ALL_RED_MS, crossGreenAt: junction.t0, next: 'you' };
   }
   const crossStarts = cross.map((id) => junction.starts[id]).filter((t) => t !== null);
   const crossGreenAt = crossStarts.length ? Math.min(...crossStarts) : null;
@@ -921,6 +948,8 @@ export const step = (run, now) => {
   const previousS = run.s;
   const previousTraffic = vehiclePoses(run, now - dt);
   const playerVehicle = junction.scene.vehicles.find(v => v.id === 'you');
+  const previousPlayer = youPose(run);
+  const queueGap = Math.min(Infinity, ...previousTraffic.map(car => followingGap(previousPlayer, playerVehicle, car.pose, car.vehicle)));
   // Movement
   if (run.stoppedAt !== null || recovering) {
     // Stay stopped until an explicit go input. Observation has no time penalty.
@@ -942,9 +971,21 @@ export const step = (run, now) => {
     } else if (target < run.v) {
       rate = SOFT_DECEL;
     }
-    run.brakeLights = mustStop;
+    // Queue gently with room between bumpers. The body-overlap check below
+    // remains a last resort, not the normal way to stop behind another car.
+    const queueTarget = Math.max(0, (queueGap - 6) * 1.2);
+    if (queueTarget < target) { target = queueTarget; rate = DECEL; }
+    run.brakeLights = mustStop || target < run.v;
     run.v = target < run.v ? Math.max(target, run.v - (rate * dt) / 1000) : Math.min(target, run.v + (ACCEL * dt) / 1000);
     let next = run.s + (run.v * dt) / 1000;
+    if (Number.isFinite(queueGap)) {
+      next = Math.min(next, run.s + Math.max(0, queueGap - 6));
+      if (queueGap < 6.1) {
+        run.v = 0;
+        run.brakeLights = true;
+        if (run.braking) run.stoppedAt = next;
+      }
+    }
     const atLine = beforeLine && mustStop && (next >= junction.sWait || junction.sWait - next < 0.3);
     if (!beforeLine && mustStop && run.v === 0) run.stoppedAt = next;
     if (atLine && noStraight && !run.braking) {
@@ -1003,6 +1044,26 @@ export const step = (run, now) => {
   // whole vehicle. Preventing entry is safer than freezing touching bodies.
   const areas = visibleJunctions(run);
   for (const area of areas) {
+    // Every car reads the signal at the junction it is approaching, even
+    // if its trajectory originated several junctions earlier.
+    if (area.scene.control?.type === 'lights') {
+      const phases = lightState(area, now) || area.scene.control.arms;
+      const c = Math.cos(rad(area.rot)), sn = Math.sin(rad(area.rot));
+      const local = pose => ({ x: (pose.x - area.cx) * c + (pose.y - area.cy) * sn, y: -(pose.x - area.cx) * sn + (pose.y - area.cy) * c });
+      for (const car of proposedTraffic) {
+        const previous = previousByKey.get(keyOf(car));
+        if (!previous) continue;
+        const a = local(previous.pose), b = local(car.pose);
+        const arm = Math.abs(a.x) > Math.abs(a.y) ? (a.x > 0 ? 'E' : 'W') : (a.y > 0 ? 'S' : 'N');
+        const d = arm === 'E' ? a.x : arm === 'W' ? -a.x : arm === 'S' ? a.y : -a.y;
+        const nextD = arm === 'E' ? b.x : arm === 'W' ? -b.x : arm === 'S' ? b.y : -b.y;
+        const stop = boxHalf(area.scene, arm) + WAIT + Math.max(0, vehicleSize(car.vehicle).length / 2 - 5);
+        if (d < stop - 0.5 || nextD >= d || d > stop + 45 || phases[arm] === 'green') continue;
+        const remaining = Math.max(0, d - stop);
+        const fraction = Math.min(1, remaining / Math.max(0.001, d - nextD), remaining / 18);
+        entryFractions.set(keyOf(car), Math.min(entryFractions.get(keyOf(car)) ?? 1, fraction));
+      }
+    }
     if (area.ring) {
       area.ringEntrants ||= new Set();
       for (const key of area.ringEntrants) {
@@ -1036,12 +1097,24 @@ export const step = (run, now) => {
       const angle = rad(area.rot), c = Math.cos(angle), sn = Math.sin(angle);
       return Math.max(Math.abs(dx * c + dy * sn) - boxHalf(area.scene, 'E'), Math.abs(-dx * sn + dy * c) - boxHalf(area.scene, 'N')) - allowance;
     };
+    if (area.earlyTraffic && run.s < area.sEnd + 10) {
+      for (const car of proposedTraffic) {
+        if (car.junction !== area || !area.earlyTraffic.has(car.vehicle.id)) continue;
+        const previous = previousByKey.get(keyOf(car));
+        if (!previous || car.progress >= 0.1 || distance(previous) < WAIT - 0.5 || distance(car) >= distance(previous)) continue;
+        const timeAvailable = Math.max(0, area.sWait - run.s) / MAX_SPEED * 1000;
+        const timeNeeded = traversalDuration(area.scene, car.vehicle, area.pathCache) * (1 - car.progress) + 1800;
+        // A safe early slot may disappear if another car delays this one.
+        // Recheck before committing; never pull out merely because a timer fired.
+        if (timeAvailable < timeNeeded) entryFractions.set(keyOf(car), 0);
+      }
+    }
     const owner = previousTraffic.find(car => keyOf(car) === area.entryOwner);
-    if (!owner || distance(owner) > radius + 12) area.entryOwner = null;
+    if (!owner || distance(owner) > radius + 12 || (distance(owner) >= 0 && (entryFractions.get(keyOf(owner)) ?? 1) < 1)) area.entryOwner = null;
     if (!area.entryOwner) {
       const arriving = proposedTraffic.filter(car => {
         const start = car.junction.starts[car.vehicle.id];
-        return start !== null && run.now >= start - (car.junction.rollIn[car.vehicle.id] || 0) && distance(car) <= radius;
+        return start !== null && run.now >= start - (car.junction.rollIn[car.vehicle.id] || 0) && distance(car) <= radius && (entryFractions.get(keyOf(car)) ?? 1) === 1;
       }).sort((a, b) => distance(a) - distance(b) || keyOf(a).localeCompare(keyOf(b)));
       area.entryOwner = arriving[0] ? keyOf(arriving[0]) : null;
     }

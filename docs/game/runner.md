@@ -54,6 +54,10 @@ towards the line; Go explicitly releases the brake. Physical spacing can stop a
 car short of the line if the space is occupied. A T-junction without a selected
 turn waits for the driver to choose a direction and move off.
 
+The player slows for a vehicle ahead in the same lane and keeps six scene units
+between bumpers. Stop holds that queue position until Go; moving up a queue
+behind a red signal is not a red-light offence before reaching the stop line.
+
 ## Other traffic
 
 Scheduling starts seven seconds before expected arrival. Priority traffic has
@@ -76,11 +80,19 @@ between NPCs and the player. Delaying a blocking vehicle extends the clearance
 time; delayed cross-phase traffic also extends its traffic-light phase.
 
 At ordinary junctions, followers are released after the player has cleared the
-junction. Roundabout arrivals do not wait for the player's whole traversal.
+junction. In generated unsignalled scenes, one yielding car may cross earlier
+if its complete movement plus a safety margin fits before the player's earliest
+arrival. A delayed car rechecks the gap before entering; other cars still yield.
+Roundabout arrivals do not wait for the player's whole traversal.
 Departing vehicles remain visible beyond the original
 100×100 frame. Vehicles joining the connected road follow its next curve rather
 than continuing straight through the next roundabout. Nearby old junctions stay
 in the simulation until they fall behind the visible road range.
+
+All traffic reads the lights at the junction it is actually approaching,
+including vehicles carried over from earlier junctions. Red-light queues do not
+reserve the crossing against green traffic. The phase change depends on the
+cross traffic clearing, independently of cars waiting for that next green.
 
 Roundabout crashes require vehicle-body contact; the old clearance timestamp
 does not penalise a safe gap. Guide advice checks the actual entrance traffic,

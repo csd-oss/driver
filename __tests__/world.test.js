@@ -1,5 +1,5 @@
 import { makeRng } from '../src/lib/priority/generator';
-import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, ALL_RED_MS, LIVES, speedFor } from '../src/lib/priority/world';
+import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, lightPlan, ALL_RED_MS, LIVES, speedFor } from '../src/lib/priority/world';
 
 // A T-junction with no straight ahead waits for a direction: take the instructed one.
 // A stopped car only moves off on a swipe: do that once the way is clear.
@@ -289,11 +289,12 @@ describe('pacing and lights', () => {
     const atLine = lightState(j, j.arriveAt);
     expect(atLine.S).toBe('red');
     expect(['green', 'yellow']).toContain(atLine.E);
-    const late = lightState(j, j.clearAt + ALL_RED_MS + 100);
+    const greenAt = lightPlan(j).yourGreenAt;
+    const late = lightState(j, greenAt + 100);
     expect(late.S).toBe('green');
     expect(late.E).toBe('red');
-    expect(lightState(j, j.clearAt + ALL_RED_MS - 400).S).toBe('redyellow');
-    expect(lightState(j, j.clearAt + 100).S).toBe('redyellow');
+    expect(lightState(j, greenAt - 400).S).toBe('redyellow');
+    expect(lightState(j, greenAt - 600).S).toBe('redyellow');
   });
 
   it('running a red light spoils the junction without a crash when nothing is crossing', () => {
@@ -724,7 +725,7 @@ describe('giving way is never punished', () => {
         events.push(...step(run, now));
         if (j.scheduled && run.s < j.sWait && !run.braking && run.stoppedAt === null) applyInput(run, 'brake');
         if (run.stoppedAt !== null && stopped === null) stopped = now;
-        if (run.stoppedAt !== null) applyInput(run, 'go');
+        if (run.stoppedAt !== null && (!lightState(j, now) || lightState(j, now).S === 'green')) applyInput(run, 'go');
       }
       if (stopped !== null && stopped > j.clearAt) found = { events, stopped, clearAt: j.clearAt };
       expect(events.some((e) => e.type === 'hesitated')).toBe(false);

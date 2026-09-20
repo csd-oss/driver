@@ -6,6 +6,17 @@ const LARGE = Object.freeze({ width: 6.6, length: 13.5 });
 const TRAM = Object.freeze({ width: 6.4, length: 21 });
 export const vehicleSize = (v) => v.kind === 'tram' ? TRAM : v.kind === 'van' ? VAN : v.kind === 'truck' || v.kind === 'bus' ? LARGE : CAR;
 
+/** Bumper clearance to a vehicle ahead in this lane, or Infinity. */
+export const followingGap = (pose, vehicle, leader, leaderVehicle) => {
+  const angle = pose.angle * Math.PI / 180;
+  const dx = leader.x - pose.x, dy = leader.y - pose.y;
+  if (Math.abs(dx) > 70 || Math.abs(dy) > 70 || Math.cos((leader.angle - pose.angle) * Math.PI / 180) < 0.9) return Infinity;
+  const ahead = dx * Math.sin(angle) - dy * Math.cos(angle);
+  const side = Math.abs(dx * Math.cos(angle) + dy * Math.sin(angle));
+  if (ahead <= 0 || side > 4) return Infinity;
+  return ahead - (vehicleSize(vehicle).length + vehicleSize(leaderVehicle).length) / 2;
+};
+
 /** Smooth speed reduction for traffic following the same lane, before bumpers meet. */
 export const followingFraction = (pose, vehicle, leader, leaderVehicle) => {
   const angle = pose.angle * Math.PI / 180;
