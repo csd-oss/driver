@@ -1,7 +1,9 @@
 // Translation strings for lang 1, 2, 3
 // lang 1 = Slovak, lang 2 = English, lang 3 = Hungarian
+import { PRACTICE } from './practice';
 
 export const STR = {
+  ...PRACTICE,
   'app.title': {
     1: 'Vodičský Test',
     2: 'Driving Test',
@@ -1338,14 +1340,14 @@ export const STR = {
     3: 'OK',
   },
   'game.title': {
-    1: 'Kto ide prvý?',
-    2: 'Who goes first?',
-    3: 'Ki megy először?',
+    1: 'Nácvik jazdy',
+    2: 'Driving practice',
+    3: 'Vezetési gyakorlat',
   },
   'game.homeSubtitle': {
-    1: '88 križovatiek, 3 životy, čas beží',
-    2: '88 intersections, 3 lives, the clock is running',
-    3: '88 útkereszteződés, 3 élet, fut az óra',
+    1: 'Precvič si prednosť, značky a pokyny s Alexom',
+    2: 'Practise priority, signs and route instructions with Alex',
+    3: 'Gyakorold az elsőbbséget, a táblákat és az útvonalat Alexszel',
   },
   'game.intro': {
     1: 'Pozri sa na križovatku a rozhodni, kto ide prvý. Za rýchlosť je bonus, séria správnych odpovedí násobí body. Tri chyby a kolo končí.',
@@ -1861,9 +1863,9 @@ export const STR = {
     3: 'Kereszteződések ebben a menetben',
   },
   'crossing.log.empty': {
-    1: 'Zatiaľ žiadne križovatky. Zahraj si a každá sa tu objaví s vysvetlením.',
-    2: 'No junctions yet. Play a run and each one shows up here with an explanation.',
-    3: 'Még nincs kereszteződés. Játssz egy menetet, és mindegyik megjelenik itt magyarázattal.',
+    1: 'Po prvej jazde tu nájdeš moje poznámky ku každej križovatke.',
+    2: 'After our first drive, you’ll find my notes on each junction here.',
+    3: 'Az első vezetésünk után itt találod a megjegyzéseimet minden kereszteződésről.',
   },
   'crossing.log.summary': {
     1: 'Križovatky: {n} · Zrážky: {crashes} · Chyby: {spoiled}',
@@ -1871,9 +1873,9 @@ export const STR = {
     3: 'Kereszteződések: {n} · Ütközések: {crashes} · Hibák: {spoiled}',
   },
   'crossing.log.instruction': {
-    1: 'Inštruktor',
-    2: 'Instructor',
-    3: 'Oktató',
+    1: 'Alexov pokyn',
+    2: 'Alex’s route',
+    3: 'Alex útvonala',
   },
   'crossing.log.you': {
     1: 'Išiel si',
@@ -2002,8 +2004,8 @@ export const STR = {
   },
   'crossing.log.session': {
     1: 'Jazda',
-    2: 'Run',
-    3: 'Menet',
+    2: 'Drive',
+    3: 'Vezetés',
   },
   'crossing.log.sessionSummary': {
     1: 'Križovatky: {n} · Zrážky: {crashes} · Chyby: {spoiled} · Body: {points}',

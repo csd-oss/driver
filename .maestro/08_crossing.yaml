@@ -1,4 +1,4 @@
-# Play opens the road directly; the guide remains an optional hub action.
+# The first drive starts with the guide, using the same controls as practice.
 appId: com.smartie.driver
 ---
 - launchApp:
@@ -6,24 +6,23 @@ appId: com.smartie.driver
 - runFlow: subflows/complete_onboarding.yaml
 - tapOn:
     id: home.game
-- extendedWaitUntil:
-    visible:
-      id: screen.game
-    timeout: 15000
 - tapOn:
     id: game.playCrossing
+    waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible:
-      id: crossing.scene
+      id: guide.scene
     timeout: 15000
 - tapOn:
     id: crossing.control.brake
+    waitToSettleTimeoutMs: 0
 - assertNotVisible:
     id: guide.start
 - assertNotVisible:
     id: crossing.intro
 - tapOn:
     id: crossing.pause
+    waitToSettleTimeoutMs: 0
 - assertVisible: Drive paused
 - assertVisible:
     id: crossing.control.left
@@ -31,7 +30,9 @@ appId: com.smartie.driver
     id: crossing.control.right
 - tapOn:
     id: crossing.pause
-- assertVisible:
-    id: crossing.scene
+    waitToSettleTimeoutMs: 0
 - tapOn:
     id: crossing.control.go
+    waitToSettleTimeoutMs: 0
+- assertVisible:
+    id: guide.scene

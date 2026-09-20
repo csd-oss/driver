@@ -1,4 +1,5 @@
 import { makeRng } from '../src/lib/priority/generator';
+import { LESSONS } from '../src/lib/priority/lessons';
 import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, lightPlan, ALL_RED_MS, LIVES, speedFor } from '../src/lib/priority/world';
 
 // A T-junction with no straight ahead waits for a direction: take the instructed one.
@@ -9,8 +10,9 @@ const armRing = (run) => {
   if (j.ring && !j.ring.exitTo && !j.ring.armed && j.ring.order[j.ring.next] === j.instruction.to) applyInput(run, 'right');
 };
 
-const followInstructor = (run, events) => {
+const followInstructor = (run, events, followRoute = true) => {
   const j = currentJunction(run);
+  if (followRoute && j.scheduled && !j.ring && run.s < j.sWait && j.instruction.turn !== 'straight' && run.intent !== j.instruction.turn) applyInput(run, j.instruction.turn);
   const last = events[events.length - 1];
   if (last && last.type === 'needTurn' && last.junction === j.index) {
     applyInput(run, last.instruction.turn === 'left' ? 'left' : 'right');
@@ -18,7 +20,7 @@ const followInstructor = (run, events) => {
   armRing(run);
   if (run.stoppedAt !== null && !j.needTurn) {
     const ready = j.blockers.length ? run.now >= j.clearAt : true;
-    if (ready) applyInput(run, 'go');
+    if (ready && (!lightState(j, run.now) || lightState(j, run.now).S === 'green')) applyInput(run, 'go');
   }
 };
 
@@ -43,7 +45,8 @@ describe('world', () => {
       input: (r) => {
         const j = currentJunction(r);
         // Brake exactly when the engine says someone has priority over us.
-        if (j.blockers.length && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+        const mustStop = ['stop', 'roundabout-stop'].includes(j.scene.signs?.S) || (lightState(j, r.now) && lightState(j, r.now).S !== 'green');
+        if ((j.blockers.length || mustStop) && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
         expect(r.s).toBeGreaterThanOrEqual(last);
         last = r.s;
       },
@@ -56,9 +59,10 @@ describe('world', () => {
   });
 
   it('crashes when you ignore a vehicle with priority and names the rule', () => {
-    const run = createRun(makeRng(11), 3);
-    // Find a junction where someone blocks us and never brake.
-    const events = runUntil(run, (r, evs) => evs.some((e) => e.type === 'crash') || r.passed > 12, { maxMs: 90000 });
+    const run = createRun(makeRng(1000), 1, { lesson: LESSONS.findIndex(lesson => lesson.id === 'rightHand') });
+    run.coach = false;
+    // Ignore the visible vehicle with priority in a fixed right-hand scene.
+    const events = runUntil(run, (r, evs) => evs.some((e) => e.type === 'crash'), { maxMs: 30000 });
     const crash = events.find((e) => e.type === 'crash');
     expect(crash).toBeDefined();
     expect(crash.culprit).toBeTruthy();
@@ -164,9 +168,9 @@ describe('instructor directions', () => {
   it('announces a direction when a junction is scheduled and penalises the wrong way', () => {
     const run = createRun(makeRng(31), 5);
     run.now = 1000;
-    // Never turn, never brake; compare executed movement against the instruction.
+    // Ignore route instructions; keep mandatory T-junction choices possible.
     const events = drive(run, 60000, (r, now, evs) => {
-      followInstructor(r, evs);
+      followInstructor(r, evs, false);
       const j = currentJunction(r);
       const last = evs[evs.length - 1];
       // At a T-junction with no straight ahead, deliberately take the other turn.
@@ -188,7 +192,8 @@ describe('instructor directions', () => {
     expect(wrong.length).toBeGreaterThan(0);
     for (const w of wrong) {
       const p = passed.find((e) => e.junction === w.junction);
-      expect(p.points).toBe(0);
+      expect((p?.record ?? w.record).points).toBe(0);
+      expect(w.record.lifeLost).toBe(true);
     }
   });
 
@@ -427,10 +432,12 @@ describe('motion and roundabouts', () => {
         const cur = new Map();
         for (const p of vehiclePoses(r)) {
           const key = `${p.junction.index}-${p.vehicle.id}`;
-          cur.set(key, p.pose);
+          cur.set(key, { pose: p.pose, junction: p.junction });
           const was = prev.get(key);
-          if (was) {
-            const movement = Math.hypot(p.pose.x - was.x, p.pose.y - was.y);
+          // Selecting a different exit generates a new, distant road ahead.
+          // Track the same physical vehicle, not a reused index in that new road.
+          if (was && was.junction === p.junction) {
+            const movement = Math.hypot(p.pose.x - was.pose.x, p.pose.y - was.pose.y);
             if (movement >= 3) throw new Error(`jump seed=${seed} t=${now} ${key} ${JSON.stringify({was, now:p.pose, vehicle:p.vehicle, starts:p.junction.starts, roll:p.junction.rollIn, s:r.s})}`);
             worst = Math.max(worst, movement);
           }
@@ -1059,7 +1066,7 @@ describe('the guide', () => {
     const index = LESSONS.findIndex((l) => l.id === 'lights');
     const { run, j, verdict } = play(index, (r, junction) => {
       // Brake at the last moment, then pull away while the light is still red.
-      if (junction.scheduled && junction.sWait - r.s < 40 && r.stoppedAt === null) applyInput(r, 'brake');
+      if (junction.scheduled && !junction.stopped && junction.sWait - r.s < 40 && r.stoppedAt === null) applyInput(r, 'brake');
       if (r.stoppedAt !== null) applyInput(r, 'go');
     });
     expect(j.ranRed).toBe(true);

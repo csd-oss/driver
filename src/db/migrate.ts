@@ -1,4 +1,4 @@
-import { database } from './index';
+import { database, databaseReady } from './index';
 
 /**
  * Run migrations - create tables and views
@@ -6,8 +6,9 @@ import { database } from './index';
  */
 export async function runMigrations(): Promise<void> {
   try {
+    await databaseReady;
     // Create all tables and run schema migrations
-    createTables();
+    await createTables();
 
     // Run view definitions
     await createViews();
@@ -20,9 +21,9 @@ export async function runMigrations(): Promise<void> {
 /**
  * Create all database tables
  */
-function createTables(): void {
+async function createTables(): Promise<void> {
   // Settings table
-  database.execSync(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       lang INTEGER NOT NULL DEFAULT 1,
@@ -39,39 +40,39 @@ function createTables(): void {
     )
   `);
   try {
-    database.execSync(`ALTER TABLE settings ADD COLUMN analytics_opt_out INTEGER NOT NULL DEFAULT 0`);
+    await database.execAsync(`ALTER TABLE settings ADD COLUMN analytics_opt_out INTEGER NOT NULL DEFAULT 0`);
   } catch (e) {
     // Column already exists, ignore
   }
   try {
-    database.execSync(`ALTER TABLE settings ADD COLUMN notification_morning_enabled INTEGER NOT NULL DEFAULT 1`);
+    await database.execAsync(`ALTER TABLE settings ADD COLUMN notification_morning_enabled INTEGER NOT NULL DEFAULT 1`);
   } catch (e) {
     // Column already exists, ignore
   }
   try {
-    database.execSync(`ALTER TABLE settings ADD COLUMN notification_lunch_enabled INTEGER NOT NULL DEFAULT 1`);
+    await database.execAsync(`ALTER TABLE settings ADD COLUMN notification_lunch_enabled INTEGER NOT NULL DEFAULT 1`);
   } catch (e) {
     // Column already exists, ignore
   }
   try {
-    database.execSync(`ALTER TABLE settings ADD COLUMN notification_evening_enabled INTEGER NOT NULL DEFAULT 1`);
+    await database.execAsync(`ALTER TABLE settings ADD COLUMN notification_evening_enabled INTEGER NOT NULL DEFAULT 1`);
   } catch (e) {
     // Column already exists, ignore
   }
   try {
-    database.execSync(`ALTER TABLE settings ADD COLUMN exam_date INTEGER`);
+    await database.execAsync(`ALTER TABLE settings ADD COLUMN exam_date INTEGER`);
   } catch (e) {
     // Column already exists, ignore
   }
 
   try {
-    database.execSync(`ALTER TABLE settings ADD COLUMN has_finished_guide INTEGER NOT NULL DEFAULT 0`);
+    await database.execAsync(`ALTER TABLE settings ADD COLUMN has_finished_guide INTEGER NOT NULL DEFAULT 0`);
   } catch (e) {
     // Column already exists
   }
 
   // Category selections table
-  database.execSync(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS category_selections (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       lang INTEGER NOT NULL,
@@ -82,7 +83,7 @@ function createTables(): void {
   `);
 
   // Mistakes table
-  database.execSync(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS mistakes (
       id TEXT PRIMARY KEY,
       device_id TEXT NOT NULL,
@@ -97,22 +98,22 @@ function createTables(): void {
       UNIQUE(lang, question_id)
     )
   `);
-  database.execSync(`CREATE INDEX IF NOT EXISTS mistakes_lang_idx ON mistakes(lang)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS mistakes_lang_idx ON mistakes(lang)`);
   
   // Add new columns to existing mistakes table if they don't exist (migration)
   try {
-    database.execSync(`ALTER TABLE mistakes ADD COLUMN next_review_at INTEGER`);
+    await database.execAsync(`ALTER TABLE mistakes ADD COLUMN next_review_at INTEGER`);
   } catch (e) {
     // Column already exists, ignore
   }
   try {
-    database.execSync(`ALTER TABLE mistakes ADD COLUMN interval_days INTEGER NOT NULL DEFAULT 0`);
+    await database.execAsync(`ALTER TABLE mistakes ADD COLUMN interval_days INTEGER NOT NULL DEFAULT 0`);
   } catch (e) {
     // Column already exists, ignore
   }
 
   // Study sessions table
-  database.execSync(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS study_sessions (
       id TEXT PRIMARY KEY,
       device_id TEXT NOT NULL,
@@ -126,12 +127,12 @@ function createTables(): void {
       synced_at INTEGER
     )
   `);
-  database.execSync(`CREATE INDEX IF NOT EXISTS study_sessions_lang_idx ON study_sessions(lang)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS study_sessions_date_idx ON study_sessions(started_at)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS study_sessions_sync_idx ON study_sessions(synced_at)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS study_sessions_lang_idx ON study_sessions(lang)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS study_sessions_date_idx ON study_sessions(started_at)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS study_sessions_sync_idx ON study_sessions(synced_at)`);
 
   // Mock exams table
-  database.execSync(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS mock_exams (
       id TEXT PRIMARY KEY,
       device_id TEXT NOT NULL,
@@ -150,12 +151,12 @@ function createTables(): void {
       synced_at INTEGER
     )
   `);
-  database.execSync(`CREATE INDEX IF NOT EXISTS mock_exams_lang_idx ON mock_exams(lang)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS mock_exams_date_idx ON mock_exams(created_at)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS mock_exams_sync_idx ON mock_exams(synced_at)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS mock_exams_lang_idx ON mock_exams(lang)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS mock_exams_date_idx ON mock_exams(created_at)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS mock_exams_sync_idx ON mock_exams(synced_at)`);
 
   // Exam results table (real driving-exam outcomes reported by the user)
-  database.execSync(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS exam_results (
       id TEXT PRIMARY KEY,
       device_id TEXT NOT NULL,
@@ -170,11 +171,11 @@ function createTables(): void {
       synced_at INTEGER
     )
   `);
-  database.execSync(`CREATE INDEX IF NOT EXISTS exam_results_lang_idx ON exam_results(lang)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS exam_results_date_idx ON exam_results(taken_at)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS exam_results_lang_idx ON exam_results(lang)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS exam_results_date_idx ON exam_results(taken_at)`);
 
   // Game rounds ("Who goes first?"), one row per finished round
-  database.execSync(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS game_rounds (
       id TEXT PRIMARY KEY,
       device_id TEXT NOT NULL,
@@ -188,17 +189,17 @@ function createTables(): void {
       synced_at INTEGER
     )
   `);
-  database.execSync(`CREATE INDEX IF NOT EXISTS game_rounds_lang_idx ON game_rounds(lang)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS game_rounds_date_idx ON game_rounds(created_at)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS game_rounds_lang_idx ON game_rounds(lang)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS game_rounds_date_idx ON game_rounds(created_at)`);
   try {
-    database.execSync(`ALTER TABLE game_rounds ADD COLUMN mode TEXT NOT NULL DEFAULT 'quiz'`);
+    await database.execAsync(`ALTER TABLE game_rounds ADD COLUMN mode TEXT NOT NULL DEFAULT 'quiz'`);
   } catch (e) {
     // Column already exists
   }
 
   // Crossing drive log: one row per junction driven, with the scene and the
   // priority reasons as JSON so the history screen can explain each one.
-  database.execSync(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS crossing_log (
       id TEXT PRIMARY KEY,
       device_id TEXT NOT NULL,
@@ -211,11 +212,11 @@ function createTables(): void {
       synced_at INTEGER
     )
   `);
-  database.execSync(`CREATE INDEX IF NOT EXISTS crossing_log_lang_idx ON crossing_log(lang)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS crossing_log_date_idx ON crossing_log(created_at)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS crossing_log_lang_idx ON crossing_log(lang)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS crossing_log_date_idx ON crossing_log(created_at)`);
 
   // Answer attempts table
-  database.execSync(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS answer_attempts (
       id TEXT PRIMARY KEY,
       device_id TEXT NOT NULL,
@@ -239,13 +240,13 @@ function createTables(): void {
       FOREIGN KEY(mock_exam_id) REFERENCES mock_exams(id)
     )
   `);
-  database.execSync(`CREATE INDEX IF NOT EXISTS answer_attempts_lang_idx ON answer_attempts(lang)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS answer_attempts_question_idx ON answer_attempts(question_id)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS answer_attempts_mode_idx ON answer_attempts(mode)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS answer_attempts_session_idx ON answer_attempts(session_id)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS answer_attempts_date_idx ON answer_attempts(created_at)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS answer_attempts_mock_exam_idx ON answer_attempts(mock_exam_id)`);
-  database.execSync(`CREATE INDEX IF NOT EXISTS answer_attempts_sync_idx ON answer_attempts(synced_at)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS answer_attempts_lang_idx ON answer_attempts(lang)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS answer_attempts_question_idx ON answer_attempts(question_id)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS answer_attempts_mode_idx ON answer_attempts(mode)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS answer_attempts_session_idx ON answer_attempts(session_id)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS answer_attempts_date_idx ON answer_attempts(created_at)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS answer_attempts_mock_exam_idx ON answer_attempts(mock_exam_id)`);
+  await database.execAsync(`CREATE INDEX IF NOT EXISTS answer_attempts_sync_idx ON answer_attempts(synced_at)`);
 }
 
 /**
@@ -255,7 +256,7 @@ async function createViews(): Promise<void> {
   // Drop views first to allow recreation with updated definitions
   const viewNames = ['v_questions_seen', 'v_daily_stats', 'v_category_stats', 'v_study_stats', 'v_mock_stats'];
   for (const viewName of viewNames) {
-    database.execSync(`DROP VIEW IF EXISTS ${viewName}`);
+    await database.execAsync(`DROP VIEW IF EXISTS ${viewName}`);
   }
   
   const views = [
@@ -318,7 +319,7 @@ async function createViews(): Promise<void> {
 
   for (const viewSql of views) {
     try {
-      database.execSync(viewSql);
+      await database.execAsync(viewSql);
     } catch (error) {
       console.error('Error creating view:', error);
       // Continue with other views even if one fails

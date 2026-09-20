@@ -31,21 +31,22 @@ export const RecordModal = ({ record, lang, onClose }: Props) => {
   const highlight = record.outcome === 'crash' && record.culprit ? [record.culprit, 'you'] : [];
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-black/60 justify-center px-4" onPress={onClose} testID="crossing.record.backdrop">
-        <Pressable onPress={() => {}} className="rounded-3xl bg-white dark:bg-slate-900 p-4 gap-3 max-h-[90%]" testID="crossing.record.modal">
+      <Pressable accessible={false} className="flex-1 bg-black/60 justify-center px-4" onPress={onClose} testID="crossing.record.backdrop">
+        <Pressable accessible={false} onPress={() => {}} className="rounded-3xl bg-white dark:bg-slate-900 p-4 gap-3 max-h-[90%]" testID="crossing.record.modal">
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-3">
             <View className="rounded-2xl overflow-hidden self-center">
               <IntersectionScene scene={record.scene} size={size} showPaths highlight={highlight} />
             </View>
+            <UIText variant="caption" className="text-slate-500 dark:text-slate-400">{t('practice.logDiagram', lang)}</UIText>
             <View className="flex-row items-center gap-2 flex-wrap">
               <View className={`rounded-full px-2.5 py-1 ${outcomeClass[info.outcome]}`}>
                 <UIText variant="caption" className={`font-semibold ${outcomeTextClass[info.outcome]}`}>
                   {info.outcomeLabel}
                 </UIText>
               </View>
-              {info.points > 0 && (
+              {(info.guided || info.lifeLost) && (
                 <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                  +{info.points}
+                  {t(info.guided ? 'practice.guideNoPenalty' : 'practice.lifeLost', lang)}
                 </UIText>
               )}
             </View>
@@ -58,6 +59,7 @@ export const RecordModal = ({ record, lang, onClose }: Props) => {
             <UIText variant="body" className="font-semibold text-slate-800 dark:text-slate-100">
               {info.headline}
             </UIText>
+            <UIText variant="caption" className="text-indigo-600 dark:text-indigo-300">{t('practice.notes', lang)}</UIText>
             {info.lines.map((line: string, k: number) => (
               <UIText key={k} variant="body" className="text-slate-700 dark:text-slate-200">
                 • {line}

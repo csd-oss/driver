@@ -16,6 +16,7 @@ const drive = (run, ms, onTick) => {
 // A careful driver: brakes when someone has priority, turns as told, goes when clear.
 const armRing = (r) => {
   const j = currentJunction(r);
+  if (j.scheduled && !j.ring && r.s < j.sWait && j.instruction.turn !== 'straight' && r.intent !== j.instruction.turn) applyInput(r, j.instruction.turn);
   if (j.ring && !j.ring.exitTo && !j.ring.armed && j.ring.order[j.ring.next] === j.instruction.to) applyInput(r, 'right');
 };
 
@@ -25,7 +26,8 @@ const careful = (r, now, evs) => {
   if (last && last.type === 'needTurn' && last.junction === j.index) applyInput(r, last.instruction.turn === 'left' ? 'left' : 'right');
   armRing(r);
   const red = j.scene.control?.type === 'lights' && j.scene.control.crossFirst;
-  if ((j.blockers.length || red) && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
+  const mustStop = ['stop', 'roundabout-stop'].includes(j.scene.signs?.S);
+  if ((j.blockers.length || red || mustStop) && j.scheduled && !j.stopped && r.s < j.sLine && j.sWait - r.s < 70 && r.stoppedAt === null && !r.braking) applyInput(r, 'brake');
   const state = lightState(j, r.now);
   const green = state ? state.S === 'green' : true;
   if (r.stoppedAt !== null && !j.needTurn && green && (!j.blockers.length || r.now >= j.clearAt)) applyInput(r, 'go');

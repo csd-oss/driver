@@ -13,9 +13,9 @@ App id (both platforms): `com.smartie.driver`.
 | `04_study.yaml` | Open Study, answer a question, advance to the next |
 | `05_settings.yaml` | Toggle readiness mode, then turn the morning reminder **off** |
 | `06_exam.yaml` | Settings → record a real exam result (96 points) → the "passed" card on Home |
-| `07_game.yaml` | Home → game hub → exam-picture quiz: answer one item, advance |
-| `08_crossing.yaml` | Home → game hub → crossings runner: start, swipe down then up |
-| `09_guide.yaml` | Home → game hub → crossing guide: brief, first lesson, verdict, next lesson |
+| `07_game.yaml` | First-drive hub, Alex, no quiz, empty drive log |
+| `08_crossing.yaml` | First drive starts guided: controls and pause/resume |
+| `09_guide.yaml` | Alex teaches Stop/Go swipes during the continuous guide |
 | `subflows/complete_onboarding.yaml` | Reusable: cleared app → Home (used via `runFlow`) |
 
 `config.yaml` selects `[0-9]*.yaml`, so `maestro test .maestro` runs only the numbered

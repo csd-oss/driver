@@ -1,12 +1,13 @@
-# The games
+# Driving practice
 
-Two games share one engine, one renderer and the scene format.
+One continuous guided drive and practice experience share the engine, renderer
+and scene format. Alex teaches the controls and reviews each drive.
 
 | doc | what it covers |
 |---|---|
 | `runner.md` | Crossings, the endless runner: world, scheduling, motion, penalties, events, rendering, debugging |
-| `guide-mode.md` | the ten guided lessons that unlock Crossings, and how to add one |
-| `quiz.md` | "Who goes first?", the timed quiz on the 88 exam pictures |
+| `guide-mode.md` | the eleven lessons, seamless practice handover, Alex, fault penalties and drive log |
+| `quiz.md` | historical documentation for the removed intersection quiz |
 | `priority-rules.md` | the legal rules the engine implements, cited to zákon 8/2009 and vyhláška 30/2020, and where the runner differs from the exam |
 | `scene-format.md` | the scene JSON: arms, signs, control, vehicles, tram tracks |
 | `situations-by-image.md`, `situations.json` | the exam pictures, their answers and how they were encoded |

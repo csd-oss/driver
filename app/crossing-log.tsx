@@ -1,6 +1,7 @@
 import { IntersectionScene } from '@/components/game/IntersectionScene';
 import { RecordModal, outcomeClass, outcomeTextClass } from '@/components/game/RecordModal';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
@@ -8,6 +9,8 @@ import * as CrossingLogDB from '@/src/db/queries/crossingLog';
 import { t, tf } from '@/src/i18n/i18n';
 import { trackScreenView } from '@/src/lib/analytics';
 import { explainRecord } from '@/src/lib/crossingLog';
+import { groupDrives } from '@/src/lib/driveSession';
+import { InstructorIdentity } from '@/components/game/InstructorIdentity';
 import { localeForLang } from '@/src/lib/dates';
 import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,17 +18,10 @@ import { usePostHog } from 'posthog-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
-interface Session {
-  runId: string;
-  startedAt: Date;
-  entries: CrossingLogDB.CrossingLogEntry[];
-  crashes: number;
-  mistakes: number;
-  points: number;
-}
+type Session = ReturnType<typeof groupDrives>[number];
 
 /**
- * Drive log: every junction you drove through in the crossing minigame,
+ * Drive log: completed junctions and recorded faults from each drive,
  * grouped by run (newest first) with the picture, what you did and why it
  * was right or wrong. Tap a junction for the full-size picture.
  */
@@ -33,40 +29,29 @@ export default function CrossingLogScreen() {
   const posthog = usePostHog();
   const [lang, setLang] = useState(getCachedLanguage);
   const [entries, setEntries] = useState<CrossingLogDB.CrossingLogEntry[] | null>(null);
-  const [stats, setStats] = useState({ total: 0, crashes: 0, spoiled: 0 });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [openRecord, setOpenRecord] = useState<any | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reload, setReload] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
+      let active = true;
+      setLoadFailed(false);
       trackScreenView(posthog, 'CrossingLog');
       getLanguage().then(async (l) => {
-        setLang(l);
-        const [list, s] = await Promise.all([CrossingLogDB.getRecentCrossingLog(l, 200), CrossingLogDB.getCrossingLogStats(l)]);
-        setEntries(list);
-        setStats(s);
+        const list = await CrossingLogDB.getRecentCrossingLog(l, CrossingLogDB.LOG_KEEP);
+        if (active) { setLang(l); setEntries(list); }
+      }).catch(error => {
+        console.warn('Drive log read failed:', error?.cause?.message || error?.message);
+        if (active) setLoadFailed(true);
       });
-    }, [posthog])
+      return () => { active = false; };
+    }, [posthog, reload])
   );
 
-  // Rows come newest first; a run reads best in driving order, so each session's entries are reversed.
-  const sessions = useMemo<Session[]>(() => {
-    if (!entries) return [];
-    const byRun = new Map<string, Session>();
-    for (const e of entries) {
-      let s = byRun.get(e.runId);
-      if (!s) {
-        s = { runId: e.runId, startedAt: e.createdAt, entries: [], crashes: 0, mistakes: 0, points: 0 };
-        byRun.set(e.runId, s);
-      }
-      s.entries.push(e);
-      if (e.createdAt < s.startedAt) s.startedAt = e.createdAt;
-      if (e.outcome === 'crash') s.crashes += 1;
-      if (e.outcome === 'spoiled') s.mistakes += 1;
-      s.points += e.points;
-    }
-    return [...byRun.values()].map((s) => ({ ...s, entries: [...s.entries].reverse() }));
-  }, [entries]);
+  const sessions = useMemo<Session[]>(() => groupDrives(entries || []), [entries]);
+  const totals = sessions.reduce((sum, session) => ({ total: sum.total + session.total, clean: sum.clean + session.clean, faults: sum.faults + session.faults }), { total: 0, clean: 0, faults: 0 });
 
   const locale = localeForLang(lang);
   const dateLabel = (d: Date) => `${d.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} ${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`;
@@ -75,6 +60,9 @@ export default function CrossingLogScreen() {
   return (
     <Screen testID="screen.crossingLog" header={<Header title={t('crossing.log.title', lang)} />}>
       <ScrollView className="flex-1" contentContainerClassName="gap-3 mt-1 pb-6" showsVerticalScrollIndicator={false}>
+        <InstructorIdentity lang={lang} />
+        {loadFailed && <View className="gap-3"><UIText>{t('practice.logLoadError', lang)}</UIText><Button variant="outline" onPress={() => setReload(value => value + 1)}>{t('practice.retry', lang)}</Button></View>}
+        {entries === null && !loadFailed && <UIText>{t('common.loading', lang)}</UIText>}
         {entries !== null && entries.length === 0 && (
           <Card testID="crossing.log.emptyState">
             <UIText variant="body" className="text-slate-600 dark:text-slate-300">
@@ -84,7 +72,7 @@ export default function CrossingLogScreen() {
         )}
         {entries !== null && entries.length > 0 && (
           <UIText variant="caption" className="text-slate-500 dark:text-slate-400" testID="crossing.log.summary">
-            {tf('crossing.log.summary', lang, { n: stats.total, crashes: stats.crashes, spoiled: stats.spoiled })}
+            {tf('practice.reviewSummary', lang, { n: totals.total, clean: totals.clean, faults: totals.faults })}
           </UIText>
         )}
         {sessions.map((session, i) => {
@@ -93,7 +81,7 @@ export default function CrossingLogScreen() {
             <View key={session.runId} className="gap-3">
               <Pressable
                 onPress={() => setExpanded((prev) => ({ ...prev, [session.runId]: !open }))}
-                className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/80 px-4 py-3 flex-row items-center gap-3"
+                className="border-t border-slate-200 dark:border-slate-800 py-4 flex-row items-center gap-3"
                 accessibilityRole="button"
                 accessibilityState={{ expanded: open }}
                 testID={`crossing.log.session.${i}`}
@@ -103,13 +91,13 @@ export default function CrossingLogScreen() {
                     {t('crossing.log.session', lang)} · {dateLabel(session.startedAt)}
                   </UIText>
                   <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                    {tf('crossing.log.sessionSummary', lang, { n: session.entries.length, crashes: session.crashes, spoiled: session.mistakes, points: session.points })}
+                    {tf('practice.reviewSummary', lang, { n: session.total, clean: session.clean, faults: session.faults })}
                   </UIText>
                 </View>
                 <UIText variant="subtitle" className="text-slate-400 dark:text-slate-500">{open ? '▾' : '▸'}</UIText>
               </Pressable>
               {open &&
-                session.entries.map((entry, k) => {
+                session.entries.map((entry: CrossingLogDB.CrossingLogEntry, k: number) => {
                   const info = explainRecord(entry.record, lang);
                   const highlight = entry.record.outcome === 'crash' && entry.record.culprit ? [entry.record.culprit, 'you'] : [];
                   return (
@@ -120,15 +108,15 @@ export default function CrossingLogScreen() {
                         </View>
                         <View className="flex-1 gap-1.5">
                           <View className="flex-row items-center gap-2 flex-wrap">
-                            <UIText variant="caption" className="text-slate-400 dark:text-slate-500">#{k + 1}</UIText>
+                            <UIText variant="caption" className="text-slate-400 dark:text-slate-500">#{entry.record.index + 1} · {t(info.guided ? 'practice.guide' : 'practice.title', lang)}</UIText>
                             <View className={`rounded-full px-2 py-0.5 ${outcomeClass[info.outcome]}`}>
                               <UIText variant="caption" className={`font-semibold ${outcomeTextClass[info.outcome]}`}>
                                 {info.outcomeLabel}
                               </UIText>
                             </View>
-                            {info.points > 0 && (
+                            {info.lifeLost && (
                               <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-                                +{info.points}
+                                {t('practice.lifeLost', lang)}
                               </UIText>
                             )}
                           </View>

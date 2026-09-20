@@ -9,7 +9,7 @@ import {
   ringArc, ringEntryPoints, ringExitOrder, ringJoinDeg, ringLeaveDeg, exitCurveFor,
 } from './layout';
 import { queueBackFor } from './queue';
-import { lessonAt, lessonScene } from './lessons';
+import { lessonAt, lessonScene, LESSON_COUNT } from './lessons';
 import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt, rollingDuration, traversalDuration } from './timeline';
 
 /**
@@ -220,9 +220,11 @@ const advanceRing = (run, junction) => {
       junction.through = throughWorld(junction);
       rebuildRoute(run);
     }
+    if (arm !== junction.instruction.to) markWrongWay(run, junction);
     run.events.push({ type: 'ringExit', junction: junction.index, to: arm });
     return;
   }
+  if (arm === junction.instruction.to) markWrongWay(run, junction);
   ring.next = (ring.next + 1) % ring.order.length;
   if (ring.next === 0) ring.laps += 1;
   const to = ringLeaveDeg(ring.order[ring.next]);
@@ -334,7 +336,7 @@ const createJunction = (rng, level, prev, lessonIndex = null) => {
   const lesson = corridor || lessonIndex === null ? null : lessonAt(lessonIndex);
   const scene = corridor ? tramStreet() : lesson ? lessonScene(lessonIndex) : generatePlayable(rng, level);
   const you = scene.vehicles.find((v) => v.id === 'you');
-  const spacing = lessonIndex !== null ? GUIDE_SPACING : spacingFor(level);
+  const spacing = lessonAt(lessonIndex) ? GUIDE_SPACING : spacingFor(level);
   const junction = prev
     ? placeAfter(prev, scene, spacing)
     : { scene, cx: CENTER, cy: CENTER, rot: 0, gapBefore: lesson ? GUIDE_LEAD_ROAD : LEAD_ROAD, gapAfter: spacing - 2 * CENTER };
@@ -355,6 +357,9 @@ const createJunction = (rng, level, prev, lessonIndex = null) => {
   junction.late = false;
   junction.ranRed = false;
   junction.ranStop = false;
+  junction.faults = [];
+  junction.lifeLost = false;
+  junction.entryLights = null;
   junction.stoppedAtTime = null;
   junction.resumedAt = null;
   applyResolution(junction);
@@ -388,8 +393,11 @@ const markJunction = (run, junction, routeOffset) => {
 
 /**
  * Create a run. `rng` is the seeded generator, `level` the starting level.
+ * @param {() => number} rng
+ * @param {number} level
+ * @param {{lesson?: number | null, continuousGuide?: boolean, continueAfterGuide?: boolean}} options
  */
-export const createRun = (rng, level = 1, { lesson = null, continuousGuide = false } = {}) => {
+export const createRun = (rng, level = 1, { lesson = null, continuousGuide = false, continueAfterGuide = false } = {}) => {
   const run = {
     rng,
     level,
@@ -404,6 +412,9 @@ export const createRun = (rng, level = 1, { lesson = null, continuousGuide = fal
     brakeLights: false,
     speed: speedFor(level, false),
     continuousGuide,
+    continueAfterGuide,
+    guideComplete: false,
+    guidedPassed: 0,
     lesson,             // index into LESSONS while the guide is running
     coach: lesson !== null,
     controlsStage: lessonAt(lesson)?.id === 'controls' ? 'stop' : null,
@@ -630,11 +641,8 @@ const setYourMovement = (run, junction, to, keepStarts = false) => {
  * Crossing the stop line on red is the red-light offence, though.
  */
 const moveOff = (run, junction) => {
-  if (run.s >= junction.sWait - 0.5 && run.s < junction.sLine && redFor(junction, run.now) && !junction.ranRed) {
-    junction.ranRed = true;
-    run.streak = 0;
-    run.events.push({ type: 'redLight', junction: junction.index });
-  }
+  // Judge the light when the car actually crosses the line, not when Go is
+  // pressed. Entry owns the fault, life deduction and saved signal snapshot.
   const early = false;
   junction.earlyResume = false;
   junction.resumedAt = run.now;
@@ -816,14 +824,6 @@ const stillCrossing = (junction, now) =>
     return start !== null && now < start + clearMsOf(junction, id);
   });
 
-/** The scene's lights as they were when you had to decide: red for you when the cross traffic went first. */
-const recordControl = (scene) => {
-  const control = scene.control;
-  if (!control || control.type !== 'lights' || !control.crossFirst) return control;
-  const arms = Object.fromEntries(Object.entries(control.arms || {}).map(([arm, c]) => [arm, c === 'red' ? 'green' : 'red']));
-  return { ...control, arms };
-};
-
 /**
  * What happened at a junction and why, for the drive log. `reasons` keeps
  * every rule that involved you, in both directions, so the log can say
@@ -834,9 +834,17 @@ export const junctionRecord = (run, junction, outcome) => {
   const you = junction.scene.vehicles.find((v) => v.id === 'you');
   // Only vehicles you really had to wait for count as reasons against you.
   const reasons = junction.resolution.reasons.filter((r) => (r.who === 'you' && junction.blockers.includes(r.to)) || r.to === 'you');
-  return {
+  return JSON.parse(JSON.stringify({
     index: junction.index,
     level: run.level,
+    mode: run.coach ? 'guide' : 'practice',
+    lesson: junction.lesson,
+    faults: [...junction.faults],
+    lifeLost: junction.lifeLost,
+    completed: Boolean(junction.passed || junction.crashed),
+    movement: junction.crashed && junction.starts.you === null ? 'approach' : junction.ring && !junction.ring.exitTo ? 'circling' : junction.executedTo ? 'committed' : 'approach',
+    stoppedForRed: Boolean(junction.stoppedForRed),
+    entryLights: junction.entryLights,
     outcome, // 'clean' | 'crash' | 'spoiled'
     crashed: Boolean(junction.crashed),
     culprit: junction.culprit || null,
@@ -862,11 +870,33 @@ export const junctionRecord = (run, junction, outcome) => {
       signs: junction.scene.signs,
       mainRoad: junction.scene.mainRoad,
       tramTracks: junction.scene.tramTracks,
-      control: recordControl(junction.scene),
+      control: junction.scene.control?.type === 'lights'
+        ? { ...junction.scene.control, arms: junction.entryLights || lightState(junction, run.now) || junction.scene.control.arms }
+        : junction.scene.control,
       vehicles: junction.scene.vehicles.map((v) => ({ id: v.id, kind: v.kind, color: v.color, from: v.from, to: v.to, ...(v.ringAt === undefined ? {} : { ringAt: v.ringAt }), ...(v.entryFrom ? { entryFrom: v.entryFrom } : {}) })),
       pedestrians: junction.scene.pedestrians,
     },
-  };
+  }));
+};
+
+/** One life per junction, even if a route mistake also causes a collision. */
+const recordFault = (run, junction, fault) => {
+  if (!junction.faults.includes(fault)) junction.faults.push(fault);
+  run.streak = 0;
+  if (!run.coach && !junction.lifeLost) {
+    junction.lifeLost = true;
+    run.lives = Math.max(0, run.lives - 1);
+    if (run.lives === 0) run.over = true;
+  }
+};
+
+const markWrongWay = (run, junction) => {
+  if (junction.wrongWayAnnounced) return;
+  junction.wrongWay = true;
+  junction.wrongWayAnnounced = true;
+  recordFault(run, junction, 'wrongWay');
+  run.events.push({ type: 'wrongWay', junction: junction.index, instruction: junction.instruction, executed: junction.executedTo,
+    record: junctionRecord(run, junction, 'spoiled') });
 };
 
 /** After a crash at a roundabout entry the car still drives round to the instructed exit. */
@@ -894,7 +924,7 @@ const crash = (run, junction, culprit) => {
   completeRing(run, junction);
   // The guided junctions are for learning: a bump there explains itself
   // and costs nothing.
-  if (!run.coach) run.lives -= 1;
+  recordFault(run, junction, 'crash');
   run.streak = 0;
   run.s = Math.min(run.s, junction.sWait);
   run.crashUntil = Math.max(run.now + CRASH_PAUSE_MS, junction.clearAt + 600);
@@ -911,25 +941,26 @@ const crash = (run, junction, culprit) => {
 
 const passJunction = (run, junction) => {
   junction.passed = true;
-  run.passed += 1;
-  const wrongWay = (junction.executedTo !== null && junction.executedTo !== junction.instruction.to) || Boolean(junction.ring && junction.ring.laps > 0);
+  if (run.coach) run.guidedPassed += 1;
+  else run.passed += 1;
+  const wrongWay = Boolean(junction.wrongWay) || (junction.executedTo !== null && junction.executedTo !== junction.instruction.to) || Boolean(junction.ring && junction.ring.laps > 0);
   const base = 100 + (run.level - 1) * 15;
   // Reward safe decisions equally, regardless of reaction time.
   const bonus = 0;
   const multiplier = Math.min(2, 1 + 0.1 * run.streak);
   junction.hesitated = false;
   const spoiled = wrongWay || junction.ranRed || junction.ranStop;
-  const points = spoiled ? 0 : Math.round((base + bonus) * multiplier);
+  const points = spoiled || run.coach ? 0 : Math.round((base + bonus) * multiplier);
   junction.wrongWay = wrongWay;
   junction.points = points;
   run.score += points;
   run.streak = spoiled ? 0 : run.streak + 1;
-  if (wrongWay && !junction.wrongWayAnnounced) run.events.push({ type: 'wrongWay', junction: junction.index, instruction: junction.instruction, executed: junction.executedTo });
+  if (wrongWay) markWrongWay(run, junction);
   run.events.push({
     type: 'passed', junction: junction.index, points, hesitated: junction.hesitated, wrongWay, late: junction.late, ranRed: junction.ranRed, ranStop: junction.ranStop,
     early: Boolean(junction.earlyResume), record: junctionRecord(run, junction, spoiled ? 'spoiled' : 'clean'),
   });
-  if (run.passed % JUNCTIONS_PER_LEVEL === 0) {
+  if (!run.coach && run.passed % JUNCTIONS_PER_LEVEL === 0) {
     run.level += 1;
     run.events.push({ type: 'level', level: run.level });
   }
@@ -943,6 +974,17 @@ export const step = (run, now) => {
   const dt = Math.max(0, Math.min(100, now - run.now));
   run.now = now;
   if (run.over) return run.events.splice(0);
+
+  if (run.coach && run.continueAfterGuide) {
+    const lastLesson = run.junctions.find(j => j.lessonIndex === LESSON_COUNT - 1);
+    if (lastLesson && (lastLesson.passed || lastLesson.crashed) && run.s > lastLesson.sEnd) {
+      run.coach = false;
+      run.guideComplete = true;
+      run.lesson = null;
+      run.streak = 0;
+      run.events.push({ type: 'guideComplete' });
+    }
+  }
 
   ensureAhead(run);
   const junction = currentJunction(run);
@@ -970,6 +1012,7 @@ export const step = (run, now) => {
   // Movement
   if (run.stoppedAt !== null || recovering) {
     // Stay stopped until an explicit go input. Observation has no time penalty.
+    if (run.stoppedAt !== null && redFor(junction, now)) junction.stoppedForRed = true;
   } else {
     // Speed eases: accelerate towards the cruise speed, and when a stop at
     // the line is due follow a braking curve that ends there. A late swipe
@@ -1224,6 +1267,17 @@ export const step = (run, now) => {
     if (car.progress === 1 && Math.hypot(car.pose.x - playerPose.x, car.pose.y - playerPose.y) > 180) run.retiredTraffic.add(`${car.junction.index}-${car.vehicle.id}`);
   }
 
+  // Judge the signal as the car crosses its stop line, before the deeper
+  // collision box. Moving off is an input; actually entering owns the fault.
+  if (run.s > junction.sWait + 0.5 && !junction.entryLights && !junction.crashed && !junction.passed) {
+    junction.entryLights = lightState(junction, now);
+    if (junction.entryLights && redFor(junction, now)) {
+      junction.ranRed = true;
+      recordFault(run, junction, 'redLight');
+      run.events.push({ type: 'redLight', junction: junction.index, record: junctionRecord(run, junction, 'spoiled') });
+    }
+  }
+
   // Entering the box while a blocker is still crossing your path is a crash.
   if (run.s >= junction.sLine && !junction.crashed && !junction.passed) {
     if (!junction.ring && junction.blockers.length && now < junction.clearAt) {
@@ -1236,25 +1290,18 @@ export const step = (run, now) => {
     }
     if (junction.starts.you === null) {
       junction.starts.you = now;
+      junction.entryLights ||= lightState(junction, now);
       if (!junction.ring) {
         junction.executedTo = junction.scene.vehicles.find((v) => v.id === 'you').to;
         if (junction.executedTo !== junction.instruction.to) {
-          junction.wrongWay = true;
-          junction.wrongWayAnnounced = true;
-          run.streak = 0;
-          run.events.push({ type: 'wrongWay', junction: junction.index, instruction: junction.instruction, executed: junction.executedTo });
+          markWrongWay(run, junction);
         }
         run.intent = null;
       }
-      if (redFor(junction, now) && !junction.ranRed) {
-        junction.ranRed = true;
-        run.streak = 0;
-        run.events.push({ type: 'redLight', junction: junction.index });
-      }
       if (stopSignFor(junction) && !junction.stopped) {
         junction.ranStop = true;
-        run.streak = 0;
-        run.events.push({ type: 'ranStop', junction: junction.index });
+        recordFault(run, junction, 'ranStop');
+        run.events.push({ type: 'ranStop', junction: junction.index, record: junctionRecord(run, junction, 'spoiled') });
       }
       // Following traffic waits until your whole car has left the junction.
     }
@@ -1273,48 +1320,53 @@ export const step = (run, now) => {
  * screen turns this into a sentence and a swipe animation; `vehicle` is the
  * car to name.
  */
-export const lessonHint = (run, { visibleVehicles = null, junctionVisible = true } = {}) => {
-  if (!run.coach || run.over) return null;
+export const drivingHint = (run, { visibleVehicles = null, junctionVisible = true } = {}) => {
+  if (run.over || run.now < run.crashUntil) return null;
   const junction = currentJunction(run);
   if (junction.lesson === 'controls' && run.controlsStage !== 'done') {
     return { step: run.controlsStage === 'go' ? 'go' : run.controlsStage === 'braking' ? 'rolling' : 'controlsStop' };
   }
-  if (!junction.lesson || !junction.scheduled || junction.passed) return null;
+  if (!junction.scheduled || junction.passed) return null;
   if (!junctionVisible && run.s < junction.sWait) return { step: 'observe' };
   const instr = junction.instruction;
   const red = redFor(junction, run.now);
-  // Already in a roundabout: signal right before the exit you were told to take.
+  // Already in a roundabout: resume after a voluntary stop, then signal the
+  // requested exit. Entry advice must not strand a learner inside the ring.
   if (junction.ring && run.s >= junction.sLine) {
+    if (run.stoppedAt !== null) return { step: 'go' };
     if (!junction.ring.exitTo && !junction.ring.armed && junction.ring.order[junction.ring.next] === instr.to) return { step: 'ring' };
     return { step: 'rolling' };
   }
   const blockers = junction.ring
     ? ringEntryTraffic(junction, 180 + junction.rot, vehiclePoses(run)).map(car => car.vehicle.id)
-    : junction.blockers;
+    : stillCrossing(junction, run.now);
   if (run.stoppedAt !== null) {
     if (junction.needTurn) return { step: 'turn', dir: instr.turn };
     const waiting = blockers.length && (junction.ring || run.now < junction.clearAt);
-    if (waiting || red) return { step: 'wait', vehicle: blockers[0] || null };
+    if (red) return { step: 'redLight' };
+    if (waiting) return { step: 'wait', vehicle: blockers.find(id => visibleVehicles === null || visibleVehicles.includes(id)) || null };
     return { step: 'go' };
   }
   // Approaching. Set the turn first, then read the priority.
   if (!junction.ring && instr.turn !== 'straight' && run.intent !== instr.turn && run.s < junction.sLine) {
     return { step: 'turn', dir: instr.turn };
   }
-  if (!junction.stopped) {
+  if (!junction.stopped && run.s <= junction.sWait) {
     const visibleBlocker = blockers.find(id => visibleVehicles === null || visibleVehicles.includes(id));
     // Announce turns early, but ask for braking only near the stopping zone.
     // Otherwise following the coach creates a long crawl at the creep speed.
     const brakingZone = Math.max(28, run.speed * 2.5 + run.speed * run.speed / (2 * DECEL));
     if (junction.sWait - run.s > brakingZone && (visibleBlocker || red || stopSignFor(junction))) return { step: 'observe' };
-    if (visibleBlocker) return { step: 'giveWay', vehicle: visibleBlocker };
-    if (blockers.length && !red && !stopSignFor(junction)) return { step: 'observe' };
     if (red) return { step: 'redLight' };
     if (stopSignFor(junction)) return { step: 'stopSign' };
+    if (visibleBlocker) return { step: 'giveWay', vehicle: visibleBlocker };
+    if (blockers.length) return { step: 'observe' };
   }
   if (junction.stopped) return { step: 'rolling' };
   return { step: 'priority' };
 };
+
+export const lessonHint = (run, visibility) => run.coach ? drivingHint(run, visibility) : null;
 
 /** Your world pose now. */
 export const youPose = (run) => pointAtDistance(run.route, run.s);

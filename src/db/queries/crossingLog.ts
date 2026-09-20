@@ -1,12 +1,14 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDeviceId } from '../device';
 import { database, db } from '../index';
 import { crossingLog } from '../schema/crossingLog';
 import { generateId } from '../utils';
+import { isDriveRecord } from '../../lib/crossingLog';
 
 export type CrossingOutcome = 'clean' | 'crash' | 'spoiled';
 
 export interface CrossingLogInput {
+  id?: string;
   lang: number;
   runId: string;
   outcome: CrossingOutcome;
@@ -29,39 +31,36 @@ export interface CrossingLogEntry {
 export const LOG_KEEP = 300;
 
 export async function addCrossingLog(input: CrossingLogInput): Promise<string> {
-  const id = generateId();
+  const id = input.id ?? generateId();
   const deviceId = await getDeviceId();
-  await db.insert(crossingLog).values({
-    id,
-    deviceId,
-    lang: input.lang,
-    runId: input.runId,
-    outcome: input.outcome,
-    points: Math.max(0, Math.round(input.points)),
-    record: JSON.stringify(input.record),
-    createdAt: new Date(),
-    syncedAt: null,
-  });
+  // Keep the drive loop free of synchronous database work. The async worker
+  // transport also handles full scene JSON without the web sync reply limit.
+  await database.runAsync(
+    `INSERT INTO crossing_log (id, device_id, lang, run_id, outcome, points, record, created_at, synced_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
+     ON CONFLICT(id) DO UPDATE SET outcome = excluded.outcome, points = excluded.points,
+       record = excluded.record, synced_at = NULL`,
+    [id, deviceId, input.lang, input.runId, input.outcome, Math.max(0, Math.round(input.points)), JSON.stringify(input.record), Math.floor(Date.now() / 1000)],
+  );
   return id;
 }
 
 export async function getRecentCrossingLog(lang: number, limit = 100): Promise<CrossingLogEntry[]> {
-  const rows = await db
-    .select()
-    .from(crossingLog)
-    .where(eq(crossingLog.lang, lang))
-    .orderBy(desc(crossingLog.createdAt))
-    .limit(limit);
+  const rows = await database.getAllAsync<{
+    id: string; run_id: string; outcome: CrossingOutcome; points: number; record: string; created_at: number;
+  }>('SELECT id, run_id, outcome, points, record, created_at FROM crossing_log WHERE lang = ? ORDER BY created_at DESC, rowid DESC LIMIT ?', [lang, limit]);
   const entries: CrossingLogEntry[] = [];
   for (const row of rows) {
     try {
+      const record = JSON.parse(row.record);
+      if (!isDriveRecord(record)) continue;
       entries.push({
         id: row.id,
-        runId: row.runId,
-        outcome: row.outcome as CrossingOutcome,
+        runId: row.run_id,
+        outcome: row.outcome,
         points: row.points,
-        record: JSON.parse(row.record),
-        createdAt: row.createdAt,
+        record,
+        createdAt: new Date(row.created_at * 1000),
       });
     } catch {
       // A row we cannot parse is skipped rather than breaking the whole list.

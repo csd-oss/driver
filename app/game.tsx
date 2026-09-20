@@ -1,105 +1,42 @@
+import { useCallback, useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { InstructorIdentity } from '@/components/game/InstructorIdentity';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
-import * as GameRoundsDB from '@/src/db/queries/gameRounds';
-import { t } from '@/src/i18n/i18n';
-import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { getCachedLanguage, getGuideFinished, getLanguage } from '@/src/lib/settings';
-import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
-import { usePostHog } from 'posthog-react-native';
-import { useCallback, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { t } from '@/src/i18n/i18n';
 
-// Hub for "Who goes first?": the crossing minigame and the exam-picture quiz.
-export default function GameHubScreen() {
+export default function DrivingPracticeHub() {
   const router = useRouter();
-  const posthog = usePostHog();
   const [lang, setLang] = useState(getCachedLanguage);
-  const [bestCrossing, setBestCrossing] = useState(0);
-  const [bestQuiz, setBestQuiz] = useState(0);
-  const [guideDone, setGuideDone] = useState(true);
-
-  useFocusEffect(
-    useCallback(() => {
-      trackScreenView(posthog, 'GameHub');
-      getLanguage().then(async (l) => {
-        setLang(l);
-        const [crossing, quiz, guide] = await Promise.all([
-          GameRoundsDB.getGameStats(l, 'crossing'),
-          GameRoundsDB.getGameStats(l, 'quiz'),
-          getGuideFinished(),
-        ]);
-        setBestCrossing(crossing.best);
-        setBestQuiz(quiz.best);
-        setGuideDone(guide);
-      });
-    }, [posthog])
-  );
-
-  return (
-    <Screen testID="screen.game" header={<Header title={t('game.title', lang)} />}>
-      <ScrollView className="flex-1" contentContainerClassName="gap-4 mt-1 pb-6" showsVerticalScrollIndicator={false}>
-        <Card className="gap-3" testID="game.modeGame">
-          <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
-            🚦 {t('crossing.title', lang)}
-          </UIText>
-          <UIText variant="body" className="text-slate-600 dark:text-slate-300">
-            {t('crossing.hubBody', lang)}
-          </UIText>
-          <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-            {`${t('game.best', lang)}: ${bestCrossing}`}
-          </UIText>
-          {/* Practice is available directly; the guided drive remains optional. */}
-          <Button
-            onPress={() => {
-              trackEvent(posthog, 'game_mode_selected', { mode: 'crossing', language: lang });
-              router.push('/crossing');
-            }}
-            variant="default"
-            className="w-full"
-            testID="game.playCrossing"
-          >
-            {t('game.start', lang)}
-          </Button>
-          {(
-            <Button onPress={() => router.push('/crossing-guide')} variant="outline" className="w-full" testID="game.replayGuide">
-              {guideDone ? t('guide.replay', lang) : t('guide.startGuide', lang)}
-            </Button>
-          )}
-          <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-            {t('crossing.hubLogHint', lang)}
-          </UIText>
-          <Button onPress={() => router.push('/crossing-log')} variant="outline" className="w-full" testID="game.crossingLog">
-            {t('crossing.log.open', lang)}
-          </Button>
-        </Card>
-        <Card className="gap-3" testID="game.modeQuiz">
-          <UIText variant="subtitle" className="text-slate-900 dark:text-slate-50">
-            {t('crossing.modeQuiz', lang)}
-          </UIText>
-          <UIText variant="body" className="text-slate-600 dark:text-slate-300">
-            {t('crossing.modeQuizBody', lang)}
-          </UIText>
-          <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
-            {t('game.best', lang)}: {bestQuiz}
-          </UIText>
-          <Button
-            onPress={() => {
-              trackEvent(posthog, 'game_mode_selected', { mode: 'quiz', language: lang });
-              router.push('/game-quiz');
-            }}
-            variant="outline"
-            className="w-full"
-            testID="game.playQuiz"
-          >
-            {t('game.start', lang)}
-          </Button>
-        </Card>
-        <View className="h-2" />
-      </ScrollView>
-    </Screen>
-  );
+  const [guideDone, setGuideDone] = useState<boolean | null>(null);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    Promise.all([getLanguage(), getGuideFinished()]).then(([language, finished]) => {
+      if (active) { setLang(language); setGuideDone(finished); }
+    }).catch(() => { if (active) setGuideDone(false); });
+    return () => { active = false; };
+  }, []));
+  return <Screen testID="screen.game" header={<Header title={t('practice.title', lang)} />}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12, paddingBottom: 32, gap: 28 }}>
+      <InstructorIdentity lang={lang} />
+      <View style={{ gap: 12 }}>
+        <UIText variant="title">{t(guideDone ? 'practice.readyTitle' : 'practice.firstTitle', lang)}</UIText>
+        <UIText className="text-slate-600 dark:text-slate-300">{t(guideDone ? 'practice.readyBody' : 'practice.firstBody', lang)}</UIText>
+        <UIText className="text-slate-600 dark:text-slate-300">{t('practice.routePromise', lang)}</UIText>
+      </View>
+      <View style={{ gap: 12 }}>
+        <Button disabled={guideDone === null} onPress={() => router.push('/crossing')} testID="game.playCrossing">{t(guideDone ? 'practice.start' : 'practice.firstStart', lang)}</Button>
+        {guideDone && <Button onPress={() => router.push('/crossing-guide')} variant="outline" testID="game.replayGuide">{t('practice.withGuide', lang)}</Button>}
+        <UIText variant="caption" className="text-slate-500 dark:text-slate-400">{t('practice.rules', lang)}</UIText>
+      </View>
+      <Pressable onPress={() => router.push('/crossing-log')} accessibilityRole="button" className="border-t border-slate-200 dark:border-slate-800 pt-6 flex-row items-center gap-3" testID="game.crossingLog">
+        <View className="flex-1 gap-1"><UIText variant="subtitle">{t('crossing.log.title', lang)}</UIText><UIText className="text-slate-500 dark:text-slate-400">{t('practice.logBody', lang)}</UIText></View><UIText>→</UIText>
+      </Pressable>
+    </ScrollView>
+  </Screen>;
 }

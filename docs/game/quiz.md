@@ -1,5 +1,9 @@
 # Exam-picture quiz
 
+Removed from the app in build 36. `/game-quiz` redirects to driving practice.
+The following describes the previous implementation; the underlying question
+bank and priority fixtures remain available to theory study and engine tests.
+
 "Who goes first?" is the second game in the hub: a timed quiz built from the
 official intersection pictures rather than from generated scenes. The engine
 and the renderer are shared with the runner, but nothing here is procedural.

@@ -1,71 +1,74 @@
-# Continuous driving guide
+# Driving practice with Alex
 
-`app/crossing-guide.tsx` runs one connected route using
-`createRun(rng, 1, { lesson: 0, continuousGuide: true })`. The introduction
-appears once. Feedback appears during driving; there are no Next/Retry screens
-between junctions. A review at the end lists mistakes and offers practice or a
-new guided drive. Practice is also available directly from the game hub.
+`components/game/DrivingExperience.tsx` runs both routes. The first drive always
+starts with the eleven guided junctions, including when `/crossing` is opened
+directly. After the final lesson, the existing run continues into practice on
+the same road, with the same car and all three lives. Completing the guide saves
+`has_finished_guide`. Later visits offer direct practice or a guided start.
+Leaving a drive opens its review; there is no lesson completion screen.
+`/game-quiz` redirects old links to the driving hub.
 
 ## The route
 
-The eleven fixed scenes in `src/lib/priority/lessons.js` teach controls,
-right-hand priority, the main road, a side road, STOP, traffic lights,
-instructor directions, left turns, a tram approaching from the right, a tram
-yielding from a side road, and roundabouts. Scenes are joined by the same road
-builder as practice. The guide uses 60% of the regular cruise speed.
+The fixed scenes in `src/lib/priority/lessons.js` teach controls, right-hand
+priority, the main road, a side road, STOP, traffic lights, directions, left
+turns, a tram approaching from the right, a tram yielding from a side road, and
+roundabouts. They use the same road builder and rules as practice. Guide speed
+is 60% of practice speed, with short approaches and 140-unit spacing.
 
-Build 34 starts the first lesson 16 units before its junction frame instead of
-160, and spaces guide junctions 140 units apart instead of the practice minimum
-of 180. Turn instructions still appear early; braking prompts wait until the
-stopping zone (current-speed braking distance plus 2.5 seconds to react, minimum
-28 units). This avoids asking learners to creep down a long empty road. Following
-the first Stop prompt now takes about 6.7 seconds to reach the line, versus 26.7
-seconds previously in the same deterministic simulation. Normal practice keeps
-its existing road distances and speed-dependent spacing.
+The first Stop exercise is learner-paced. The car rolls slowly and waits before
+the junction until Stop is pressed, then waits for Go. Reading the message
+cannot skip the exercise. Later braking prompts allow current-speed braking
+distance plus 2.5 seconds to react, with a minimum of 28 units.
 
-Build 35 makes the controls exercise learner-paced. It rolls at no more than
-4 units/second and waits before the first junction until Stop is pressed. That
-input brakes to a halt immediately rather than creeping to the line, then the
-instructor waits for Go. Taking 30 seconds to read cannot skip the exercise.
-The compact road and the later lessons keep their existing pacing.
+## Instructor and controls
 
-Trams do not have universal priority. The two tram lessons demonstrate how
-signs and the applicable priority rule affect the decision. Rules are documented
-in `priority-rules.md` and resolved by the shared priority engine.
+Alex speaks in the first person from the single top panel, and reviews the drive
+afterwards. `src/lib/priority/instructor.js` gives guide and practice the same
+message cadence: a situation is explained once, directions stay available until
+the turn, and there is no repeated filler on a straight road. Feedback never
+hides an upcoming route instruction. Situational coaching names traffic only
+after it appears in the road viewport.
 
-## Controls and coaching
+Buttons and swipes share the same inputs. Turn selection never releases the
+brake. The first lesson teaches Stop/Go gestures; turn and exit prompts introduce
+the lateral gestures. Guide and practice pause on backgrounding, shifting both
+simulation and instructor clocks when resumed.
 
-`DriveStage` provides a full-width road viewport and one instructor panel at
-the top for directions, explanations, feedback and animated gesture hints.
-The bottom console contains progress and controls only. `DriveControls` groups
-Left/Right and Stop/Go, with their corresponding swipe directions printed on
-each button. The first lesson teaches both methods. Selecting a turn does not release the brake;
-Go is a separate action. Waiting and cautious stops cost no points.
+## Faults and the drive log
 
-`lessonHint(run, visibility)` gates situational prompts using the same camera
-transform as `WorldScene`. The instructor explains a car only after it is in
-the visible road area, excluding the instruction overlay. Controls are explained
-from the start. Each visible lesson explains its specific rule; subsequent
-prompts tell the learner when to wait, move off, or select an exit.
+Guide mistakes are explained without losing lives. Practice starts with three
+lives. A missed instruction or roundabout exit, crossing a red signal, missing a
+mandatory STOP, or a collision costs one life, with at most one life deducted
+per junction. All faults at that junction remain in the review. Cautious stops
+and waiting have no penalty.
 
-Wrong turns, red lights, missed STOP signs, and priority mistakes produce
-feedback during the drive. `lessonVerdict` marks them for the final review.
-Guide mistakes do not consume lives. Finishing saves `has_finished_guide` for
-the hub's Start/Replay label; it is not an access gate.
+`src/lib/driveSession.js` assigns one stable saved ID per junction, serializes
+writes, and retries failed snapshots. A fault is saved immediately, including a
+terminal mistake before the junction ends. Finishing the junction updates that
+entry instead of adding a duplicate. Records capture the signal at the stop line
+and distinguish approach, circling and committed movement. Diagrams illustrate
+routes and priority, rather than claiming to replay exact vehicle positions.
 
-Both guide and practice pause on leaving the foreground. Resuming shifts all
-simulation clocks so traffic does not jump forward.
+The guide and following practice share one drive ID. Sessions sort newest first;
+junctions remain in route order even when timestamps match. Reviews show clean
+decisions and situations to revisit, not speed or arcade-score judgments. The
+stored log keeps the newest 300 junctions per language.
+
+Database migrations and drive-log reads/writes use asynchronous SQLite calls.
+On web, `src/db/index.web.ts` also routes every ORM query through the async
+worker. SDK 54's synchronous web transport can truncate replies over 255 bytes
+and time out under load, breaking both the log and settings on reopening.
+Native retains the existing ORM adapter. No dependency patch is required.
 
 ## Validation
 
-- `__tests__/world.test.js`: individual lessons, controls, lights, scoring.
-- `__tests__/guidePacing.test.js`: short approaches, prompt timing, complete
-  stops and safe resumption without shortening normal practice roads.
-- `__tests__/practiceSafety.test.js`: complete continuous route, translated
-  vehicle names, visibility-gated coaching, tram yielding, physical separation
-  and forward progress across deterministic drives.
-- `.maestro/09_guide.yaml`: native navigation, bottom controls, pause/resume,
-  and continued driving without a lesson transition screen.
-
-To add a lesson, extend `LESSONS`, add its title and explanation in all three
-languages, and extend the lesson expectations in `world.test.js`.
+- `drivingExperience.test.js`: handover, fault deductions, terminal records,
+  signal snapshots, instructor timing, save retry/order, session grouping.
+- `world.test.js`, `guidePacing.test.js`, `practiceSafety.test.js`: road rules,
+  safe stops, guide pacing, vehicle separation and continuous routes.
+- `.maestro/07_game.yaml`, `08_crossing.yaml`, `09_guide.yaml`: first-use hub,
+  quiz removal, native controls, pause and gesture teaching.
+- Browser end-to-end check: all eleven lessons, uninterrupted handover, saved
+  review and modal, persisted guide completion, returning choices and old-link
+  redirect.

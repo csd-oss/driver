@@ -1,4 +1,4 @@
-# Continuous guide: native bottom controls and pause, without lesson cards.
+# Alex teaches controls in one continuous drive, with no lesson cards.
 appId: com.smartie.driver
 ---
 - launchApp:
@@ -6,22 +6,14 @@ appId: com.smartie.driver
 - runFlow: subflows/complete_onboarding.yaml
 - tapOn:
     id: home.game
-- extendedWaitUntil:
-    visible:
-      id: screen.game
-    timeout: 15000
 - tapOn:
-    id: game.replayGuide
-- extendedWaitUntil:
-    visible:
-      id: guide.start
-    timeout: 15000
-- tapOn:
-    id: guide.start
+    id: game.playCrossing
+    waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible:
       id: guide.scene
     timeout: 15000
+- assertVisible: '.*Alex.*'
 - assertVisible:
     id: crossing.control.left
 - assertVisible:
@@ -30,17 +22,13 @@ appId: com.smartie.driver
     id: crossing.control.brake
 - assertVisible:
     id: crossing.control.go
-- tapOn:
-    id: crossing.pause
-- assertVisible: Drive paused
-- tapOn:
-    id: crossing.pause
-- assertVisible:
-    id: crossing.instruction
 - swipe:
     start: 50%, 38%
     end: 50%, 60%
     duration: 500
+- extendedWaitUntil:
+    visible: 'The way is clear. Tap Go to move off.'
+    timeout: 10000
 - swipe:
     start: 50%, 60%
     end: 50%, 38%

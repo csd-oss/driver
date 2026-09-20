@@ -1,47 +1,19 @@
-# Game: start a round of "Who goes first?", answer one situation, see the feedback.
+# First drive hub: Alex introduces practice; the intersection quiz is gone.
 appId: com.smartie.driver
 ---
 - launchApp:
     clearState: true
 - runFlow: subflows/complete_onboarding.yaml
 - tapOn:
-    id: "home.game"
-- extendedWaitUntil:
-    visible:
-      id: "screen.game"
-    timeout: 10000
-- tapOn:
-    id: "game.playQuiz"
-- extendedWaitUntil:
-    visible:
-      id: "screen.gameQuiz"
-    timeout: 10000
-- tapOn:
-    id: "game.start"
-- extendedWaitUntil:
-    visible:
-      id: "game.score"
-    timeout: 10000
-# Answer with whatever the first situation offers: a chip or a plain answer.
-- runFlow:
-    when:
-      visible:
-        id: "game.chip.you"
-    commands:
-      - tapOn:
-          id: "game.chip.you"
-- runFlow:
-    when:
-      visible:
-        id: "game.answer.1"
-    commands:
-      - tapOn:
-          id: "game.answer.1"
-- extendedWaitUntil:
-    visible:
-      id: "game.next"
-    timeout: 25000
-- tapOn:
-    id: "game.next"
+    id: home.game
+- assertVisible: Alex
 - assertVisible:
-    id: "screen.gameQuiz"
+    id: game.playCrossing
+- assertNotVisible:
+    id: game.playQuiz
+- assertNotVisible:
+    id: game.replayGuide
+- tapOn:
+    id: game.crossingLog
+- assertVisible:
+    id: crossing.log.emptyState
