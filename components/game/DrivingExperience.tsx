@@ -120,6 +120,7 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     finishedRef.current = true;
     stopLoop();
     const run = runRef.current;
+    setRecords(recordsRef.current);
     setEndedByFaults(run.over);
     setPhase('review');
     setPaused(false);
@@ -153,13 +154,11 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
       if (gap > 400) { shiftTime(run, gap - 16); shiftInstructorTime(instructorRef.current, gap - 16); }
       lastTickRef.current = time;
       const events = step(run, time);
-      if (time >= run.crashUntil) highlightRef.current = [];
-      let updatedRecords = false;
+      if (highlightRef.current.length && time >= run.crashUntil) highlightRef.current = [];
       for (const event of events) {
         if (event.record) {
           recordsRef.current = mergeDriveRecord(recordsRef.current, event.record);
           recorderRef.current?.save(event.record);
-          updatedRecords = true;
         }
         if (event.type === 'guideComplete') {
           guideDoneRef.current = true;
@@ -173,7 +172,6 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
         }
       }
-      if (updatedRecords) setRecords(recordsRef.current);
 
       const you = youPose(run);
       const diff = ((you.angle - headingRef.current + 540) % 360) - 180;
@@ -191,7 +189,7 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
         if (!visibleInRoad(vehicle.pose, { ...view, occludedTop: 0 })) seen.vehicles.delete(vehicle.vehicle.id);
         return seen.vehicles.has(vehicle.vehicle.id);
       }).map((vehicle: any) => vehicle.vehicle.id) };
-      const speech = instructorFrame(instructorRef.current, run, { lang, events, visibility });
+      const speech = instructorFrame(instructorRef.current, run, { lang, events, visibility, traffic: vehicles });
       const lights: Record<number, any> = {};
       for (const junction of visible) if (junction.scene.control?.type === 'lights') lights[junction.index] = lightState(junction, time);
       setFrame({ junctions: visible, vehicles, you, heading: headingRef.current,
@@ -229,21 +227,22 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     },
   }), [input]);
 
-  const back = async () => {
+  const togglePause = useCallback(() => setPaused(value => !value), []);
+  const back = useCallback(async () => {
     if (phase !== 'running') { router.replace('/game'); return; }
     const wasPaused = paused;
     setPaused(true);
     const end = await confirmDialog({ title: t('practice.end', lang), message: t('practice.endBody', lang), confirmText: t('practice.review', lang), cancelText: t('crossing.control.resume', lang) });
     if (end) finishRun();
     else setPaused(wasPaused);
-  };
+  }, [phase, paused, router, lang, finishRun]);
 
   if (phase === 'running') return <DriveStage lang={lang}
     detail={(frame?.guided ?? runRef.current?.coach) ? tf('practice.guideProgress', lang, { n: Math.min((frame?.lessonIndex ?? 0) + 1, LESSON_COUNT), total: LESSON_COUNT })
       : `${tf('practice.progress', lang, { n: frame?.passed ?? 0 })}  ·  ${Array.from({ length: LIVES }, (_, i) => i < (frame?.lives ?? LIVES) ? '♥' : '♡').join(' ')}`}
     instruction={paused ? t('practice.coach.paused', lang) : frame?.instruction} direction={frame?.direction}
     status={!paused ? frame?.status : undefined} swipe={frame?.swipe}
-    paused={paused} onPause={() => setPaused(value => !value)} onBack={back} intent={frame?.signal ?? frame?.intent}
+    paused={paused} onPause={togglePause} onBack={back} intent={frame?.signal ?? frame?.intent}
     braking={frame?.braking} onInput={input} testID="screen.crossing">
     {(width, height, occludedTop) => {
       sizeRef.current = { width, height, occludedTop };

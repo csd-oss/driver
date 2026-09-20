@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
 export type SwipeDirection = 'up' | 'down' | 'left' | 'right';
@@ -60,7 +60,7 @@ export const gestureVector = (direction: SwipeDirection, size: number) => {
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 /** Looping demonstration of one swipe: a hand dot that travels, trails and repeats. */
-export const SwipeHint = ({ direction, size = 120, colour = '#ffffff', label, testID }: Props) => {
+export const SwipeHint = memo(function SwipeHint({ direction, size = 120, colour = '#ffffff', label, testID }: Props) {
   const progressRef = useRef(new Animated.Value(0));
   const progress = progressRef.current;
   const [reduced, setReduced] = useState(false);
@@ -243,7 +243,7 @@ export const SwipeHint = ({ direction, size = 120, colour = '#ffffff', label, te
       ) : null}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   // Every part of the gesture gets the whole square, centred, and moves by transform.

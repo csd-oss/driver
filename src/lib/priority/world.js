@@ -1320,7 +1320,7 @@ export const step = (run, now) => {
  * screen turns this into a sentence and a swipe animation; `vehicle` is the
  * car to name.
  */
-export const drivingHint = (run, { visibleVehicles = null, junctionVisible = true } = {}) => {
+export const drivingHint = (run, { visibleVehicles = null, junctionVisible = true, traffic = null } = {}) => {
   if (run.over || run.now < run.crashUntil) return null;
   const junction = currentJunction(run);
   if (junction.lesson === 'controls' && run.controlsStage !== 'done') {
@@ -1338,7 +1338,7 @@ export const drivingHint = (run, { visibleVehicles = null, junctionVisible = tru
     return { step: 'rolling' };
   }
   const blockers = junction.ring
-    ? ringEntryTraffic(junction, 180 + junction.rot, vehiclePoses(run)).map(car => car.vehicle.id)
+    ? ringEntryTraffic(junction, 180 + junction.rot, traffic ?? vehiclePoses(run)).map(car => car.vehicle.id)
     : stillCrossing(junction, run.now);
   if (run.stoppedAt !== null) {
     if (junction.needTurn) return { step: 'turn', dir: instr.turn };

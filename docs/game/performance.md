@@ -158,3 +158,23 @@ Two recordings, including cache handovers and a turn, contained 3,176 road frame
 with no missing-road frames. A native sample confirms that moving layers use
 `synchronouslyUpdateUIProps`. Physical-device frame pacing still needs checking;
 these simulator checks do not establish sustained 120 fps.
+
+Build 37 isolates Alex's panel and the bottom console from road snapshots. The
+shared experience in build 36 also enabled animated swipe advice in practice;
+each unchanged hint rebuilt 15 native animation interpolations per React render.
+The regression check reproduced 1,350 allocations over 90 snapshots. Memoized
+coaching and swipe artwork now create zero additional interpolations over the
+same snapshots, while changed advice, gestures and pause still update immediately.
+
+Coaching reuses the traffic poses already calculated for drawing, instead of
+sampling roundabout traffic again, and caches translated advice until its content
+changes. The drive log still saves each event immediately; its review list enters
+React state only when the drive ends. Simulation cadence, road-patch retention,
+native interpolation and coaching timing remain unchanged. `drivingChrome.test.js`
+checks stable UI/animation work; `drivingExperience.test.js` checks advice parity,
+prompt changes, guide continuity, faults and saved records.
+
+Build 37's production-Hermes simulator check passed Stop/Go, turning, pause/resume
+and saving the drive review. Its recording contained 2,133 road frames with no
+missing-road frames. This checks the retained-road behavior and interaction
+regressions; physical-iPhone frame pacing still needs confirmation.

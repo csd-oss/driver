@@ -1,6 +1,6 @@
 import { useDrivePalette } from './drivePalette';
-import { useState, type ReactNode } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useState, type ReactNode } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { DriveControls } from './DriveControls';
@@ -29,37 +29,54 @@ export function DriveStage({ lang, detail, instruction, direction, status, swipe
   const palette = useDrivePalette();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [overlayHeight, setOverlayHeight] = useState(100);
+  const measureScene = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setSize(prev => prev.width === width && prev.height === height ? prev : { width, height });
+  }, []);
+  const measureInstructor = useCallback((e: LayoutChangeEvent) => setOverlayHeight(e.nativeEvent.layout.height), []);
   return (
     <View style={[styles.outer, { backgroundColor: palette.background }]}>
       <StatusBar style={palette.dark ? 'light' : 'dark'} />
       <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top', 'bottom']} testID={testID}>
-        <View style={styles.scene} testID="crossing.viewport" onLayout={e => {
-          const { width, height } = e.nativeEvent.layout;
-          setSize(prev => prev.width === width && prev.height === height ? prev : { width, height });
-        }}>
+        <View style={styles.scene} testID="crossing.viewport" onLayout={measureScene}>
           {size.width > 0 && size.height > 0 && children(size.width, size.height, overlayHeight + 14)}
-          <View style={[styles.instructor, { backgroundColor: palette.background }]} testID="crossing.instruction" onLayout={e => setOverlayHeight(e.nativeEvent.layout.height)}>
-            <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={t('a11y.goBack', lang)} style={styles.overlayButton} testID="nav.back">
-              <Text style={[styles.backText, { color: palette.text }]}>‹</Text>
-            </Pressable>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.eyebrow, { color: palette.secondary, marginBottom: instruction || status ? 4 : 0 }]}>{direction === 'left' ? '←  ' : direction === 'right' ? '→  ' : ''}Alex · {t('crossing.control.instructor', lang)}</Text>
-              {!!instruction && <Text style={[styles.instruction, { color: palette.text }]} maxFontSizeMultiplier={1.3}>{instruction}</Text>}
-              {status && status !== instruction && <Text testID="crossing.coaching" style={[styles.coaching, { color: palette.secondary }]} maxFontSizeMultiplier={1.3} accessibilityLiveRegion="polite">{status}</Text>}
-              {swipe && !paused && <View style={styles.swipe} testID="crossing.swipeHint"><SwipeHint direction={swipe} size={36} colour={palette.accent} /><Text style={[styles.swipeText, { color: palette.secondary }]}>{t(`guide.swipe.${swipe}`, lang)}</Text></View>}
-            </View>
-            {onPause && <Pressable onPress={onPause} accessibilityRole="button" accessibilityLabel={t(`crossing.control.${paused ? 'resume' : 'pause'}`, lang)} style={styles.overlayButton} testID="crossing.pause"><Text style={[styles.pauseText, { color: palette.text }]}>{paused ? '▶' : 'Ⅱ'}</Text></Pressable>}
-          </View>
+          <InstructorOverlay lang={lang} instruction={instruction} direction={direction} status={status} swipe={swipe}
+            paused={paused} onPause={onPause} onBack={onBack} onLayout={measureInstructor} />
           {paused && <View pointerEvents="none" style={styles.paused}><Text style={styles.pausedText}>{t('crossing.control.paused', lang)}</Text></View>}
         </View>
-        <View style={[styles.console, { backgroundColor: palette.background }]}>
-          <Text style={[styles.detail, { color: palette.secondary }]} testID="crossing.summary">{detail}</Text>
-          <DriveControls lang={lang} intent={intent} braking={braking} disabled={paused} onInput={onInput} />
-        </View>
+        <DriveConsole lang={lang} detail={detail} intent={intent} braking={braking} paused={paused} onInput={onInput} />
       </SafeAreaView>
     </View>
   );
 }
+
+// Road snapshots run at 30 Hz on native. The coach and controls only need a
+// React commit when their content changes, especially the native swipe graph.
+const InstructorOverlay = memo(function InstructorOverlay({ lang, instruction, direction, status, swipe, paused, onPause, onBack, onLayout }:
+  Pick<Props, 'lang' | 'instruction' | 'direction' | 'status' | 'swipe' | 'paused' | 'onPause' | 'onBack'> & { onLayout: (e: LayoutChangeEvent) => void }) {
+  const palette = useDrivePalette();
+  return <View style={[styles.instructor, { backgroundColor: palette.background }]} testID="crossing.instruction" onLayout={onLayout}>
+    <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={t('a11y.goBack', lang)} style={styles.overlayButton} testID="nav.back">
+      <Text style={[styles.backText, { color: palette.text }]}>‹</Text>
+    </Pressable>
+    <View style={{ flex: 1 }}>
+      <Text style={[styles.eyebrow, { color: palette.secondary, marginBottom: instruction || status ? 4 : 0 }]}>{direction === 'left' ? '←  ' : direction === 'right' ? '→  ' : ''}Alex · {t('crossing.control.instructor', lang)}</Text>
+      {!!instruction && <Text style={[styles.instruction, { color: palette.text }]} maxFontSizeMultiplier={1.3}>{instruction}</Text>}
+      {status && status !== instruction && <Text testID="crossing.coaching" style={[styles.coaching, { color: palette.secondary }]} maxFontSizeMultiplier={1.3} accessibilityLiveRegion="polite">{status}</Text>}
+      {swipe && !paused && <View style={styles.swipe} testID="crossing.swipeHint"><SwipeHint direction={swipe} size={36} colour={palette.accent} /><Text style={[styles.swipeText, { color: palette.secondary }]}>{t(`guide.swipe.${swipe}`, lang)}</Text></View>}
+    </View>
+    {onPause && <Pressable onPress={onPause} accessibilityRole="button" accessibilityLabel={t(`crossing.control.${paused ? 'resume' : 'pause'}`, lang)} style={styles.overlayButton} testID="crossing.pause"><Text style={[styles.pauseText, { color: palette.text }]}>{paused ? '▶' : 'Ⅱ'}</Text></Pressable>}
+  </View>;
+});
+
+const DriveConsole = memo(function DriveConsole({ lang, detail, intent, braking, paused, onInput }:
+  Pick<Props, 'lang' | 'detail' | 'intent' | 'braking' | 'paused' | 'onInput'>) {
+  const palette = useDrivePalette();
+  return <View style={[styles.console, { backgroundColor: palette.background }]}>
+    <Text style={[styles.detail, { color: palette.secondary }]} testID="crossing.summary">{detail}</Text>
+    <DriveControls lang={lang} intent={intent} braking={braking} disabled={paused} onInput={onInput} />
+  </View>;
+});
 const styles = StyleSheet.create({
   outer: { flex: 1, alignItems: 'center', backgroundColor: '#142d29' },
   safe: { flex: 1, width: '100%', maxWidth: Platform.OS === 'web' ? 520 : undefined, backgroundColor: '#142d29' },

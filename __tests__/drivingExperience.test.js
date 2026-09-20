@@ -1,10 +1,11 @@
 import { makeRng } from '../src/lib/priority/generator';
 import { LESSONS, LESSON_COUNT } from '../src/lib/priority/lessons';
-import { createRun, currentJunction, applyInput, drivingHint, junctionRecord, lightState, step, youPose } from '../src/lib/priority/world';
+import { createRun, currentJunction, applyInput, drivingHint, junctionRecord, lightState, step, vehiclePoses, youPose } from '../src/lib/priority/world';
 import { createInstructor, instructorFrame, shiftInstructorTime } from '../src/lib/priority/instructor';
 import { createDriveRecorder, groupDrives, mergeDriveRecord } from '../src/lib/driveSession';
 import { explainRecord, isDriveRecord } from '../src/lib/crossingLog';
 import { PRACTICE } from '../src/i18n/practice';
+import * as i18n from '../src/i18n/i18n';
 
 const indexOf = id => LESSONS.findIndex(lesson => lesson.id === id);
 const sceneRun = (id, practice = false) => {
@@ -183,6 +184,36 @@ test('pause preserves an explanation, and unseen traffic is not announced', () =
   shiftInstructorTime(state, 30000);
   expect(state.until).toBe(36000);
   expect(state.feedbackUntil).toBe(37000);
+});
+
+test('unchanged coaching does not keep formatting the same text on every snapshot', () => {
+  const run = sceneRun('controls'), state = createInstructor();
+  const format = jest.spyOn(i18n, 'tf');
+  try {
+    const first = instructorFrame(state, run, { lang: 2 });
+    expect(first.swipe).toBe('down');
+    format.mockClear();
+    for (let frame = 0; frame < 90; frame++) {
+      step(run, run.now + 1000 / 30);
+      expect(instructorFrame(state, run, { lang: 2 })).toEqual(first);
+    }
+    expect(format).not.toHaveBeenCalled();
+    applyInput(run, 'brake');
+    driveUntil(run, () => run.stoppedAt !== null);
+    expect(instructorFrame(state, run, { lang: 2 }).swipe).toBe('up');
+    expect(format).toHaveBeenCalledTimes(1);
+  } finally { format.mockRestore(); }
+});
+
+test('coaching reuses the drawn traffic without changing roundabout advice', () => {
+  const run = sceneRun('roundabout'), junction = currentJunction(run);
+  const reuse = createInstructor(), resample = createInstructor();
+  driveUntil(run, () => junction.passed, current => {
+    expect(instructorFrame(reuse, current, { lang: 2, traffic: vehiclePoses(current) }))
+      .toEqual(instructorFrame(resample, current, { lang: 2 }));
+    obey(current);
+  });
+  expect(junction.passed).toBe(true);
 });
 
 test('record writes preserve order, reuse IDs and retry a failed latest snapshot', async () => {
