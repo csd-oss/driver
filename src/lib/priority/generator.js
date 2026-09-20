@@ -1,6 +1,6 @@
 import { resolve } from './engine';
 import { ARMS, turnOf } from './geometry';
-import { RING_DEFAULT_START, ringLeaveDeg } from './layout';
+import { RING_DEFAULT_START, ringExitOrder, ringJoinDeg, ringLeaveDeg } from './layout';
 
 /**
  * Procedural intersections for the game. `generateScene(rng, level)` returns
@@ -179,7 +179,27 @@ const buildRoundabout = (rng, band) => {
   // Ring traffic arrives first on its own road. Do not place its approach
   // behind a vehicle already waiting to give way at that same entry.
   const entryArms = ['N', 'W', 'E'].filter(arm => !vehicles.some(v => v.from === arm));
-  vehicles.filter(v => v.from === 'ring').forEach((v, i) => { v.entryFrom = entryArms[i]; });
+  const circulating = vehicles.filter(v => v.from === 'ring');
+  // Choose distinct approach roads without manufacturing U-turns. Prefer
+  // an approach that reaches the timing checkpoint before its first exit.
+  const assignments = (remaining, cars) => {
+    if (!cars.length) return [{ arms: [], cost: 0 }];
+    return remaining.flatMap(arm => {
+      const v = cars[0];
+      const span = (ringJoinDeg(arm) - ringLeaveDeg(v.to) + 360) % 360;
+      const checkpoint = (ringJoinDeg(arm) - v.ringAt + 360) % 360;
+      const cost = (arm === v.to ? 10000 : 0) + (checkpoint > span ? 500 : 0) + span;
+      return assignments(remaining.filter(a => a !== arm), cars.slice(1))
+        .map(tail => ({ arms: [arm, ...tail.arms], cost: cost + tail.cost }));
+    });
+  };
+  const assignment = assignments(entryArms, circulating).sort((a, b) => a.cost - b.cost)[0];
+  circulating.forEach((v, i) => {
+    v.entryFrom = assignment.arms[i];
+    // With two occupied approach roads only one entry may remain. Use a
+    // normal onward exit instead of inventing a U-turn to fit the old scene.
+    if (v.entryFrom === v.to) v.to = ringExitOrder(v.entryFrom)[1];
+  });
   return { layout: 'roundabout', arms, signs, mainRoad: null, tramTracks: [], control: null, vehicles, pedestrians: [] };
 };
 

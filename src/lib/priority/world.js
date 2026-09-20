@@ -5,7 +5,7 @@ import { generatePlayable } from './generator';
 import { leftOf, rightOf, oppositeOf, turnOf } from './geometry';
 import { clearFractionFor } from './conflict';
 import {
-  EXIT_HEADING, CENTER, RING_R, RING_WAIT, ROAD_HALF, SIZE, WAIT, vehiclePath, approachPoint, boxHalf,
+  EXIT_HEADING, CENTER, RING_R, RING_WAIT, RING_JOIN_DEG, ROAD_HALF, SIZE, WAIT, vehiclePath, approachPoint, boxHalf,
   ringArc, ringEntryPoints, ringExitOrder, ringJoinDeg, ringLeaveDeg, exitCurveFor,
 } from './layout';
 import { queueBackFor } from './queue';
@@ -53,6 +53,19 @@ export const SOFT_DECEL = 6;           // the immediate, gentle slow-down when y
 export const HARD_DECEL = 40;          // a late swipe brakes this hard
 export const CREEP = 0.6;              // after the swipe the car rolls on at this share of cruise speed until the line is near
 const PLAYER_CLEARANCE = 0.25;         // identical for player and NPC movement, so a stopped queue can restart
+
+/** Traffic close to this entry's merge, rather than anywhere on the ring. */
+const ringEntryTraffic = (area, entryAngle, traffic, exclude = null) => traffic.filter(car => {
+  if (car === exclude) return false;
+  const dx = car.pose.x - area.cx, dy = car.pose.y - area.cy;
+  if (Math.hypot(dx, dy) > RING_R + 9 && !area.ringEntrants?.has(`${car.junction?.index}-${car.vehicle.id}`)) return false;
+  const angle = Math.atan2(dx, -dy) * 180 / Math.PI;
+  const join = entryAngle - RING_JOIN_DEG;
+  const behind = (angle - join + 720) % 360;
+  // Leave a gap ahead for a departing car's rear and look back far enough
+  // for an approaching car to reach the merge during the entry manoeuvre.
+  return behind < 180 || behind > 325;
+});
 
 export const speedFor = (level, coachActive = false) =>
   Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_STEP) * (coachActive ? COACH_SPEED : 1);
@@ -129,6 +142,7 @@ const HEADING_REACH = 1.5; // heading is read over this much road either side, s
  * short chords still turns the car evenly.
  */
 export const pointAtDistance = (measured, s) => {
+  s = Math.max(0, Math.min(measured.length, s));
   const p = positionAt(measured, s);
   const back = positionAt(measured, Math.max(0, s - HEADING_REACH));
   const ahead = positionAt(measured, Math.min(measured.length, s + HEADING_REACH));
@@ -468,7 +482,9 @@ const schedule = (run, junction) => {
   // whether or not any of it crosses your path, because a red light is a red
   // light; otherwise the vehicles with priority over you.
   const lightsHold = scene.control?.type === 'lights' && scene.control.crossFirst ? crossIdsOf(scene) : [];
-  const holdIds = [...new Set([...lightsHold, ...junction.blockers])];
+  const holdIds = junction.ring
+    ? scene.vehicles.filter(v => v.id !== 'you').map(v => v.id)
+    : [...new Set([...lightsHold, ...junction.blockers])];
   let clearAtReal = -Infinity;
   for (const id of holdIds) {
     const start = junction.starts[id];
@@ -503,7 +519,13 @@ const schedule = (run, junction) => {
       junction.starts[v.id] = Math.max(junction.starts[v.id], run.now + junction.rollIn[v.id]);
     }
   }
-  spaceTraffic(junction, run.now);
+  if (junction.ring) {
+    // Arriving cars choose a gap at their own entrance. They do not wait
+    // for the player's whole roundabout traversal or an exam-picture order.
+    for (const v of scene.vehicles) {
+      if (v.id !== 'you' && junction.starts[v.id] === null) junction.starts[v.id] = run.now + 300;
+    }
+  } else spaceTraffic(junction, run.now);
   clearAtReal = -Infinity;
   for (const id of holdIds) {
     if (junction.starts[id] !== null) clearAtReal = Math.max(clearAtReal, junction.starts[id] + clearMsOf(junction, id));
@@ -962,7 +984,7 @@ export const step = (run, now) => {
     run.s = previousS;
     run.v = 0;
     run.brakeLights = true;
-    if (!run.braking && !junction.crashed && !junction.passed && obstacle.junction.index === junction.index && junction.blockers.includes(obstacle.vehicle.id)) {
+    if (!run.braking && !junction.crashed && !junction.passed && obstacle.junction.index === junction.index && (junction.ring || junction.blockers.includes(obstacle.vehicle.id))) {
       crash(run, junction, obstacle.vehicle.id);
     }
   }
@@ -979,7 +1001,32 @@ export const step = (run, now) => {
   const entryFractions = new Map();
   // Claim the crossing before entering, with enough clearance for the
   // whole vehicle. Preventing entry is safer than freezing touching bodies.
-  for (const area of visibleJunctions(run)) {
+  const areas = visibleJunctions(run);
+  for (const area of areas) {
+    if (area.ring) {
+      area.ringEntrants ||= new Set();
+      for (const key of area.ringEntrants) {
+        const car = previousByKey.get(key);
+        if (!car || Math.hypot(car.pose.x - area.cx, car.pose.y - area.cy) > RING_R + RING_WAIT + 16) area.ringEntrants.delete(key);
+      }
+      const traffic = [...previousTraffic, { pose: playerPose, vehicle: playerVehicle }];
+      for (const car of proposedTraffic) {
+        const previous = previousByKey.get(keyOf(car));
+        if (!previous) continue;
+        const distance = Math.hypot(car.pose.x - area.cx, car.pose.y - area.cy);
+        const before = Math.hypot(previous.pose.x - area.cx, previous.pose.y - area.cy);
+        if (area.ringEntrants.has(keyOf(car)) || before < RING_R + 9 || distance >= before || distance > RING_R + RING_WAIT + 24) continue;
+        const angle = Math.atan2(car.pose.x - area.cx, area.cy - car.pose.y) * 180 / Math.PI;
+        // Snap the approach to its road axis; lane offset is not the angle
+        // at which the vehicle will join the circular lane.
+        const armAngle = Math.round((angle - area.rot) / 90) * 90 + area.rot;
+        if (ringEntryTraffic(area, armAngle, traffic, previous).length) {
+          const fraction = Math.max(0, Math.min(1, (distance - (RING_R + RING_WAIT + 4)) / 20));
+          entryFractions.set(keyOf(car), Math.min(entryFractions.get(keyOf(car)) ?? 1, fraction));
+        } else if (distance <= RING_R + RING_WAIT + 4) area.ringEntrants.add(keyOf(car));
+      }
+      continue;
+    }
     const radius = area.ring ? RING_R + RING_WAIT + 4 : WAIT + 4;
     const inner = area.ring ? RING_R + 9 : 0;
     const distance = car => {
@@ -1015,6 +1062,13 @@ export const step = (run, now) => {
     if (start === null || !car.junction.scheduled) continue;
     const ownKey = keyOf(car);
     let fraction = car.progress === 1 ? followingFraction(car.pose, car.vehicle, playerPose, playerVehicle) : 1;
+    const previous = previousByKey.get(ownKey);
+    if (previous && areas.some(area => area.ring && Math.hypot(car.pose.x - area.cx, car.pose.y - area.cy) < RING_R + 9)) {
+      // Traffic carried over from an earlier junction uses that junction's
+      // timeline, but must still slow down for this roundabout.
+      const travelled = Math.hypot(car.pose.x - previous.pose.x, car.pose.y - previous.pose.y);
+      if (travelled > 0) fraction = Math.min(fraction, 0.018 * dt / travelled);
+    }
     fraction = Math.min(fraction, entryFractions.get(ownKey) ?? 1);
     if (car.routeS !== undefined) fraction = Math.min(fraction, Math.max(0, Math.min(1, (run.s - car.routeS - 18) / 22)));
     for (const other of previousTraffic) {
@@ -1051,7 +1105,7 @@ export const step = (run, now) => {
   for (const car of candidates) {
     if (!(delays.get(keyOf(car)) > 0)) continue;
     const holdsLight = car.junction.scene.control?.crossFirst && crossIdsOf(car.junction.scene).includes(car.vehicle.id);
-    if (holdsLight || car.junction.blockers.includes(car.vehicle.id)) car.junction.clearAt = Math.max(car.junction.clearAt, car.junction.starts[car.vehicle.id] + clearMsOf(car.junction, car.vehicle.id));
+    if (car.junction.ring || holdsLight || car.junction.blockers.includes(car.vehicle.id)) car.junction.clearAt = Math.max(car.junction.clearAt, car.junction.starts[car.vehicle.id] + clearMsOf(car.junction, car.vehicle.id));
   }
 
   // Retire departing traffic only beyond the view, never when an arbitrary
@@ -1063,7 +1117,7 @@ export const step = (run, now) => {
 
   // Entering the box while a blocker is still crossing your path is a crash.
   if (run.s >= junction.sLine && !junction.crashed && !junction.passed) {
-    if (junction.blockers.length && now < junction.clearAt) {
+    if (!junction.ring && junction.blockers.length && now < junction.clearAt) {
       const crossing = stillCrossing(junction, now);
       if (crossing.length) {
         run.s = junction.sLine;
@@ -1122,10 +1176,13 @@ export const lessonHint = (run, { visibleVehicles = null, junctionVisible = true
     if (!junction.ring.exitTo && !junction.ring.armed && junction.ring.order[junction.ring.next] === instr.to) return { step: 'ring' };
     return { step: 'rolling' };
   }
+  const blockers = junction.ring
+    ? ringEntryTraffic(junction, 180 + junction.rot, vehiclePoses(run)).map(car => car.vehicle.id)
+    : junction.blockers;
   if (run.stoppedAt !== null) {
     if (junction.needTurn) return { step: 'turn', dir: instr.turn };
-    const waiting = junction.blockers.length && run.now < junction.clearAt;
-    if (waiting || red) return { step: 'wait', vehicle: junction.blockers[0] || null };
+    const waiting = blockers.length && (junction.ring || run.now < junction.clearAt);
+    if (waiting || red) return { step: 'wait', vehicle: blockers[0] || null };
     return { step: 'go' };
   }
   // Approaching. Set the turn first, then read the priority.
@@ -1133,9 +1190,9 @@ export const lessonHint = (run, { visibleVehicles = null, junctionVisible = true
     return { step: 'turn', dir: instr.turn };
   }
   if (!junction.stopped) {
-    const visibleBlocker = junction.blockers.find(id => visibleVehicles === null || visibleVehicles.includes(id));
+    const visibleBlocker = blockers.find(id => visibleVehicles === null || visibleVehicles.includes(id));
     if (visibleBlocker) return { step: 'giveWay', vehicle: visibleBlocker };
-    if (junction.blockers.length && !red && !stopSignFor(junction)) return { step: 'observe' };
+    if (blockers.length && !red && !stopSignFor(junction)) return { step: 'observe' };
     if (red) return { step: 'redLight' };
     if (stopSignFor(junction)) return { step: 'stopSign' };
   }

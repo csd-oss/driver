@@ -210,17 +210,24 @@ export const RING_APPROACH_DEG = 190;
 export const roundaboutPath = (from, to, vehicle) => {
   if (from === 'ring') {
     const at = vehicle && Number.isFinite(vehicle.ringAt) ? vehicle.ringAt : RING_DEFAULT_START;
-    const startDeg = ((at % 360) + 360) % 360;
     const exit = exitCurveFor(to);
-    const ring = ringArc(startDeg, exit.leaveDeg);
     // Arrive on an actual road, then join the ring before the scheduled
     // circulating segment. Never extend a ring tangent into the grass.
-    const entryArm = vehicle?.entryFrom || ['S', 'W', 'N', 'E'][Math.floor(startDeg / 90)];
+    const requestedDeg = ((at % 360) + 360) % 360;
+    const entryArm = vehicle?.entryFrom || ['N', 'W', 'E', 'S'].find(arm =>
+      (ringJoinDeg(arm) - requestedDeg + 360) % 360 <= (ringJoinDeg(arm) - exit.leaveDeg + 360) % 360) || 'N';
     const entryRotation = ARM_ROT[entryArm];
     const entry = entryCurveS();
     const entryPts = entry.points.map(p => rotateAbout(p, entryRotation));
+    const joinDeg = (entry.joinDeg + entryRotation) % 360;
+    const span = (joinDeg - exit.leaveDeg + 360) % 360;
+    const checkpoint = (joinDeg - requestedDeg + 360) % 360;
+    // The timing checkpoint must lie BEFORE the first encounter with the
+    // intended exit. Otherwise stitching the two arcs adds a whole lap.
+    const startDeg = (joinDeg - (checkpoint <= span ? checkpoint : span / 2) + 360) % 360;
+    const ring = ringArc(startDeg, exit.leaveDeg);
     const approach = [approachPoint(entryArm, CENTER + 110), approachPoint(entryArm, RING_R + WAIT), ...entryPts,
-      ...ringArc((entry.joinDeg + entryRotation) % 360, startDeg).slice(1)];
+      ...ringArc(joinDeg, startDeg).slice(1)];
     return { approach, wait: ring[0], through: [...ring, ...exit.points.slice(1)] };
   }
   const rot = ARM_ROT[from];

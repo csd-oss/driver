@@ -26,7 +26,7 @@ test('long roundabout arrivals and exits stay at a bounded driving speed', () =>
   expect(checked).toBeGreaterThan(30);
 });
 
-test('arriving traffic waits outside an occupied roundabout and resumes after it clears', () => {
+test('arriving traffic yields outside the ring and resumes when a gap opens', () => {
   let yielded = 0, cleared = 0;
   for (let seed = 1; seed <= 80; seed++) {
     const run = createRun(makeRng(seed), 5);
@@ -44,8 +44,7 @@ test('arriving traffic waits outside an occupied roundabout and resumes after it
         const old = previous.find(c => c.vehicle.id === car.vehicle.id);
         if (!old) continue;
         const distance = radius(car.pose), before = radius(old.pose);
-        if (inside.some(c => c.vehicle.id !== car.vehicle.id) && before > 37 && before < 55 && distance < before) {
-          expect(distance).toBeGreaterThanOrEqual(36.9);
+        if (inside.some(c => c.vehicle.id !== car.vehicle.id) && before > 33 && before < 40 && Math.abs(distance - before) < 0.01) {
           held.add(car.vehicle.id);
         }
         if (held.has(car.vehicle.id) && distance < RING_R + 9) resumed.add(car.vehicle.id);

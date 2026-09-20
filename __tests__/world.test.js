@@ -453,19 +453,22 @@ describe('motion and roundabouts', () => {
 
 describe('roundabout crash', () => {
   it('after a crash at the ring entry the car still drives round the ring to the instructed exit', () => {
-    let run = null;
-    for (let seed = 1; seed < 80 && !run; seed++) {
-      const r = createRun(makeRng(seed), 2);
-      if (r.junctions[0].ring && r.junctions[0].blockers.length) run = r;
-    }
-    expect(run).toBeTruthy();
+    const run = createRun(makeRng(7), 1);
     const j = run.junctions[0];
-    let now = 0;
+    expect(j.ring).toBeTruthy();
+    while (run.stoppedAt === null) {
+      if (j.sWait - run.s < 50) applyInput(run, 'brake');
+      step(run, run.now + 32);
+    }
+    // Moving off immediately here reaches the circulating car's body.
+    // A timer alone must never cause the collision this test recovers from.
+    applyInput(run, 'go');
     const events = [];
+    let now = run.now;
     const offRoad = [];
     for (let i = 0; i < 4000 && run.passed < 1; i++) {
       now += 16;
-      events.push(...step(run, now)); // never brakes: crashes at the entry
+      events.push(...step(run, now));
       const me = youPose(run);
       // Local position in the roundabout frame while near it: must be on the ring band or an arm.
       const dx = me.x - j.cx;
@@ -948,7 +951,9 @@ describe('roundabout traffic keeps moving', () => {
       if (last) {
         const d = Math.hypot(p.pose.x - last.x, p.pose.y - last.y);
         if (d > 0.15) moved += 1;
-        else still += 1;
+        // Waiting on the approach for a circulating car is expected. The
+        // regression is a parked car ON the ring, not sensible entry yielding.
+        else if (Math.abs(r - RING_R) < 3) still += 1;
       }
       last = p.pose;
     }

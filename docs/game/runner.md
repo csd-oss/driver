@@ -63,24 +63,35 @@ the entry curve onto the circle; it is never extrapolated along a tangent into
 the grass. Generated roundabouts use at most three other vehicles, with distinct
 entry roads for queued and circulating traffic.
 
-`spaceTraffic` checks sampled trajectories before releasing cars. Runtime checks
+`spaceTraffic` checks sampled trajectories before releasing cars at ordinary
+junctions. At roundabouts, each approach yields to nearby circulating traffic
+and cars already committed to merging. A car that has accepted a gap finishes
+its merge; other entries can move when their own gap is clear. Vehicles use
+their first intended exit, without an extra lap or a generated U-turn. Traffic
+carried over from earlier junctions also slows to 18 units/second on the ring.
+
+Runtime checks
 use rotated vehicle rectangles, including tram length, to maintain physical gaps
 between NPCs and the player. Delaying a blocking vehicle extends the clearance
 time; delayed cross-phase traffic also extends its traffic-light phase.
 
-Followers are released after the player has cleared the junction, not while the
-player is still turning. Departing vehicles remain visible beyond the original
+At ordinary junctions, followers are released after the player has cleared the
+junction. Roundabout arrivals do not wait for the player's whole traversal.
+Departing vehicles remain visible beyond the original
 100×100 frame. Vehicles joining the connected road follow its next curve rather
 than continuing straight through the next roundabout. Nearby old junctions stay
 in the simulation until they fall behind the visible road range.
 
-Priority violations still produce a crash/intervention result. The player waits
+Roundabout crashes require vehicle-body contact; the old clearance timestamp
+does not penalise a safe gap. Guide advice checks the actual entrance traffic,
+including cars that entered from other approaches. The player waits
 before the junction during recovery, allowing the conflicting traffic to clear.
 Guide interventions explain the error without consuming a life.
 
 ## Instructor, scoring, and review
 
-Instructor directions stay visible while feedback appears in the lower console.
+Instructor directions and relevant feedback share the top panel, which shrinks
+when quiet. Routine narration and repeated praise are omitted.
 A wrong non-roundabout turn is reported as soon as the player enters the
 junction, not only after leaving. A wrong route, red light, or missed STOP earns
 zero points and resets the streak. Safe crossings receive the same points

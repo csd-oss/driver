@@ -18,7 +18,7 @@ test.each(Array.from({ length: 60 }, (_, i) => i + 1))('traffic clears for a cau
       if (run.stoppedAt !== null && run.now > j.clearAt + 1200 && (!lightState(j, run.now) || lightState(j, run.now).S === 'green')) applyInput(run, 'go');
     }
     if (run.now - entered > 45000) {
-      throw new Error(`Traffic stalled: ${JSON.stringify({ seed, time: run.now, scene: j.scene, junction: j.index, starts: j.starts, traffic: vehiclePoses(run).map(c => ({ id: c.vehicle.id, junction: c.junction.index, pose: c.pose })) })}`);
+      throw new Error(`Traffic stalled: ${JSON.stringify({ seed, time: run.now, scene: j.scene, junction: j.index, rotation: j.rot, centre: [j.cx, j.cy], playerS: run.s, waitS: j.sWait, clearAt: j.clearAt, starts: j.starts, traffic: vehiclePoses(run).map(c => ({ id: c.vehicle.id, junction: c.junction.index, pose: c.pose, progress: c.progress, routeS: c.routeS })) })}`);
     }
   }
   expect(run.lives).toBe(3);

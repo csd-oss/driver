@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.smartie.driver",
-      "buildNumber": "30",
+      "buildNumber": "31",
       "config": {
         "usesNonExemptEncryption": false
       },
