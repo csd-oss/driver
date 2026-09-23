@@ -183,3 +183,20 @@ Draft ideas (verify length):
 - EN: "Slovak driving test prep"
 - SK: "Príprava na vodičák"
 - HU: "Szlovák KRESZ-felkészítő"
+
+---
+
+## App Review notes (as saved in App Store Connect, Sep 2026)
+
+Driver SK is an offline study app for the Slovak driving-licence theory test, with the same official question bank in Slovak, English, and Hungarian. No account or login is required.
+
+What this version adds since the previous review (guideline 4.3):
+- Driving practice (Home → "Driving practice", free): an original top-down driving game built on our own right-of-way engine. Every other vehicle follows the Slovak priority rules (Act 8/2009, Decree 30/2020): signs, traffic lights, the right-hand rule, trams and roundabouts. A guided first drive with an instructor teaches the swipe controls and each junction type, and a drive log explains every decision afterwards. The engine is tested against all 39 official exam junction pictures.
+- Exam readiness forecast: a readiness score and an estimate of how many days of practice at the user's own pace remain before they are ready, with what still stands in the way.
+- Recording the real exam result, which switches reminders off after a pass.
+
+Subscription (Driver SK Pro): "Smart Study" and "Mistakes" review require Pro. Mock exams and driving practice are free. The paywall appears after onboarding and when tapping "Start now" (Smart Study) or "Mistakes" on Home. Products: Weekly and Yearly (each with a 3-day free trial) and a one-time Lifetime purchase. Please use the StoreKit sandbox to purchase.
+
+Promo codes: offer codes can be redeemed from Settings → Subscription → "Redeem a promo code" or from "Redeem code" on the paywall; both open Apple's code redemption sheet.
+
+All study data is stored on the device. Analytics are anonymous and can be turned off in Settings. Privacy Policy and Terms of Use are linked in Settings and on the paywall.
