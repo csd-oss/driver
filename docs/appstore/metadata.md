@@ -24,7 +24,7 @@ Full-length mock exams and smart practice that targets exactly what trips you up
 ### Keywords (100)
 driving,theory,licence,license,exam,test,quiz,practice,mock,signs,traffic,rules,road,permit,Slovakia
 
-### Description (2692)
+### Description (2631)
 Pass the Slovak driving theory test with focused, modern practice — in Slovak, English, or Hungarian.
 
 Driver SK turns the official question bank into a study plan that adapts to you. Instead of grinding through random questions, you practice exactly what you keep getting wrong, take realistic mock exams, and watch your readiness climb day by day.
@@ -42,7 +42,7 @@ TRACK YOUR READINESS
 A clear readiness score, accuracy trends, daily streaks, and category breakdowns show your progress at a glance and keep you motivated.
 
 LEARN RIGHT OF WAY BY DRIVING
-Drive through endless Slovak junctions in a top-down game where every other car follows the real priority rules: signs, traffic lights, the right-hand rule, trams and roundabouts. A step-by-step guide first teaches the controls and every type of junction, and the drive log explains each decision afterwards. Plus a timed quiz built from the official junction pictures.
+Drive through endless Slovak junctions in a top-down game where every other car follows the real priority rules: signs, traffic lights, the right-hand rule, trams and roundabouts. A step-by-step guide first teaches the controls and every type of junction, and the drive log explains each decision afterwards.
 
 STUDY ANYWHERE
 Fully offline. The entire question bank — including road-sign images — works with no connection: on the bus, in a queue, anywhere.
@@ -77,7 +77,7 @@ Plné skúšobné testy a inteligentné štúdium presne na tvoje slabiny — a 
 ### Keywords (99)
 vodičák,autoškola,vodičský,preukaz,testy,skúška,teória,značky,doprava,otázky,kvíz,pravidlá,príprava
 
-### Description (2654)
+### Description (2599)
 Priprav sa na skúšku z autoškoly modernou a cielenou prípravou — v slovenčine, angličtine alebo maďarčine.
 
 Driver SK premení oficiálnu databázu otázok na študijný plán, ktorý sa prispôsobí tebe. Namiesto náhodných otázok precvičuješ presne to, čo ti nejde, píšeš realistické skúšobné testy a sleduješ, ako tvoja pripravenosť každý deň rastie.
@@ -95,7 +95,7 @@ SLEDUJ SVOJU PRIPRAVENOSŤ
 Jasné skóre pripravenosti, vývoj presnosti, denné série a rozpis podľa okruhov ti na prvý pohľad ukážu pokrok a udržia ťa motivovaným.
 
 PREDNOSŤ V JAZDE ZA VOLANTOM
-Prejdi nekonečné slovenské križovatky v hre, kde každé auto dodržiava skutočné pravidlá prednosti: značky, semafory, pravidlo pravej ruky, električky aj kruhové objazdy. Sprievodca ťa najprv krok po kroku naučí ovládanie a každý typ križovatky a denník jázd potom vysvetlí každé rozhodnutie. K tomu rýchly kvíz z oficiálnych obrázkov križovatiek.
+Prejdi nekonečné slovenské križovatky v hre, kde každé auto dodržiava skutočné pravidlá prednosti: značky, semafory, pravidlo pravej ruky, električky aj kruhové objazdy. Sprievodca ťa najprv krok po kroku naučí ovládanie a každý typ križovatky a denník jázd potom vysvetlí každé rozhodnutie.
 
 ŠTUDUJ KDEKOĽVEK
 Úplne offline. Celá databáza otázok — vrátane obrázkov dopravných značiek — funguje aj bez pripojenia: v autobuse, v rade, kdekoľvek.
@@ -130,7 +130,7 @@ Teljes próbavizsgák és okos gyakorlás pontosan a gyenge pontjaidra, majd ism
 ### Keywords (100)
 jogosítvány,jogsi,szlovák,vezetés,KRESZ,vizsga,tesztek,elmélet,táblák,közlekedés,szabályok,gyakorlás
 
-### Description (2738)
+### Description (2673)
 Készülj a szlovák KRESZ-vizsgára modern, célzott gyakorlással — szlovákul, angolul vagy magyarul.
 
 A Driver SK a hivatalos kérdésbankot személyre szabott tanulási tervvé alakítja. Véletlenszerű kérdések helyett pontosan azt gyakorlod, ami nem megy, valódi próbavizsgákat írsz, és napról napra látod, ahogy nő a felkészültséged.
@@ -148,7 +148,7 @@ KÖVESD A FELKÉSZÜLTSÉGED
 Egyértelmű felkészültségi pont, pontossági trendek, napi sorozatok és kategóriánkénti bontás egy pillantásra megmutatják a fejlődésed, és motiválnak.
 
 ELSŐBBSÉG VEZETÉS KÖZBEN
-Vezess végtelen szlovák kereszteződéseken egy játékban, ahol minden autó a valódi elsőbbségi szabályokat követi: táblák, jelzőlámpák, jobbkéz-szabály, villamosok és körforgalmak. Egy lépésről lépésre haladó útmutató előbb megtanítja az irányítást és minden kereszteződéstípust, a menetnapló pedig utólag elmagyaráz minden döntést. Emellett egy időre menő kvíz a hivatalos kereszteződés-ábrákból.
+Vezess végtelen szlovák kereszteződéseken egy játékban, ahol minden autó a valódi elsőbbségi szabályokat követi: táblák, jelzőlámpák, jobbkéz-szabály, villamosok és körforgalmak. Egy lépésről lépésre haladó útmutató előbb megtanítja az irányítást és minden kereszteződéstípust, a menetnapló pedig utólag elmagyaráz minden döntést.
 
 TANULJ BÁRHOL
 Teljesen offline. A teljes kérdésbank — a közlekedési táblák képeivel együtt — internet nélkül is működik: buszon, sorban állva, bárhol.
