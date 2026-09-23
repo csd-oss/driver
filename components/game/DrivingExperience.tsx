@@ -19,7 +19,7 @@ import { generateId } from '@/src/db/utils';
 import { t, tf } from '@/src/i18n/i18n';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { explainRecord } from '@/src/lib/crossingLog';
-import { createDriveRecorder, driveSummary, mergeDriveRecord } from '@/src/lib/driveSession';
+import { createDriveRecorder, driveSummary, junctionAnalytics, mergeDriveRecord } from '@/src/lib/driveSession';
 import { confirmDialog } from '@/src/lib/dialog';
 import { getCachedLanguage, getGuideFinished, getLanguage, setGuideFinished } from '@/src/lib/settings';
 import { makeRng } from '@/src/lib/priority/generator';
@@ -49,6 +49,8 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
   const [endedByFaults, setEndedByFaults] = useState(false);
   const runRef = useRef<any>(null);
   const recordsRef = useRef<any[]>([]);
+  const reportedRef = useRef(new Set<number>());
+  const startedAtRef = useRef(0);
   const recorderRef = useRef<ReturnType<typeof createDriveRecorder> | null>(null);
   const guideDoneRef = useRef(false);
   const finishedRef = useRef(false);
@@ -77,6 +79,8 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     const runId = generateId();
     recorderRef.current = createDriveRecorder({ generateId, write: (id: string, record: any) => CrossingLogDB.addCrossingLog({ id, lang: language, runId, outcome: record.outcome, points: record.points, record }) });
     recordsRef.current = [];
+    reportedRef.current = new Set();
+    startedAtRef.current = Date.now();
     instructorRef.current = createInstructor();
     learnedSwipesRef.current.clear();
     seenRef.current = { junction: -1, road: false, vehicles: new Set() };
@@ -132,6 +136,11 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
       if (practice.length) await GameRoundsDB.addGameRound({ lang, mode: 'crossing', score: run.score, correctCount: practice.filter(record => record.outcome === 'clean').length, total: practice.length });
       if (saved) await CrossingLogDB.purgeCrossingLog(lang);
     } catch { /* The individual junction records remain the drive review. */ }
+    for (const record of recordsRef.current) {
+      if (reportedRef.current.has(record.index)) continue;
+      reportedRef.current.add(record.index);
+      trackEvent(posthog, 'crossing_junction', { language: lang, ...junctionAnalytics(record) });
+    }
     trackEvent(posthog, 'crossing_finished', { language: lang, score: run.score, junctions: practice.length, faults: driveSummary(practice).faults });
   }, [lang, posthog, saveDrive, stopLoop]);
 
@@ -161,10 +170,18 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
         if (event.record) {
           recordsRef.current = mergeDriveRecord(recordsRef.current, event.record);
           recorderRef.current?.save(event.record);
+          // A junction can emit a fault before its final record; report it once, when done.
+          if (event.record.completed && !reportedRef.current.has(event.record.index)) {
+            reportedRef.current.add(event.record.index);
+            trackEvent(posthog, 'crossing_junction', { language: lang, ...junctionAnalytics(event.record) });
+          }
         }
         if (event.type === 'guideComplete') {
           guideDoneRef.current = true;
           setGuideFinished(true).catch(() => setSaveFailed(true));
+          const guide = recordsRef.current.filter(record => record.mode === 'guide');
+          trackEvent(posthog, 'guide_completed', { language: lang, junctions: guide.length,
+            faults: driveSummary(guide).faults, duration_sec: Math.round((Date.now() - startedAtRef.current) / 1000) });
         }
         if (event.type === 'crash') {
           highlightRef.current = [`${event.junction}-${event.culprit}`, 'you'];
@@ -207,7 +224,7 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     };
     frameRef.current = requestAnimationFrame(tick);
     return stopLoop;
-  }, [finishRun, isFocused, lang, paused, phase, stopLoop]);
+  }, [finishRun, isFocused, lang, paused, phase, posthog, stopLoop]);
 
   useEffect(() => { if (!isFocused) setPaused(true); }, [isFocused]);
 

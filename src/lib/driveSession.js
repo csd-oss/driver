@@ -65,3 +65,31 @@ export function groupDrives(entries) {
     ...driveSummary(group.entries.map(entry => entry.record)),
   }));
 }
+
+/** What the player faced at a junction, from your arm's point of view. */
+export const junctionKind = scene => {
+  if (scene.layout === 'roundabout') return 'roundabout';
+  if (scene.control?.type) return scene.control.type; // 'lights', or police
+  const sign = scene.signs?.S;
+  if (sign === 'stop' || sign === 'roundabout-stop') return 'stop';
+  if (sign === 'yield') return 'yield';
+  if (sign === 'main') return 'main_road';
+  return 'right_hand_rule';
+};
+
+/** PostHog properties for one finished junction (`crossing_junction`). */
+export const junctionAnalytics = record => ({
+  index: record.index,
+  mode: record.mode,
+  lesson: record.lesson ?? null,
+  level: record.level,
+  kind: junctionKind(record.scene),
+  layout: record.scene.layout,
+  trams: Boolean(record.scene.tramTracks?.length),
+  turn: record.instruction?.turn ?? null,
+  outcome: record.outcome,
+  faults: record.faults,
+  life_lost: Boolean(record.lifeLost),
+  crash_rule: record.rule,
+  points: record.points,
+});

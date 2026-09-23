@@ -246,3 +246,26 @@ test('all new instructor and practice copy is translated', () => {
   expect(isDriveRecord(null)).toBeFalsy();
   expect(isDriveRecord({ outcome: 'clean' })).toBeFalsy();
 });
+
+describe('junction analytics', () => {
+  const { junctionAnalytics, junctionKind } = require('../src/lib/driveSession');
+  const base = { layout: 'cross', signs: {}, mainRoad: null, tramTracks: [], control: null };
+
+  it('names what you faced from your own arm', () => {
+    expect(junctionKind({ ...base, layout: 'roundabout', signs: { S: 'roundabout-stop' } })).toBe('roundabout');
+    expect(junctionKind({ ...base, control: { type: 'lights' } })).toBe('lights');
+    expect(junctionKind({ ...base, signs: { S: 'stop' } })).toBe('stop');
+    expect(junctionKind({ ...base, signs: { S: 'yield', E: 'main' } })).toBe('yield');
+    expect(junctionKind({ ...base, signs: { S: 'main', E: 'yield' } })).toBe('main_road');
+    expect(junctionKind(base)).toBe('right_hand_rule');
+  });
+
+  it('reduces a real junction record to flat properties', () => {
+    const run = createRun(makeRng(7), 1);
+    const props = junctionAnalytics(junctionRecord(run, currentJunction(run), 'clean'));
+    expect(props).toMatchObject({ index: 0, mode: 'practice', outcome: 'clean', life_lost: false });
+    expect(typeof props.kind).toBe('string');
+    expect(Array.isArray(props.faults)).toBe(true);
+    expect(props.scene).toBeUndefined();
+  });
+});

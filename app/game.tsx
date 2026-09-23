@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import { InstructorIdentity } from '@/components/game/InstructorIdentity';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/ui/header';
@@ -9,18 +10,22 @@ import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
 import { getCachedLanguage, getGuideFinished, getLanguage } from '@/src/lib/settings';
 import { t } from '@/src/i18n/i18n';
+import { trackScreenView } from '@/src/lib/analytics';
 
 export default function DrivingPracticeHub() {
   const router = useRouter();
+  const posthog = usePostHog();
   const [lang, setLang] = useState(getCachedLanguage);
   const [guideDone, setGuideDone] = useState<boolean | null>(null);
   useFocusEffect(useCallback(() => {
     let active = true;
     Promise.all([getLanguage(), getGuideFinished()]).then(([language, finished]) => {
-      if (active) { setLang(language); setGuideDone(finished); }
+      if (!active) return;
+      setLang(language); setGuideDone(finished);
+      trackScreenView(posthog, 'GameHub', { language, guide_finished: finished });
     }).catch(() => { if (active) setGuideDone(false); });
     return () => { active = false; };
-  }, []));
+  }, [posthog]));
   return <Screen testID="screen.game" header={<Header title={t('practice.title', lang)} />}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12, paddingBottom: 32, gap: 28 }}>
       <InstructorIdentity lang={lang} />

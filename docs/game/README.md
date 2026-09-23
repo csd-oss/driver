@@ -19,3 +19,20 @@ adding situations.
 `data/game/scenes.json` holds all 39 in-scope exam pictures as scenes, and
 `__tests__/scenes.test.js` fails if the engine stops reproducing an official
 answer. Nothing about priority may change with that suite red.
+
+## Analytics (PostHog)
+
+| event | when | properties |
+|---|---|---|
+| screen `GameHub` | the practice hub gains focus | `language`, `guide_finished` |
+| screen `DrivingPractice` | a drive screen opens | — |
+| `crossing_started` | a drive begins | `language`, `guided` |
+| `crossing_junction` | once per junction, when it is finished (or at drive end for one left unfinished) | `language`, `index`, `mode` (`guide`/`practice`), `lesson`, `level`, `kind`, `layout`, `trams`, `turn`, `outcome` (`clean`/`spoiled`/`crash`), `faults`, `life_lost`, `crash_rule`, `points` |
+| `guide_completed` | the last lesson is passed and Crossings unlocks | `language`, `junctions`, `faults`, `duration_sec` |
+| `crossing_finished` | the drive ends (lives gone or the player ends it) | `language`, `score`, `junctions`, `faults` |
+| screen `CrossingLog` | the drive log opens | — |
+
+`kind` is what you faced from your own arm: `roundabout`, `lights`, `stop`,
+`yield`, `main_road` or `right_hand_rule` (`junctionKind` in
+`src/lib/driveSession.js`). A drive that is killed mid-run sends
+`crossing_started` with no `crossing_finished`.
