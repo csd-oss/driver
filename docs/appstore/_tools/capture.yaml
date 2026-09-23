@@ -45,6 +45,20 @@ appId: com.smartie.driver
     timeout: 12000
 - takeScreenshot: "docs/appstore/raw/${LANG_DIR}/stats"
 
+# The seed marks the guide finished, so /crossing starts a normal drive. The
+# car cruises from the first frame and reaches the junction within seconds,
+# so shoot as soon as the scene mounts: the instructor's route prompt is up
+# and the first cross traffic is on its way.
+- openLink: "driver://crossing"
+- tapOn:
+    text: "Open"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "crossing.scene"
+    timeout: 12000
+- takeScreenshot: "docs/appstore/raw/${LANG_DIR}/drive"
+
 # Mock is captured LAST: opening /mock auto-starts (and can complete) a mock
 # exam, which would otherwise pollute the stats/home readiness numbers.
 # MOCK_TEST pins a specific test index so the screenshot shows a clean,

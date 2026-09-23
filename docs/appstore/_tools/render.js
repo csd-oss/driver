@@ -5,7 +5,7 @@
  *   node render.js
  *
  * Inputs:
- *   docs/appstore/captions.json                 7 slots; per-slot template + accent
+ *   docs/appstore/captions.json                 8 slots; per-slot template + accent
  *   docs/appstore/raw/<lang>/<id>.png           1320x2868 simulator captures
  *                                               (only needed for hero + feature)
  *   docs/appstore/_tools/template-<type>.html   one per template variant
@@ -13,7 +13,7 @@
  * Output: docs/appstore/framed/<lang>/<order>-<id>.png  (1320x2868 framed)
  *
  * Templates:
- *   feature  caption above phone (slots 2-5)
+ *   feature  caption above phone (slots 2-6)
  *   hero     bigger caption + trial pill + phone (slot 1)
  *   trust    caption + 2x3 grid of feature badges, no phone
  *   cta      giant headline + ribbon, no phone
@@ -42,6 +42,7 @@ const THEMES = {
   rose:    { BG_A: '#4c0519', BG_B: '#881337', BG_C: '#be123c', GLOW: 'rgba(251,113,133,0.38)' },
   amber:   { BG_A: '#451a03', BG_B: '#78350f', BG_C: '#b45309', GLOW: 'rgba(251,191,36,0.36)' },
   emerald: { BG_A: '#022c22', BG_B: '#064e3b', BG_C: '#047857', GLOW: 'rgba(52,211,153,0.38)' },
+  violet:  { BG_A: '#2e1065', BG_B: '#4c1d95', BG_C: '#6d28d9', GLOW: 'rgba(167,139,250,0.40)' },
 };
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

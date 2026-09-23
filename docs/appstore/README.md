@@ -4,13 +4,13 @@
 
 ```
 raw/<lang>/<screen>.png         clean simulator captures (hero + feature slots only)
-framed/<lang>/NN-<screen>.png   marketing renders: SVG iPhone 17 Pro frame + caption + gradient
+framed/<lang>/NN-<screen>.png   marketing renders: iPhone 17 Pro Max frame + caption + gradient
 captions.json                   per-slot caption/sub/template/accent + per-badge free/pro tags
 _tools/template-<variant>.html  hero / feature / trust / cta (trust + cta are pure compositions)
 _tools/render.js                composes raws + templates into framed PNGs
 ```
 
-7 slots per language: home (hero) → mock → study → mistakes → stats → trust (composition) → cta (composition).
+8 slots per language: home (hero) → drive → mock → study → mistakes → stats → trust (composition) → cta (composition).
 Trust and CTA are pure HTML compositions and need no raw capture — they render from data in `captions.json`.
 
 Upload the **framed** PNGs to App Store Connect (6.9" iPhone slot), in numeric order.
@@ -44,6 +44,9 @@ maestro --device $SIM test -e LANG_DIR=hu docs/appstore/_tools/capture.yaml
 
 # 4. Frame them
 node docs/appstore/_tools/render.js
+
+# 5. 6.5" set (1242 × 2688) for the second required iPhone size
+for f in docs/appstore/framed/*/*.png; do o=${f/framed/framed-6.5}; mkdir -p $(dirname $o); sips -z 2688 1242 "$f" --out "$o" >/dev/null; done
 ```
 
 ## Notes / gotchas
@@ -53,11 +56,16 @@ node docs/appstore/_tools/render.js
 - Capture uses `driver://<route>` deep links to bypass the Home Pro-gate. Run on
   a freshly-booted sim — stray `simctl openurl` dialogs from prior runs stack up
   and hide the screen from Maestro. A `simctl shutdown/boot` flushes them.
+- The drive slot opens `/crossing` with the guide marked finished (by `seed.js`), so
+  it is a normal drive shot the moment the scene mounts. The road is random in a
+  Release build, so check each language's `raw/<lang>/drive.png` and re-run the
+  flow if a capture shows an empty junction.
+- `_tools/compose.py` pastes each capture into `_tools/frame.png` (Apple's iPhone
+  17 Pro Max frame) clipped by `_tools/screen_mask.png`; needs Python with Pillow
+  and numpy.
 - Edit copy in `captions.json` and re-run only step 4 to re-frame without recapturing.
 - Trust slot badges live in `captions.json` per-language; `tag: "free"` or `tag: "pro"`
   picks the corner badge (green or amber). Keep counts symmetric across languages or
   the grid breaks.
-- The SVG iPhone frame is inlined in `template-hero.html` and `template-feature.html`
-  (titanium gradient bezel, real Dynamic Island, side buttons, home indicator). The
-  captured screenshot is referenced as `<image href>` inside the SVG and clipped to
-  the inner rounded-rect screen area.
+- `template-hero.html` and `template-feature.html` place the composited device
+  image (`{{DEVICE}}`) produced by `compose.py`; they no longer draw a frame themselves.

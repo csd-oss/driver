@@ -16,6 +16,15 @@
       "hu": { "caption": "Tedd le a jogosítványt elsőre.", "sub": "Okos gyakorlás. Valódi eredmények." }
     },
     {
+      "id": "drive",
+      "route": "/crossing",
+      "template": "feature",
+      "accent": "violet",
+      "en": { "caption": "Learn right of way by driving.", "sub": "Real Slovak junctions. Every rule explained." },
+      "sk": { "caption": "Nauč sa prednosť v jazde za volantom.", "sub": "Skutočné križovatky. Každé pravidlo vysvetlené." },
+      "hu": { "caption": "Tanuld meg az elsőbbséget vezetve.", "sub": "Valódi kereszteződések. Minden szabály elmagyarázva." }
+    },
+    {
       "id": "mock",
       "route": "/mock",
       "template": "feature",
@@ -62,7 +71,7 @@
           { "icon": "⏱️", "title": "Timed mock exams", "sub": "40 questions, just like the real day", "tag": "free" },
           { "icon": "📚", "title": "All 985 questions", "sub": "The full official exam bank", "tag": "free" },
           { "icon": "🎯", "title": "Smart Practice", "sub": "Adapts to your weak spots", "tag": "pro" },
-          { "icon": "💪", "title": "Master mistakes", "sub": "Spaced repetition until it sticks", "tag": "pro" },
+          { "icon": "🚦", "title": "Junction driving game", "sub": "Right of way, learned hands-on", "tag": "free" },
           { "icon": "🌍", "title": "Slovak · English · Magyar", "sub": "Study in your language", "tag": "free" },
           { "icon": "✈️", "title": "Works offline", "sub": "No signal, no problem", "tag": "free" }
         ]
@@ -74,7 +83,7 @@
           { "icon": "⏱️", "title": "Skúšky nanečisto", "sub": "40 otázok, presne ako naozaj", "tag": "free" },
           { "icon": "📚", "title": "Všetkých 985 otázok", "sub": "Celá oficiálna databáza", "tag": "free" },
           { "icon": "🎯", "title": "Inteligentné štúdium", "sub": "Prispôsobí sa tvojim slabinám", "tag": "pro" },
-          { "icon": "💪", "title": "Zvládni svoje chyby", "sub": "Opakuj, kým ti to nezostane", "tag": "pro" },
+          { "icon": "🚦", "title": "Hra na križovatkách", "sub": "Prednosť v jazde v praxi", "tag": "free" },
           { "icon": "🌍", "title": "Slovensky · English · Magyar", "sub": "Uč sa vo svojom jazyku", "tag": "free" },
           { "icon": "✈️", "title": "Funguje offline", "sub": "Bez signálu — bez problému", "tag": "free" }
         ]
@@ -86,7 +95,7 @@
           { "icon": "⏱️", "title": "Próbavizsga időre", "sub": "40 kérdés, pont mint az igazi", "tag": "free" },
           { "icon": "📚", "title": "Mind a 985 kérdés", "sub": "A teljes hivatalos anyag", "tag": "free" },
           { "icon": "🎯", "title": "Okos tanulás", "sub": "Alkalmazkodik a gyenge pontjaidhoz", "tag": "pro" },
-          { "icon": "💪", "title": "Hibák legyőzése", "sub": "Ismétlés, amíg menni nem fog", "tag": "pro" },
+          { "icon": "🚦", "title": "Kereszteződés-játék", "sub": "Elsőbbség a gyakorlatban", "tag": "free" },
           { "icon": "🌍", "title": "Slovensky · English · Magyar", "sub": "Tanulj a saját nyelveden", "tag": "free" },
           { "icon": "✈️", "title": "Offline is működik", "sub": "Térerő nélkül is", "tag": "free" }
         ]

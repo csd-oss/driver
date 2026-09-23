@@ -24,7 +24,7 @@ Full-length mock exams and smart practice that targets exactly what trips you up
 ### Keywords (100)
 driving,theory,licence,license,exam,test,quiz,practice,mock,signs,traffic,rules,road,permit,Slovakia
 
-### Description (2223)
+### Description (2692)
 Pass the Slovak driving theory test with focused, modern practice — in Slovak, English, or Hungarian.
 
 Driver SK turns the official question bank into a study plan that adapts to you. Instead of grinding through random questions, you practice exactly what you keep getting wrong, take realistic mock exams, and watch your readiness climb day by day.
@@ -41,6 +41,9 @@ Every wrong answer goes into a dedicated review deck with spaced repetition, so 
 TRACK YOUR READINESS
 A clear readiness score, accuracy trends, daily streaks, and category breakdowns show your progress at a glance and keep you motivated.
 
+LEARN RIGHT OF WAY BY DRIVING
+Drive through endless Slovak junctions in a top-down game where every other car follows the real priority rules: signs, traffic lights, the right-hand rule, trams and roundabouts. A step-by-step guide first teaches the controls and every type of junction, and the drive log explains each decision afterwards. Plus a timed quiz built from the official junction pictures.
+
 STUDY ANYWHERE
 Fully offline. The entire question bank — including road-sign images — works with no connection: on the bus, in a queue, anywhere.
 
@@ -54,9 +57,10 @@ Whether you're starting from zero or doing a final review the night before, Driv
 
 — Driver SK Pro —
 Unlock unlimited Smart Study and Mistakes review:
-• Weekly
-• Yearly (with a 3-day free trial)
+• Weekly or Yearly, each with a 3-day free trial
 • Lifetime — pay once, keep access forever
+
+Have a promo code? Redeem it in Settings or on the Pro screen.
 
 Payment is charged to your Apple ID at confirmation of purchase. Subscriptions renew automatically unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in your App Store account settings. Any unused portion of a free trial is forfeited when you buy a subscription.
 
@@ -73,7 +77,7 @@ Plné skúšobné testy a inteligentné štúdium presne na tvoje slabiny — a 
 ### Keywords (99)
 vodičák,autoškola,vodičský,preukaz,testy,skúška,teória,značky,doprava,otázky,kvíz,pravidlá,príprava
 
-### Description (2204)
+### Description (2654)
 Priprav sa na skúšku z autoškoly modernou a cielenou prípravou — v slovenčine, angličtine alebo maďarčine.
 
 Driver SK premení oficiálnu databázu otázok na študijný plán, ktorý sa prispôsobí tebe. Namiesto náhodných otázok precvičuješ presne to, čo ti nejde, píšeš realistické skúšobné testy a sleduješ, ako tvoja pripravenosť každý deň rastie.
@@ -90,6 +94,9 @@ Každá nesprávna odpoveď ide do samostatného opakovania rozloženého v čas
 SLEDUJ SVOJU PRIPRAVENOSŤ
 Jasné skóre pripravenosti, vývoj presnosti, denné série a rozpis podľa okruhov ti na prvý pohľad ukážu pokrok a udržia ťa motivovaným.
 
+PREDNOSŤ V JAZDE ZA VOLANTOM
+Prejdi nekonečné slovenské križovatky v hre, kde každé auto dodržiava skutočné pravidlá prednosti: značky, semafory, pravidlo pravej ruky, električky aj kruhové objazdy. Sprievodca ťa najprv krok po kroku naučí ovládanie a každý typ križovatky a denník jázd potom vysvetlí každé rozhodnutie. K tomu rýchly kvíz z oficiálnych obrázkov križovatiek.
+
 ŠTUDUJ KDEKOĽVEK
 Úplne offline. Celá databáza otázok — vrátane obrázkov dopravných značiek — funguje aj bez pripojenia: v autobuse, v rade, kdekoľvek.
 
@@ -103,9 +110,10 @@ Jemné, voliteľné pripomienky ti pomôžu udržať sériu a pravidelnosť — 
 
 — Driver SK Pro —
 Odomkni neobmedzené Inteligentné štúdium a opakovanie chýb:
-• Týždenne
-• Ročne (s 3-dňovou skúškou zadarmo)
+• Týždenne alebo ročne, vždy s 3-dňovou skúškou zadarmo
 • Doživotne — zaplať raz a maj prístup navždy
+
+Máš promo kód? Uplatni ho v Nastaveniach alebo na obrazovke Pro.
 
 Platba sa strhne z tvojho Apple ID pri potvrdení nákupu. Predplatné sa automaticky obnovuje, ak ho nezrušíš aspoň 24 hodín pred koncom obdobia. Spravovať alebo zrušiť ho môžeš kedykoľvek v nastaveniach Apple ID. Nevyužitá časť skúšobného obdobia zaniká pri kúpe predplatného.
 
@@ -122,7 +130,7 @@ Teljes próbavizsgák és okos gyakorlás pontosan a gyenge pontjaidra, majd ism
 ### Keywords (100)
 jogosítvány,jogsi,szlovák,vezetés,KRESZ,vizsga,tesztek,elmélet,táblák,közlekedés,szabályok,gyakorlás
 
-### Description (2234)
+### Description (2738)
 Készülj a szlovák KRESZ-vizsgára modern, célzott gyakorlással — szlovákul, angolul vagy magyarul.
 
 A Driver SK a hivatalos kérdésbankot személyre szabott tanulási tervvé alakítja. Véletlenszerű kérdések helyett pontosan azt gyakorlod, ami nem megy, valódi próbavizsgákat írsz, és napról napra látod, ahogy nő a felkészültséged.
@@ -139,6 +147,9 @@ Minden rossz válasz külön ismétlő paklimba kerül, időzített ismétlésse
 KÖVESD A FELKÉSZÜLTSÉGED
 Egyértelmű felkészültségi pont, pontossági trendek, napi sorozatok és kategóriánkénti bontás egy pillantásra megmutatják a fejlődésed, és motiválnak.
 
+ELSŐBBSÉG VEZETÉS KÖZBEN
+Vezess végtelen szlovák kereszteződéseken egy játékban, ahol minden autó a valódi elsőbbségi szabályokat követi: táblák, jelzőlámpák, jobbkéz-szabály, villamosok és körforgalmak. Egy lépésről lépésre haladó útmutató előbb megtanítja az irányítást és minden kereszteződéstípust, a menetnapló pedig utólag elmagyaráz minden döntést. Emellett egy időre menő kvíz a hivatalos kereszteződés-ábrákból.
+
 TANULJ BÁRHOL
 Teljesen offline. A teljes kérdésbank — a közlekedési táblák képeivel együtt — internet nélkül is működik: buszon, sorban állva, bárhol.
 
@@ -152,9 +163,10 @@ Akár nulláról kezded, akár az utolsó ismétlést végzed a vizsga előtti e
 
 — Driver SK Pro —
 Oldd fel a korlátlan Okos tanulást és hibajavítást:
-• Hetente
-• Évente (3 napos ingyenes próbával)
+• Hetente vagy évente, mindkettő 3 napos ingyenes próbával
 • Örökre — fizess egyszer, és örökre a tiéd
+
+Van promóciós kódod? Váltsd be a Beállításokban vagy a Pro képernyőn.
 
 A fizetés az Apple ID-dről történik a vásárlás megerősítésekor. Az előfizetés automatikusan megújul, hacsak nem mondod le legalább 24 órával az időszak vége előtt. Bármikor kezelheted vagy lemondhatod az Apple ID beállításaiban. Az ingyenes próba fel nem használt része elvész előfizetés vásárlásakor.
 

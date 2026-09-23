@@ -5,8 +5,10 @@
  *   node seed.js | sqlite3 <path-to-driver.db>
  *
  * Seeds Slovak (1), English (2) and Hungarian (3):
- *   - ~14 consecutive days of study answer_attempts at ~85% accuracy
- *     (drives the streak, 7-day accuracy, coverage and readiness score)
+ *   - ~14 consecutive days of study answer_attempts, accuracy climbing from
+ *     ~80% to ~92% (drives the streak, 7-day accuracy, coverage, readiness
+ *     score, and a forecast with a real improvement trend; flat accuracy makes
+ *     the forecast read "more than 90 days")
  *   - 5 completed mock exams, 4 passed
  *   - 7 mistakes referencing real question ids (so the Mistakes screen
  *     renders actual questions)
@@ -79,12 +81,13 @@ sql.push("DELETE FROM mistakes;");
 
 let n = 0;
 for (const lang of [1, 2, 3]) {
-  // ---- answer_attempts: 14 days, ~45/day, ~85% correct ----
+  // ---- answer_attempts: 14 days, ~45/day, accuracy rising ~80% -> ~92% ----
   for (let d = 13; d >= 0; d--) {
     const dayStart = midnight - d * DAY;
     for (let i = 0; i < 45; i++) {
       const qid = POOL[(d * 45 + i) % POOL.length];
-      const correct = ((d * 45 + i) % 20) !== 0 && ((d * 45 + i) % 20) !== 7 && ((d * 45 + i) % 20) !== 13 ? 1 : 0; // ~85%
+      const wrongPct = 8 + Math.round((d * 12) / 13); // 20% wrong 13 days ago, 8% today
+      const correct = ((d * 45 + i) * 37) % 100 >= wrongPct ? 1 : 0;
       const shown = dayStart + 8 * 3600 + i * 47 + (d % 5) * 11;
       const rt = 4200 + ((i * 137) % 9000);
       const submitted = shown + Math.round(rt / 1000);
@@ -126,7 +129,7 @@ for (const lang of [1, 2, 3]) {
 // auto-incremented id would be ignored and the app would re-show onboarding.
 sql.push("DELETE FROM settings;");
 sql.push(
-  `INSERT INTO settings (id,lang,has_onboarded,has_chosen_language,use_conservative_readiness,analytics_opt_out,notification_morning_enabled,notification_lunch_enabled,notification_evening_enabled,created_at,updated_at) VALUES (1,2,1,1,0,0,1,1,1,${now},${now});`
+  `INSERT INTO settings (id,lang,has_onboarded,has_chosen_language,use_conservative_readiness,analytics_opt_out,notification_morning_enabled,notification_lunch_enabled,notification_evening_enabled,has_finished_guide,created_at,updated_at) VALUES (1,2,1,1,0,0,1,1,1,1,${now},${now});`
 );
 
 process.stdout.write('BEGIN;\n' + sql.join('\n') + '\nCOMMIT;\n');
