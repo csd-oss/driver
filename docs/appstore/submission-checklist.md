@@ -65,6 +65,8 @@ In App Store Connect → your app → **Subscriptions** and **In-App Purchases**
    status must read **"Ready to Submit"**. A missing attachment is the #1
    subscription-app rejection.
 5. Set the **base territory to Slovakia (EUR)** and let Apple auto-convert tiers.
+6. After approval, generate the promo codes (free year, 50 % off, free lifetime)
+   from the offers already set up; see [promo-codes.md](promo-codes.md).
 
 ## 5. iPad decision (do this before the first screenshot upload)
 

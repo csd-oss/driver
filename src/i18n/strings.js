@@ -929,6 +929,16 @@ export const STR = {
     2: 'Manage your Driver SK subscription or restore a previous purchase.',
     3: 'Kezelje a Driver SK előfizetését vagy állítsa vissza egy korábbi vásárlást.',
   },
+  'settings.subscription.redeem': {
+    1: 'Uplatniť promo kód',
+    2: 'Redeem a promo code',
+    3: 'Promóciós kód beváltása',
+  },
+  'settings.subscription.redeemHint': {
+    1: 'Máte kód na rok zdarma, doživotný prístup alebo zľavu? Zadajte ho tu.',
+    2: 'Got a code for a free year, lifetime access or a discount? Enter it here.',
+    3: 'Van kódod egy ingyenes évre, életre szóló hozzáférésre vagy kedvezményre? Itt add meg.',
+  },
   'settings.subscription.manage': {
     1: 'Spravovať predplatné',
     2: 'Manage subscription',

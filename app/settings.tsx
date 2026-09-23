@@ -16,7 +16,7 @@ import { resetStats } from '@/src/lib/stats';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Platform, ScrollView, Switch, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Application from 'expo-application';
@@ -25,7 +25,9 @@ import {
   ensureProAccess,
   isPurchasesSupported,
   isSubscribed,
+  onEntitlementChange,
   presentCustomerCenter,
+  presentRedeemCode,
 } from '@/src/lib/purchases';
 import { PRIVACY_POLICY_URL, SUPPORT_EMAIL, TERMS_OF_USE_URL } from '@/src/lib/links';
 
@@ -188,6 +190,33 @@ export default function SettingsScreen() {
         if (granted) setHasPro(true);
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      await alertDialog(t('paywall.errorTitle', lang), message || t('paywall.errorBody', lang));
+    }
+  };
+
+  // Apple's code sheet resolves when it opens, not when a code is accepted,
+  // so the result comes through the entitlement listener instead.
+  const redeemPendingRef = useRef(false);
+  useEffect(
+    () =>
+      onEntitlementChange((active) => {
+        setHasPro(active);
+        if (active && redeemPendingRef.current) {
+          redeemPendingRef.current = false;
+          trackEvent(posthog, 'promo_code_redeemed', { language: lang });
+        }
+      }),
+    [lang, posthog]
+  );
+
+  const handleRedeemCode = async () => {
+    trackEvent(posthog, 'promo_code_sheet_opened', { language: lang, subscribed: hasPro });
+    redeemPendingRef.current = true;
+    try {
+      await presentRedeemCode();
+    } catch (err) {
+      redeemPendingRef.current = false;
       const message = err instanceof Error ? err.message : '';
       await alertDialog(t('paywall.errorTitle', lang), message || t('paywall.errorBody', lang));
     }
@@ -475,6 +504,17 @@ export default function SettingsScreen() {
               {hasPro
                 ? t('settings.subscription.manage', lang)
                 : t('settings.subscription.upgrade', lang)}
+            </Button>
+            <UIText variant="caption" className="text-slate-500 dark:text-slate-400">
+              {t('settings.subscription.redeemHint', lang)}
+            </UIText>
+            <Button
+              onPress={handleRedeemCode}
+              variant="outline"
+              className="w-full"
+              testID="settings.subscription.redeem"
+            >
+              {t('settings.subscription.redeem', lang)}
             </Button>
           </Card>
         )}

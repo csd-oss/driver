@@ -12,6 +12,7 @@ export const PRO_ENTITLEMENT = 'Driver SK Pro';
 
 let cachedActive = false;
 let configurePromise: Promise<void> | null = null;
+const entitlementListeners = new Set<(active: boolean) => void>();
 
 // App Store SDK key — shipped in production binaries, used against the real
 // App Store. The "test_" Test Store key auto-crashes via RC's
@@ -32,7 +33,23 @@ const getApiKey = (): string | undefined => {
 };
 
 const updateFromCustomerInfo = (info: CustomerInfo) => {
-  cachedActive = Boolean(info.entitlements.active[PRO_ENTITLEMENT]);
+  const next = Boolean(info.entitlements.active[PRO_ENTITLEMENT]);
+  const changed = next !== cachedActive;
+  cachedActive = next;
+  if (changed) entitlementListeners.forEach((listener) => listener(next));
+};
+
+/**
+ * Be told when Pro turns on or off, e.g. because Apple's code sheet accepted
+ * an offer code. That sheet resolves as soon as it opens, so its promise says
+ * nothing about the outcome; the entitlement change is the only real signal.
+ * Returns an unsubscribe function.
+ */
+export const onEntitlementChange = (listener: (active: boolean) => void): (() => void) => {
+  entitlementListeners.add(listener);
+  return () => {
+    entitlementListeners.delete(listener);
+  };
 };
 
 /**
@@ -162,6 +179,19 @@ export const ensureProAccess = async (): Promise<boolean> => {
     // Don't crash the gate — refreshEntitlement decides access below.
   }
   return await refreshEntitlement();
+};
+
+/**
+ * Open Apple's offer-code sheet, where a user types a promo code (a free
+ * year, lifetime access, a discount). Apple validates the code and completes
+ * the purchase; RevenueCat sees the transaction and the entitlement listener
+ * above fires. Codes are created in App Store Connect under the product's
+ * Offer Codes, see docs/appstore/promo-codes.md.
+ */
+export const presentRedeemCode = async (): Promise<void> => {
+  if (!isPurchasesSupported()) return;
+  await configurePurchases();
+  await Purchases.presentCodeRedemptionSheet();
 };
 
 /**

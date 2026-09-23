@@ -15,37 +15,38 @@ for the next iteration once you have baseline conversion numbers.
 ## Packages and pricing (Slovakia / EUR)
 
 App Store Connect product IDs and RevenueCat package keys are already wired.
+Prices below are what App Store Connect has set (checked September 2026).
 
 | Package | RC lookup key | ASC product ID | Slovak price (incl. 23% VAT) | Effective / week |
 |---|---|---|---|---|
-| Weekly | `$rc_weekly` | `com.smartie.driver.pro.weekly` | **€2.99** | €2.99 |
-| Yearly | `$rc_annual` | `com.smartie.driver.pro.yearly` | **€29.99** with **3-day free trial** | €0.58 |
+| Weekly | `$rc_weekly` | `com.smartie.driver.pro.weekly` | **€3.99** with **3-day free trial** | €3.99 |
+| Yearly | `$rc_annual` | `com.smartie.driver.pro.yearly` | **€39.99** with **3-day free trial** | €0.77 |
 | Lifetime | `$rc_lifetime` | `com.smartie.driver.pro.lifetime` | **€49.99** | — |
 
 ### Why these numbers
 
 - **Slovak driving-school cost benchmark**: a full B-category course in
-  Slovakia is **€700–900** plus state exam fees. A €30/year or €50 lifetime
+  Slovakia is **€700–900** plus state exam fees. A €40/year or €50 lifetime
   app reads as a rounding error against that baseline — it's psychologically
   free even to price-sensitive students.
-- **Weekly €2.99**: an impulse-tier price. Aimed at students who want a
+- **Weekly €3.99**: an impulse-tier price. Aimed at students who want a
   short crash session before a real test (1–2 weeks). Highest churn but
   highest entry conversion. Roughly the cost of a coffee — designed so the
   decision is not "should I pay?" but "for which length?".
-- **Yearly €29.99**: the sweet-spot anchor. Maps to roughly €2.50 / month
+- **Yearly €39.99**: the sweet-spot anchor. Maps to roughly €3.30 / month
   perceived. The **3-day free trial** is critical here — for an exam-prep
   app where users have a clear time-to-value (one or two study sessions),
   a 3-day trial reliably exposes the core value before billing.
   Industry benchmarks from comparable EU study apps: 25–35 % trial-to-paid
   conversion when the product matches need.
 - **Lifetime €49.99**: priced so that yearly converters at the end of year 1
-  see lifetime as an obvious upgrade ("I already paid 30, just 20 more for
+  see lifetime as an obvious upgrade ("I already paid 40, just 10 more for
   forever"). Also captures committed students who'd otherwise grind through
   the test once and uninstall.
 
 ### Trial offer details
 
-Configure on **Yearly only**:
+Configured on **Weekly and Yearly**:
 
 - Type: **Introductory Offer → Free Trial**
 - Duration: **3 days**
@@ -71,9 +72,13 @@ have specific market data.
 
 For reference, equivalent tier targets:
 
-- Hungary: ~12 000 HUF / year (Hungarian users see HUF natively)
-- Czech Republic: ~750 CZK / year
-- Germany / Austria: €29.99 (same as Slovakia, fine)
+- Hungary: 14 990 Ft / year
+- Czech Republic: 999 Kč / year
+- Germany / Austria: €39.99 (same as Slovakia)
+- United States: $39.99, United Kingdom: £34.99
+
+Promo codes (free year, free lifetime, 50 % off) are in
+[`appstore/promo-codes.md`](appstore/promo-codes.md).
 
 ---
 
