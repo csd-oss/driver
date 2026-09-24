@@ -5,9 +5,10 @@
 ```
 raw/<lang>/<screen>.png         clean simulator captures (hero + feature slots only)
 framed/<lang>/NN-<screen>.png   marketing renders: iPhone 17 Pro Max frame + caption + gradient
-captions.json                   per-slot caption/sub/template/accent + per-badge free/pro tags
-_tools/template-<variant>.html  hero / feature / trust / cta (trust + cta are pure compositions)
-_tools/render.js                composes raws + templates into framed PNGs
+framed-6.5/<lang>/NN-<screen>.png  the same renders at 1242 × 2688 (the size App Store Connect asks for)
+captions.json                   per-slot eyebrow, caption (*highlight*), sub, accent, callout rect, trust cards, cta checks
+_tools/design.js                the look: stylesheet + hero / feature / trust / cta layouts
+_tools/render.js                composes raws into framed PNGs (both sizes); `node render.js en` for one language
 ```
 
 8 slots per language: home (hero) → drive → mock → study → mistakes → stats → trust (composition) → cta (composition).
@@ -44,9 +45,6 @@ maestro --device $SIM test -e LANG_DIR=hu docs/appstore/_tools/capture.yaml
 
 # 4. Frame them
 node docs/appstore/_tools/render.js
-
-# 5. 6.5" set (1242 × 2688) for the second required iPhone size
-for f in docs/appstore/framed/*/*.png; do o=${f/framed/framed-6.5}; mkdir -p $(dirname $o); sips -z 2688 1242 "$f" --out "$o" >/dev/null; done
 ```
 
 ## Notes / gotchas
@@ -67,5 +65,10 @@ for f in docs/appstore/framed/*/*.png; do o=${f/framed/framed-6.5}; mkdir -p $(d
 - Trust slot badges live in `captions.json` per-language; `tag: "free"` or `tag: "pro"`
   picks the corner badge (green or amber). Keep counts symmetric across languages or
   the grid breaks.
-- `template-hero.html` and `template-feature.html` place the composited device
-  image (`{{DEVICE}}`) produced by `compose.py`; they no longer draw a frame themselves.
+- Design: dark navy stage, two accent glows, faint lane lines and grain; an eyebrow
+  label, a heavy headline whose `*phrase*` is drawn in the slot's accent gradient, and
+  the device. A slot with a `callout` also gets that region of the capture enlarged
+  (1.3×) over its own spot on the phone. Callout rects are in raw-capture pixels; a
+  language can override them (`"sk": { "callout": { "h": 388 } }`) when its layout is
+  taller, as the instructor card on the drive slot is.
+- The closing slide uses `assets/images/icon.png`.

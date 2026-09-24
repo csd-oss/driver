@@ -1,9 +1,14 @@
 {
-  "_comment": "Marketing screenshot captions. order = App Store display order. accent picks the gradient/theme per screen (matches the app's color system). template = which layout to use (feature/hero/trust/cta). route is how we navigate the app to capture it. badges (trust only) and trialPill (hero/cta) are template-specific data.",
+  "_comment": "Marketing screenshot copy. screens are in App Store order. template: hero | feature | trust | cta. accent picks the theme in _tools/design.js. *phrase* in a caption is highlighted. callout (hero/feature, optional) is a rect in raw-capture pixels (1320 x 2868) that is enlarged over its own spot on the phone; dx/dy nudge it. route is how capture.yaml reaches the screen.",
   "trialPill": {
-    "en": "3-day free trial",
-    "sk": "3 dni zadarmo",
-    "hu": "3 nap ingyen"
+    "en": "Try Pro free for 3 days",
+    "sk": "Pro 3 dni zadarmo",
+    "hu": "Pro 3 napig ingyen"
+  },
+  "tags": {
+    "en": { "free": "Free", "pro": "Pro" },
+    "sk": { "free": "Zadarmo", "pro": "Pro" },
+    "hu": { "free": "Ingyenes", "pro": "Pro" }
   },
   "screens": [
     {
@@ -11,93 +16,96 @@
       "route": "/home",
       "template": "hero",
       "accent": "indigo",
-      "en": { "caption": "Pass the Slovak driving exam.", "sub": "Smart practice. Real results." },
-      "sk": { "caption": "Sprav vodičák na prvý pokus.", "sub": "Inteligentná príprava. Skutočné výsledky." },
-      "hu": { "caption": "Tedd le a jogosítványt elsőre.", "sub": "Okos gyakorlás. Valódi eredmények." }
+      "callout": { "x": 40, "y": 430, "w": 1240, "h": 640 },
+      "en": { "eyebrow": "Slovak driving theory", "caption": "Pass the Slovak *driving exam*.", "sub": "Smart practice. Real results." },
+      "sk": { "eyebrow": "Teória na vodičák", "caption": "Sprav vodičák *na prvý pokus*.", "sub": "Inteligentná príprava. Skutočné výsledky." },
+      "hu": { "eyebrow": "Szlovák KRESZ-vizsga", "caption": "Tedd le a jogsit *elsőre*.", "sub": "Okos gyakorlás. Valódi eredmények." }
     },
     {
       "id": "drive",
       "route": "/crossing",
       "template": "feature",
       "accent": "violet",
-      "en": { "caption": "Learn right of way by driving.", "sub": "Real Slovak junctions. Every rule explained." },
-      "sk": { "caption": "Nauč sa prednosť v jazde za volantom.", "sub": "Skutočné križovatky. Každé pravidlo vysvetlené." },
-      "hu": { "caption": "Tanuld meg az elsőbbséget vezetve.", "sub": "Valódi kereszteződések. Minden szabály elmagyarázva." }
+      "callout": { "x": 47, "y": 235, "w": 1226, "h": 268, "dy": 40 },
+      "en": { "eyebrow": "Driving practice · Free", "caption": "Learn right of way *by driving*.", "sub": "Real Slovak junctions. Every rule explained." },
+      "sk": { "callout": { "h": 388 }, "eyebrow": "Nácvik jazdy · Zadarmo", "caption": "Prednosť v jazde *za volantom*.", "sub": "Skutočné križovatky. Každé pravidlo vysvetlené." },
+      "hu": { "callout": { "h": 178 }, "eyebrow": "Vezetési gyakorlat · Ingyenes", "caption": "Elsőbbség *vezetés közben*.", "sub": "Valódi kereszteződések. Minden szabály elmagyarázva." }
     },
     {
       "id": "mock",
       "route": "/mock",
       "template": "feature",
       "accent": "amber",
-      "en": { "caption": "Take the test before the test.", "sub": "40 questions. 30 minutes. Just like the real one." },
-      "sk": { "caption": "Otestuj sa pred ostrou skúškou.", "sub": "40 otázok. 30 minút. Presne ako naozaj." },
-      "hu": { "caption": "Próbavizsga az éles előtt.", "sub": "40 kérdés. 30 perc. Pont mint az igazi." }
+      "en": { "eyebrow": "Mock exam", "caption": "Take the test *before the test*.", "sub": "40 questions. 30 minutes. Just like the real one." },
+      "sk": { "eyebrow": "Test nanečisto", "caption": "Otestuj sa *pred ostrou skúškou*.", "sub": "40 otázok. 30 minút. Presne ako naozaj." },
+      "hu": { "eyebrow": "Próbavizsga", "caption": "Próbavizsga *az éles előtt*.", "sub": "40 kérdés. 30 perc. Pont mint az igazi." }
     },
     {
       "id": "study",
       "route": "/study",
       "template": "feature",
       "accent": "sky",
-      "en": { "caption": "Practice your weak spots first.", "sub": "Smart Study learns what trips you up." },
-      "sk": { "caption": "Najprv tvoje slabiny.", "sub": "Inteligentné štúdium vie, kde máš medzery." },
-      "hu": { "caption": "Először a gyenge pontjaid.", "sub": "Az Okos tanulás tudja, hol akadsz el." }
+      "en": { "eyebrow": "Smart Study", "caption": "Practice your *weak spots* first.", "sub": "Smart Study learns what trips you up." },
+      "sk": { "eyebrow": "Inteligentné štúdium", "caption": "Najprv *tvoje slabiny*.", "sub": "Inteligentné štúdium vie, kde máš medzery." },
+      "hu": { "eyebrow": "Okos tanulás", "caption": "Először a *gyenge pontjaid*.", "sub": "Az Okos tanulás tudja, hol akadsz el." }
     },
     {
       "id": "mistakes",
       "route": "/mistakes",
       "template": "feature",
       "accent": "rose",
-      "en": { "caption": "Master every mistake.", "sub": "Spaced repetition until it sticks." },
-      "sk": { "caption": "Každú chybu si zapamätaj.", "sub": "Opakovanie, kým to nemáš v malíčku." },
-      "hu": { "caption": "Egyetlen hibát se hagyj.", "sub": "Térj vissza hozzájuk, amíg megy." }
+      "en": { "eyebrow": "Mistakes", "caption": "Master *every mistake*.", "sub": "Spaced repetition until it sticks." },
+      "sk": { "eyebrow": "Chyby", "caption": "Každú chybu *si zapamätaj*.", "sub": "Opakovanie, kým to nemáš v malíčku." },
+      "hu": { "eyebrow": "Hibák", "caption": "Egyetlen hibát *se hagyj*.", "sub": "Térj vissza hozzájuk, amíg megy." }
     },
     {
       "id": "stats",
       "route": "/stats",
       "template": "feature",
       "accent": "emerald",
-      "en": { "caption": "Watch yourself get ready.", "sub": "Readiness, accuracy, streaks — every day." },
-      "sk": { "caption": "Pozri, ako sa pripravuješ.", "sub": "Pripravenosť, presnosť, séria — každý deň." },
-      "hu": { "caption": "Lásd, hogyan készülsz fel.", "sub": "Felkészültség, pontosság, sorozat — naponta." }
+      "callout": { "x": 90, "y": 2150, "w": 1140, "h": 235, "dy": -20 },
+      "en": { "eyebrow": "Readiness forecast", "caption": "Know when *you'll be ready*.", "sub": "A readiness score and a forecast at your own pace." },
+      "sk": { "eyebrow": "Odhad pripravenosti", "caption": "Vieš, kedy *budeš pripravený*.", "sub": "Skóre pripravenosti a odhad podľa tvojho tempa." },
+      "hu": { "eyebrow": "Felkészültség", "caption": "Tudd, mikor *leszel kész*.", "sub": "Felkészültségi pont és előrejelzés a saját tempódban." }
     },
     {
       "id": "trust",
       "template": "trust",
       "accent": "indigo",
       "en": {
-        "caption": "Everything you need to pass.",
-        "sub": "",
-        "badges": [
-          { "icon": "⏱️", "title": "Timed mock exams", "sub": "40 questions, just like the real day", "tag": "free" },
-          { "icon": "📚", "title": "All 985 questions", "sub": "The full official exam bank", "tag": "free" },
-          { "icon": "🎯", "title": "Smart Practice", "sub": "Adapts to your weak spots", "tag": "pro" },
-          { "icon": "🚦", "title": "Junction driving game", "sub": "Right of way, learned hands-on", "tag": "free" },
-          { "icon": "🌍", "title": "Slovak · English · Magyar", "sub": "Study in your language", "tag": "free" },
-          { "icon": "✈️", "title": "Works offline", "sub": "No signal, no problem", "tag": "free" }
+        "eyebrow": "Driver SK",
+        "caption": "Everything you need *to pass*.",
+        "cards": [
+          { "big": "985", "label": "Official questions", "note": "The complete exam bank", "tag": "free" },
+          { "big": "40", "label": "Question mock exams", "note": "Timed, scored like the real day", "tag": "free" },
+          { "big": "∞", "label": "Junctions to drive", "note": "Right of way, learned hands-on", "tag": "free" },
+          { "big": "3", "label": "Languages", "note": "Slovak · English · Magyar", "tag": "free" },
+          { "big": "1st", "label": "Weak spots first", "note": "Smart Study adapts to you", "tag": "pro" },
+          { "big": "0", "label": "Signal needed", "note": "Works fully offline", "tag": "free" }
         ]
       },
       "sk": {
-        "caption": "Všetko, čo potrebuješ na úspech.",
-        "sub": "",
-        "badges": [
-          { "icon": "⏱️", "title": "Skúšky nanečisto", "sub": "40 otázok, presne ako naozaj", "tag": "free" },
-          { "icon": "📚", "title": "Všetkých 985 otázok", "sub": "Celá oficiálna databáza", "tag": "free" },
-          { "icon": "🎯", "title": "Inteligentné štúdium", "sub": "Prispôsobí sa tvojim slabinám", "tag": "pro" },
-          { "icon": "🚦", "title": "Hra na križovatkách", "sub": "Prednosť v jazde v praxi", "tag": "free" },
-          { "icon": "🌍", "title": "Slovensky · English · Magyar", "sub": "Uč sa vo svojom jazyku", "tag": "free" },
-          { "icon": "✈️", "title": "Funguje offline", "sub": "Bez signálu — bez problému", "tag": "free" }
+        "eyebrow": "Driver SK",
+        "caption": "Všetko, čo potrebuješ *na úspech*.",
+        "cards": [
+          { "big": "975", "label": "Oficiálnych otázok", "note": "Celá databáza na skúšku", "tag": "free" },
+          { "big": "40", "label": "Otázok v teste", "note": "Na čas, bodované ako naozaj", "tag": "free" },
+          { "big": "∞", "label": "Križovatiek na jazdu", "note": "Prednosť v jazde v praxi", "tag": "free" },
+          { "big": "3", "label": "Jazyky", "note": "Slovensky · English · Magyar", "tag": "free" },
+          { "big": "1.", "label": "Najprv slabiny", "note": "Štúdium sa prispôsobí tebe", "tag": "pro" },
+          { "big": "0", "label": "Signálu treba", "note": "Funguje úplne offline", "tag": "free" }
         ]
       },
       "hu": {
-        "caption": "Minden, amire szükséged van.",
-        "sub": "",
-        "badges": [
-          { "icon": "⏱️", "title": "Próbavizsga időre", "sub": "40 kérdés, pont mint az igazi", "tag": "free" },
-          { "icon": "📚", "title": "Mind a 985 kérdés", "sub": "A teljes hivatalos anyag", "tag": "free" },
-          { "icon": "🎯", "title": "Okos tanulás", "sub": "Alkalmazkodik a gyenge pontjaidhoz", "tag": "pro" },
-          { "icon": "🚦", "title": "Kereszteződés-játék", "sub": "Elsőbbség a gyakorlatban", "tag": "free" },
-          { "icon": "🌍", "title": "Slovensky · English · Magyar", "sub": "Tanulj a saját nyelveden", "tag": "free" },
-          { "icon": "✈️", "title": "Offline is működik", "sub": "Térerő nélkül is", "tag": "free" }
+        "eyebrow": "Driver SK",
+        "caption": "Minden, ami kell *a sikerhez*.",
+        "cards": [
+          { "big": "983", "label": "Hivatalos kérdés", "note": "A teljes vizsgaanyag", "tag": "free" },
+          { "big": "40", "label": "Kérdéses próbavizsga", "note": "Időre, pontozva, mint élesben", "tag": "free" },
+          { "big": "∞", "label": "Kereszteződés", "note": "Elsőbbség a gyakorlatban", "tag": "free" },
+          { "big": "3", "label": "Nyelv", "note": "Slovensky · English · Magyar", "tag": "free" },
+          { "big": "1.", "label": "Gyenge pontok először", "note": "Az Okos tanulás alkalmazkodik", "tag": "pro" },
+          { "big": "0", "label": "Térerő kell", "note": "Teljesen offline működik", "tag": "free" }
         ]
       }
     },
@@ -105,9 +113,9 @@
       "id": "cta",
       "template": "cta",
       "accent": "emerald",
-      "en": { "caption": "Free for 3 days.", "sub": "Cancel anytime." },
-      "sk": { "caption": "3 dni zadarmo.", "sub": "Zruš kedykoľvek." },
-      "hu": { "caption": "3 nap ingyen.", "sub": "Bármikor lemondhatod." }
+      "en": { "caption": "Free for *3 days*.", "sub": "Cancel anytime.", "checks": ["Smart Study and Mistakes", "Every official question", "Driving practice included"] },
+      "sk": { "caption": "3 dni *zadarmo*.", "sub": "Zruš kedykoľvek.", "checks": ["Inteligentné štúdium a chyby", "Všetky oficiálne otázky", "Nácvik jazdy v cene"] },
+      "hu": { "caption": "3 nap *ingyen*.", "sub": "Bármikor lemondhatod.", "checks": ["Okos tanulás és hibák", "Minden hivatalos kérdés", "Vezetési gyakorlat is"] }
     }
   ]
 }
