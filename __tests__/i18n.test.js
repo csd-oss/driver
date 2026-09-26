@@ -51,3 +51,15 @@ describe('i18n helpers', () => {
     expect(tp('forecast.days', 3, 7, { days: 7 })).toBe('körülbelül 7 nap a tempóddal');
   });
 });
+
+describe('tf capitalises a value that opens the sentence', () => {
+  it('capitalises a lowercase vehicle name at the start, in every language', () => {
+    for (const lang of [2, 3]) {
+      expect(tf('crossing.coach.giveWay', lang, { vehicle: 'the red car' }).charAt(0)).toBe('T');
+    }
+    expect(tf('crossing.coach.giveWay', 2, { vehicle: 'the red car' })).toBe('The red car has priority. Tap Stop and wait.');
+  });
+  it('leaves a value in the middle of the sentence alone', () => {
+    expect(tf('crossing.coach.giveWay', 1, { vehicle: 'červené auto' })).toBe('Prednosť má červené auto. Stlač Zastaviť a počkaj.');
+  });
+});

@@ -26,10 +26,14 @@ export const t = (key, lang) => {
  * @param {Record<string, string | number>} vars
  */
 export const tf = (key, lang, vars = {}) => {
-  let out = t(key, lang);
+  const template = t(key, lang);
+  let out = template;
   for (const name of Object.keys(vars)) {
     out = out.split(`{${name}}`).join(String(vars[name]));
   }
+  // A value that opens the sentence ("{vehicle} has priority") starts it with
+  // a capital, whatever case the value itself is in ("the red car").
+  if (template.startsWith('{')) out = out.charAt(0).toLocaleUpperCase() + out.slice(1);
   return out;
 };
 
