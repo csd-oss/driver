@@ -161,20 +161,18 @@ test('moving off on red records the actual entry and costs exactly one life', ()
   expect(run.lives).toBe(2);
 });
 
-test('the instructor does not announce priority in either guide or practice', () => {
+test('practice never announces priority, even where the guide does', () => {
   const run = sceneRun('mainRoad');
   step(run, 32);
-  const guided = createInstructor(), practice = createInstructor();
+  const practice = createInstructor();
   const options = { lang: 2, visibility: { junctionVisible: true, visibleVehicles: ['blue'] } };
   for (let tick = 0; tick < 300; tick++) {
     run.now += 32;
-    const speech = instructorFrame(guided, run, options);
-    expect(speech).toEqual(instructorFrame(practice, { ...run, coach: false }, options));
+    const speech = instructorFrame(practice, { ...run, coach: false }, options);
     expect(speech.instruction).toBeNull();
     expect(speech.status).toBeNull();
   }
-  expect(instructorFrame(guided, run, options).instruction).toBeNull();
-  expect(guided.said.size).toBe(0);
+  expect(practice.said.size).toBe(0);
 });
 
 test.each(['rightHand', 'sideRoad', 'tram'])('at %s the guide names who goes first; practice leaves that decision to you', id => {
@@ -212,7 +210,7 @@ test('practice gives the route but no STOP or red-light hint, and explains a fau
 });
 
 test('what Alex may say in practice never mentions priority, in any language', () => {
-  const guideOnly = new Set(['practice.coach.wait']);
+  const guideOnly = new Set(['practice.coach.wait', 'practice.coach.mainRoad', 'practice.coach.yourWay']);
   const keys = [...Object.keys(PRACTICE).filter(key => key.startsWith('practice.coach.') && !guideOnly.has(key)),
     'crossing.coach.turn', 'crossing.coach.dirLeft', 'crossing.coach.dirRight',
     ...['left', 'right', 'straight', 'main', 'roundabout.left', 'roundabout.right', 'roundabout.straight'].map(kind => `crossing.instr.${kind}`)];
@@ -330,4 +328,18 @@ describe('junction analytics', () => {
     expect(Array.isArray(props.faults)).toBe(true);
     expect(props.scene).toBeUndefined();
   });
+});
+
+test('on the main road the guide says we go first; practice stays quiet', () => {
+  const said = practice => {
+    const run = sceneRun('mainRoad', practice), junction = currentJunction(run), state = createInstructor();
+    const lines = new Set();
+    driveUntil(run, () => junction.passed, current => {
+      const frame = instructorFrame(state, current, { lang: 2, visibility: { junctionVisible: true, visibleVehicles: null } });
+      for (const text of [frame.instruction, frame.status]) if (text) lines.add(text);
+    });
+    return [...lines];
+  };
+  expect(said(false)).toContain(i18n.t('practice.coach.mainRoad', 2));
+  expect(said(true)).not.toContain(i18n.t('practice.coach.mainRoad', 2));
 });

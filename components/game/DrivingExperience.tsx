@@ -194,6 +194,11 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
         } else if (['wrongWay', 'redLight', 'ranStop'].includes(event.type)) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        } else if (event.type === 'passed' && event.record?.outcome === 'clean') {
+          // A clean junction is a small win: a light tap, not a buzz.
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        } else if (event.type === 'level' || event.type === 'guideComplete') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         }
       }
 

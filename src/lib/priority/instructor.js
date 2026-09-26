@@ -9,13 +9,13 @@ export const instructionText = (instruction, lang) => instruction.kind === 'roun
 export const createInstructor = () => ({ junction: -1, said: new Set(), message: null, until: 0, feedback: null, feedbackUntil: 0, wasStopped: false });
 export const shiftInstructorTime = (state, duration) => { state.until += duration; state.feedbackUntil += duration; };
 export const MESSAGE_MS = 5500;        // practice advice is brief
-export const COACH_MESSAGE_MS = 8000;  // the guide leaves a learner time to read
+export const COACH_MESSAGE_MS = 11000;  // the guide leaves a learner time to read
 
 // Practice gives no hints about the junction itself: naming the vehicle with
 // priority, telling you to wait or go, and pointing out a STOP sign or a red
 // light are the guide's job. In practice you read the junction yourself and
 // hear about it afterwards (fault feedback still explains a missed STOP or red).
-const GUIDE_ONLY_STEPS = new Set(['giveWay', 'wait', 'go', 'stopSign', 'redLight']);
+const GUIDE_ONLY_STEPS = new Set(['giveWay', 'wait', 'go', 'stopSign', 'redLight', 'priority']);
 
 /** The same quiet, situational coaching in the guide and in practice; only
  * the guide hints at priority, signs and signals before you decide.
@@ -37,7 +37,7 @@ export function instructorFrame(state, run, { lang, events = [], visibility = {}
   if (fault) {
     const key = fault.type === 'wrongWay' && fault.record?.movement === 'circling' ? 'missedExit' : fault.type;
     state.feedback = t(`practice.coach.${key}`, lang);
-    state.feedbackUntil = run.now + 6500;
+    state.feedbackUntil = run.now + (run.coach ? 9000 : 6500);
   } else if (events.some(e => e.type === 'guideComplete')) {
     state.feedback = t('practice.coach.handover', lang);
     state.feedbackUntil = run.now + 8000;
@@ -74,6 +74,10 @@ export function instructorFrame(state, run, { lang, events = [], visibility = {}
     else if (hint.step === 'giveWay' && !run.braking && car) candidate = prompt('crossing.coach.giveWay', 'down');
     else if (hint.step === 'ring') candidate = prompt('practice.coach.exit', 'right');
     else if (hint.step === 'turn') candidate = prompt('crossing.coach.turn', hint.dir);
+    // Having priority is a lesson too: say so on the main road, or when nobody
+    // had to be waited for, rather than driving through in silence.
+    else if (hint.step === 'priority' && junction.scene.signs?.S === 'main') candidate = prompt('practice.coach.mainRoad');
+    else if (hint.step === 'priority' && !junction.blockers.length) candidate = prompt('practice.coach.yourWay');
   }
 
   // No timed repetition. A new state can speak once; obsolete advice vanishes

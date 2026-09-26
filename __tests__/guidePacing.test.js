@@ -25,7 +25,7 @@ const guideDrive = ({ width = 393, height = 640, occludedTop = 130, readingMs = 
 };
 
 test.each([
-  ['rightHand', 4], ['sideRoad', 3.8], ['stopSign', 4.5], ['lights', 4.5], ['tram', 4],
+  ['rightHand', 4], ['sideRoad', 3.8], ['stopSign', 5.5], ['lights', 5.5], ['tram', 4],
   ['leftTurn', 3], // an oncoming car cannot be in a phone viewport much sooner
 ])('the guide asks %s to brake at least %s s before the line, and a slow reader still stops safely', (id, seconds) => {
   const { run, frame } = guideDrive({ readingMs: 2500 });
