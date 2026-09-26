@@ -124,12 +124,13 @@ for (const lang of [1, 2, 3]) {
   });
 }
 
-// ---- settings: onboarded, language chosen, default to English ----
+// ---- settings: onboarded, language chosen, default to English, analytics off
+// (capture runs must not send events to the real PostHog project) ----
 // MUST be id=1 — the app reads/creates the settings row at id=1, so an
 // auto-incremented id would be ignored and the app would re-show onboarding.
 sql.push("DELETE FROM settings;");
 sql.push(
-  `INSERT INTO settings (id,lang,has_onboarded,has_chosen_language,use_conservative_readiness,analytics_opt_out,notification_morning_enabled,notification_lunch_enabled,notification_evening_enabled,has_finished_guide,created_at,updated_at) VALUES (1,2,1,1,0,0,1,1,1,1,${now},${now});`
+  `INSERT INTO settings (id,lang,has_onboarded,has_chosen_language,use_conservative_readiness,analytics_opt_out,notification_morning_enabled,notification_lunch_enabled,notification_evening_enabled,has_finished_guide,created_at,updated_at) VALUES (1,2,1,1,0,1,1,1,1,1,${now},${now});`
 );
 
 process.stdout.write('BEGIN;\n' + sql.join('\n') + '\nCOMMIT;\n');
