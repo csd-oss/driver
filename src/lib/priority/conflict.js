@@ -29,6 +29,28 @@ const nearest = (p, pts) => {
   return best;
 };
 
+/**
+ * Can two vehicles' bodies meet while they drive their paths through this
+ * scene? Their centre lines come within BODY_RADIUS: two turning cars at an
+ * angle touch corners well beyond CONFLICT_RADIUS, while the two lanes of a
+ * road, 12 apart, stay clear. Cached per scene and pair for per-frame checks.
+ */
+export const BODY_RADIUS = 11;
+const meetings = new WeakMap();
+export const pathsMeet = (scene, a, b) => {
+  let cache = meetings.get(scene);
+  if (!cache) { cache = new Map(); meetings.set(scene, cache); }
+  const key = a.id < b.id ? `${a.id}|${b.id}` : `${b.id}|${a.id}`;
+  let hit = cache.get(key);
+  if (hit === undefined) {
+    const pa = vehiclePath(scene, a).through;
+    const pb = vehiclePath(scene, b).through;
+    hit = pa.some((p) => nearest(p, pb) < BODY_RADIUS);
+    cache.set(key, hit);
+  }
+  return hit;
+};
+
 /** Fraction of `other`'s through path after which it no longer conflicts with `you`; null when the paths never meet. */
 export const clearFractionFor = (scene, other, you) => {
   const a = vehiclePath(scene, other).through;

@@ -36,7 +36,7 @@ afterwards. `src/lib/priority/instructor.js` gives guide and practice the same
 message cadence: a situation is explained once, directions stay available until
 the turn, and there is no repeated filler on a straight road. A message lasts
 11 seconds in the guide and 5.5 in practice, and vanishes as soon as it is acted
-on; feedback after a fault stays 9 seconds in the guide and 6.5 in practice. Feedback never hides an upcoming route instruction. Situational coaching
+on; feedback after a fault stays 9 seconds in the guide and 6.5 in practice, and only while you are at that junction or on the road after it. Feedback never hides an upcoming route instruction. Situational coaching
 names traffic only after it appears in the road viewport
 (`createVisibility` in `view.js`, shared with the pacing tests).
 

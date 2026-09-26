@@ -48,6 +48,15 @@ exit; passing the instructed exit counts as a wrong route. The complete path
 for an earlier NPC is independent of this incremental player path, so that NPC
 does not get stranded at the player's next decision point.
 
+The instructor never asks for the first exit: the generator routes you to the
+second (straight on) or third (left), `PLAYER_RING_EXITS`. The arm you entered
+on is not an exit either (`createRing` drops S): a U-turn would lay the next
+junction on top of the one you just left, so arming before it keeps you
+circling to the first exit of the next lap. After a crash inside a ring the car
+restarts at the entry and drives the direct path to the instructed exit; laps
+already driven are not replayed. A brake pressed after the wait line stops the
+car where it comes to rest, never pulled back to the line.
+
 Cruise speed starts at 20 scene units/second and increases by 0.4 per level,
 capped at 24. The guide uses 60%. Acceleration and braking are eased. Stop brakes
 towards the line; Go explicitly releases the brake. Physical spacing can stop a
@@ -79,11 +88,29 @@ use rotated vehicle rectangles, including tram length, to maintain physical gaps
 between NPCs and the player. Delaying a blocking vehicle extends the clearance
 time; delayed cross-phase traffic also extends its traffic-light phase.
 
-At ordinary junctions, followers are released after the player has cleared the
-junction. In generated unsignalled scenes, one yielding car may cross earlier
-if its complete movement plus a safety margin fits before the player's earliest
-arrival. A delayed car rechecks the gap before entering; other cars still yield.
-Roundabout arrivals do not wait for the player's whole traversal.
+At ordinary junctions, followers are released once the player's rear has left
+the box (`FOLLOWER_CLEAR` past `sExitBox`), each following group
+`FOLLOWER_GAP_MS` after the previous. In generated unsignalled scenes, cars
+that give way to the player cross earlier when they are out of the player's
+lane `EARLY_CLEAR_MS` before the player could reach the line at cruising speed;
+the last of them keeps waiting, so somebody still gives way when you arrive. A
+delayed car rechecks that gap before entering. A car whose path never meets
+yours rolls in and through; one whose path merely passes near yours goes from
+its line when it is clear 1.2 s before your arrival, otherwise it follows you.
+Among themselves, cars use gaps too (`slotAmong`): a car may cross ahead of a
+priority vehicle that is still rolling in when it is out of that vehicle's
+path with a margin before it arrives, and a rule-only dependency whose paths
+never meet imposes no timing. Roundabout entrants start at once and judge
+their own gap at the entrance (`RING_LOOK_BACK_DEG`, about 3.5 s of ring
+travel); they never wait for a scheduled turn while the ring is empty.
+
+The crossing is held against an arriving car only while the occupant's path
+can meet its body (`pathsMeet`, `BODY_RADIUS`); two cars whose movements never
+come near each other cross together. Two bodies that touch inside a crossing
+are held apart for `MUTUAL_FREEZE_MS`; then the one further along drives on so
+the junction always clears. `npcStalls.test.js` audits on-screen traffic that
+stands still with no rule or body requiring it, and fails above a few short
+stalls per drive.
 Departing vehicles remain visible beyond the original
 100×100 frame. Vehicles joining the connected road follow its next curve rather
 than continuing straight through the next roundabout. Nearby old junctions stay
@@ -103,7 +130,10 @@ Guide interventions explain the error without consuming a life.
 ## Instructor, scoring, and review
 
 Instructor directions and relevant feedback share the top panel, which shrinks
-when quiet. Routine narration and repeated praise are omitted.
+when quiet. Routine narration and repeated praise are omitted. Fault feedback
+belongs to the junction it explains and the road after it; it never lingers
+into a later junction. The drive log names the sign you faced at a roundabout
+(`rule.roundabout` for give way, `rule.roundaboutStop` for STOP).
 A wrong non-roundabout turn is reported as soon as the player enters the
 junction, not only after leaving. A wrong route, red light, or missed STOP earns
 zero points and resets the streak. Safe crossings receive the same points
@@ -122,6 +152,9 @@ with the player 72% down the road viewport. `view.js` is also used by guide
 coaching to exclude offscreen vehicles and the area hidden by the instructor
 panel. The road stays in a readable daylight palette in either app theme.
 Roadside homes, gardens, pavements, and trees continue along the route.
+Earlier junctions are painted over later ones: after two turns the same way, a
+side road of the junction two ahead runs across the block behind you, and
+drawn underneath it can never lay its kerb across the road you are on.
 
 `DriveStage` uses explicit React Native layout styles for the bottom console.
 Direction and pedal groups contain 78-point-high buttons. The road fills the

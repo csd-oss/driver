@@ -6,7 +6,7 @@ export const instructionText = (instruction, lang) => instruction.kind === 'roun
   ? t(`crossing.instr.roundabout.${instruction.turn}`, lang)
   : t(`crossing.instr.${instruction.kind}`, lang);
 
-export const createInstructor = () => ({ junction: -1, said: new Set(), message: null, until: 0, feedback: null, feedbackUntil: 0, wasStopped: false });
+export const createInstructor = () => ({ junction: -1, said: new Set(), message: null, until: 0, feedback: null, feedbackUntil: 0, feedbackJunction: -1, wasStopped: false });
 export const shiftInstructorTime = (state, duration) => { state.until += duration; state.feedbackUntil += duration; };
 export const MESSAGE_MS = 5500;        // practice advice is brief
 export const COACH_MESSAGE_MS = 11000;  // the guide leaves a learner time to read
@@ -38,11 +38,15 @@ export function instructorFrame(state, run, { lang, events = [], visibility = {}
     const key = fault.type === 'wrongWay' && fault.record?.movement === 'circling' ? 'missedExit' : fault.type;
     state.feedback = t(`practice.coach.${key}`, lang);
     state.feedbackUntil = run.now + (run.coach ? 9000 : 6500);
+    state.feedbackJunction = fault.junction ?? junction.index;
   } else if (events.some(e => e.type === 'guideComplete')) {
     state.feedback = t('practice.coach.handover', lang);
     state.feedbackUntil = run.now + 8000;
+    state.feedbackJunction = junction.index;
   }
-  const feedback = run.now < state.feedbackUntil ? state.feedback : null;
+  // Feedback belongs to the junction it explains and the road after it. It
+  // never lingers into a later junction, whatever happens to the clock.
+  const feedback = run.now < state.feedbackUntil && junction.index <= state.feedbackJunction + 1 ? state.feedback : null;
 
   const i = junction.instruction;
   const hasDirection = junction.scheduled && i.kind !== 'none' && !(i.kind === 'main' && i.turn === 'straight')

@@ -1,6 +1,6 @@
 import { makeRng } from '../src/lib/priority/generator';
 import { LESSONS } from '../src/lib/priority/lessons';
-import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, lightPlan, ALL_RED_MS, LIVES, speedFor } from '../src/lib/priority/world';
+import { createRun, step, applyInput, currentJunction, youPose, vehiclePoses, visibleJunctions, toWorld, spacingFor, lightState, lightPlan, LIVES, speedFor } from '../src/lib/priority/world';
 
 // A T-junction with no straight ahead waits for a direction: take the instructed one.
 // A stopped car only moves off on a swipe: do that once the way is clear.
@@ -849,13 +849,25 @@ describe('cross traffic follows its own order', () => {
       if (j.scheduled) found = { run, j, id: entering.id, deps, now };
     }
     expect(found).toBeTruthy();
-    const { j, id, deps } = found;
-    // It has a start of its own, after the cars it follows and before you move off.
+    const { run, j, id, deps, now } = found;
+    // It has a start of its own before you move off: it judges its own gap
+    // at the entrance rather than waiting for a scheduled turn.
     expect(j.starts[id]).not.toBeNull();
     expect(j.starts.you).toBeNull();
-    for (const d of deps) {
-      expect(j.starts[d]).not.toBeNull();
-      expect(j.starts[id]).toBeGreaterThan(j.starts[d]);
+    for (const d of deps) expect(j.starts[d]).not.toBeNull();
+    // Giving way happens on the road: it never touches the cars it yields to.
+    const { bodiesOverlap } = require('../src/lib/priority/traffic');
+    let t = now;
+    for (let i = 0; i < 700; i++) {
+      t += 16;
+      step(run, t);
+      const poses = vehiclePoses(run).filter((c) => c.junction === j);
+      const me = poses.find((c) => c.vehicle.id === id);
+      if (!me) break;
+      for (const other of poses) {
+        if (other === me || !deps.includes(other.vehicle.id)) continue;
+        expect(bodiesOverlap(me.pose, me.vehicle, other.pose, other.vehicle, 0.5)).toBe(false);
+      }
     }
   });
 });

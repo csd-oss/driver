@@ -3,14 +3,14 @@ import { entersTramStreet, tramStreet } from './streetNetwork';
 import { resolve } from './engine';
 import { generatePlayable } from './generator';
 import { leftOf, rightOf, oppositeOf, turnOf } from './geometry';
-import { clearFractionFor } from './conflict';
+import { clearFractionFor, pathsMeet } from './conflict';
 import {
   EXIT_HEADING, CENTER, RING_R, RING_WAIT, RING_JOIN_DEG, ROAD_HALF, SIZE, WAIT, vehiclePath, approachPoint, boxHalf,
   ringArc, ringEntryPoints, ringExitOrder, ringJoinDeg, ringLeaveDeg, exitCurveFor,
 } from './layout';
 import { queueBackFor } from './queue';
 import { lessonAt, lessonScene, LESSON_COUNT } from './lessons';
-import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt, rollingDuration, traversalDuration } from './timeline';
+import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt, rollingDuration } from './timeline';
 
 /**
  * Endless road for the Crossings runner.
@@ -43,6 +43,9 @@ export const DECISION_MARGIN_STEP_MS = 60;
 export const LIGHTS_MARGIN_FACTOR = 2.2; // a red light holds you longer than a crossing car
 export const ROLL_IN_MS = 5500;         // a vehicle with priority is seen rolling in this long before it crosses
 export const ALL_RED_MS = 700;          // both sides red between the cross traffic clearing and your green
+export const FOLLOWER_GAP_MS = 500;     // after you have passed, each following group moves off this long after the previous
+export const FOLLOWER_CLEAR = 8;        // followers are released once your centre is this far past the box edge
+export const EARLY_CLEAR_MS = 1800;     // a car giving way may still cross if it is out of your lane this long before you could arrive
 export const LIGHT_CHANGE_MS = 800;    // red+yellow before green; yellow before red
 export const LIGHT_YELLOW_LEAD_MS = 1500; // the side losing green goes yellow this long before the other side's green
 export const CRASH_PAUSE_MS = 1400;
@@ -57,6 +60,7 @@ export const SOFT_DECEL = 6;           // the immediate, gentle slow-down when y
 export const HARD_DECEL = 40;          // a late swipe brakes this hard
 export const CREEP = 0.6;              // after the swipe the car rolls on at this share of cruise speed until the line is near
 const PLAYER_CLEARANCE = 0.25;         // identical for player and NPC movement, so a stopped queue can restart
+const MUTUAL_FREEZE_MS = 1000;         // two cars stuck against each other are let apart after this
 
 /** Traffic close to this entry's merge, rather than anywhere on the ring. */
 const ringEntryTraffic = (area, entryAngle, traffic, exclude = null) => traffic.filter(car => {
@@ -67,9 +71,11 @@ const ringEntryTraffic = (area, entryAngle, traffic, exclude = null) => traffic.
   const join = entryAngle - RING_JOIN_DEG;
   const behind = (angle - join + 720) % 360;
   // Leave a gap ahead for a departing car's rear and look back far enough
-  // for an approaching car to reach the merge during the entry manoeuvre.
-  return behind < 180 || behind > 325;
+  // for an approaching car to reach the merge during the entry manoeuvre:
+  // RING_LOOK_BACK_DEG is about 3.5 s of ring travel, a gap drivers take.
+  return behind < RING_LOOK_BACK_DEG || behind > 325;
 });
+export const RING_LOOK_BACK_DEG = 150;
 
 export const speedFor = (level, coachActive = false) =>
   Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_STEP) * (coachActive ? COACH_SPEED : 1);
@@ -191,7 +197,9 @@ const throughWorld = (junction) => {
  * the exit bend once chosen); it grows one exit at a time.
  */
 const createRing = () => {
-  const order = ringExitOrder('S');
+  // Never the arm you came in on: a U-turn would lay the next junction on
+  // top of the one you just left. Arming before it keeps you circling.
+  const order = ringExitOrder('S').filter((arm) => arm !== 'S');
   const joinDeg = ringJoinDeg('S');
   const first = ringLeaveDeg(order[0]);
   const wait = approachPoint('S', RING_R + RING_WAIT);
@@ -247,6 +255,37 @@ const clearMsOf = (junction, id) => {
   const fraction = junction.clearFraction[id] ?? CLEAR_FRACTION;
   const eased = !(junction.rollIn && junction.rollIn[id]);
   return clearTimeMs(junction.scene, vehicle, fraction, eased, junction.queueBack ? junction.queueBack[id] : 0, junction.pathCache);
+};
+
+/** Milliseconds after its start when `id` is out of `otherId`'s path (its whole path when they never meet). */
+const clearMsVs = (junction, id, otherId) => {
+  const byId = junction.scene.vehicles;
+  const vehicle = byId.find((v) => v.id === id);
+  const other = byId.find((v) => v.id === otherId);
+  if (!vehicle || !other) return 0;
+  const fraction = clearFractionFor(junction.scene, vehicle, other) ?? CLEAR_FRACTION;
+  const eased = !(junction.rollIn && junction.rollIn[id]);
+  return clearTimeMs(junction.scene, vehicle, fraction, eased, junction.queueBack ? junction.queueBack[id] : 0, junction.pathCache);
+};
+
+/**
+ * The earliest start for `id`, from `at`, that respects the cars it gives way
+ * to: it may cross ahead of one that is still on its way in when it is out
+ * of that car's path with a margin before it arrives, otherwise it goes once
+ * that car has cleared. A car whose path never meets its own imposes no
+ * timing; giving way to it is a matter of order, not of obstruction.
+ */
+const GAP_MARGIN_MS = 500;
+const slotAmong = (junction, id, deps, at) => {
+  const byId = Object.fromEntries(junction.scene.vehicles.map((v) => [v.id, v]));
+  for (const d of deps) {
+    if (d === 'you' || junction.starts[d] === null || !byId[d]) continue;
+    if (clearFractionFor(junction.scene, byId[id], byId[d]) === null) continue;
+    const arrives = junction.starts[d];
+    if (at + clearMsVs(junction, id, d) + GAP_MARGIN_MS <= arrives) continue;
+    at = Math.max(at, arrives + clearMsVs(junction, d, id) + 300);
+  }
+  return at;
 };
 
 /** The blocker among `ids` that clears your way last, or null. */
@@ -519,15 +558,30 @@ const schedule = (run, junction) => {
   for (let pass = 0; pass < 4; pass++) {
     for (const v of scene.vehicles) {
       if (v.id === 'you' || junction.starts[v.id] != null) continue;
-      if (junction.clearFraction[v.id] !== null) continue;
+      // At a roundabout every entrance judges its own gap as the traffic
+      // arrives (see the ring branch below); a rule-order start here would
+      // leave a car standing at an empty entrance for seconds.
+      if (junction.ring && v.from !== 'ring') continue;
       const deps = resolution.yields[v.id] || [];
-      if (deps.includes('you') || deps.some((d) => junction.starts[d] == null)) continue;
-      let at = run.now + ROLL_IN_MS;
-      for (const d of deps) at = Math.max(at, junction.starts[d] + clearMsOf(junction, d) + 300);
+      if (deps.includes('you') || junction.blockers.includes(v.id) || deps.some((d) => junction.starts[d] == null)) continue;
+      // Never meets your path: it rolls in and through. Passes close to it:
+      // it may still go from its line, but only when it is clear of your
+      // lane well before you could get there; otherwise it waits behind you.
+      const unrelated = junction.clearFraction[v.id] === null;
+      // A car that has been standing at its line all along (not a roll-in)
+      // moves off from there; only unseen traffic may appear rolling in.
+      const rolls = junction.willRollIn.has(v.id);
+      const at = slotAmong(junction, v.id, deps, run.now + (rolls ? ROLL_IN_MS : 700));
+      if (!unrelated) {
+        junction.rollIn[v.id] = 0;
+        if (at + clearMsOf(junction, v.id) + 1200 >= arriveAt) continue;
+        junction.starts[v.id] = at;
+        continue;
+      }
       junction.starts[v.id] = at;
       // One that goes straight away rolls in; one that has to wait its turn
       // stands at its line until then, as it would in traffic.
-      junction.rollIn[v.id] = at <= run.now + ROLL_IN_MS + 400 ? ROLL_IN_MS : 0;
+      junction.rollIn[v.id] = rolls && at <= run.now + ROLL_IN_MS + 400 ? ROLL_IN_MS : 0;
     }
   }
   junction.t0 = run.now;
@@ -547,24 +601,31 @@ const schedule = (run, junction) => {
     }
   } else spaceTraffic(junction, run.now);
   if (!junction.ring && !junction.lesson && !scene.control && !junction.tramStreet) {
-    // A distant priority vehicle does not reserve an empty junction. Let
-    // one waiting car use a gap, keeping the next car for the yielding case.
-    // Use maximum player speed and the entire exit path, not just its centre.
-    const earliestPlayer = run.now + Math.max(0, junction.sWait - run.s) / MAX_SPEED * 1000;
-    for (const v of scene.vehicles) {
-      const deps = resolution.yields[v.id] || [];
-      if (v.id === 'you' || v.kind === 'tram' || junction.starts[v.id] !== null || !deps.includes('you') || junction.queueBack[v.id] > 2) continue;
-      if (deps.some(id => id !== 'you' && junction.starts[id] === null)) continue;
-      let at = run.now + 700;
-      for (const id of deps) if (id !== 'you') at = Math.max(at, junction.starts[id] + clearMsOf(junction, id) + 700);
-      const duration = traversalDuration(scene, v, junction.pathCache);
-      if (at + duration + 1800 >= earliestPlayer) continue;
-      junction.starts[v.id] = at;
-      spaceTraffic(junction, run.now, [v.id]);
-      if (junction.starts[v.id] + duration + 1800 >= earliestPlayer) { junction.starts[v.id] = null; continue; }
-      junction.earlyTraffic = new Set([v.id]);
-      break;
+    // A distant priority vehicle does not reserve an empty junction. A car
+    // that has to give way to you may still cross while you are far off,
+    // as long as it is out of your lane EARLY_CLEAR_MS before you could get
+    // to your line at cruising speed. The last of them keeps waiting, so
+    // there is still somebody giving way to you when you arrive.
+    const earliestPlayer = run.now + Math.max(0, junction.sWait - run.s) / run.speed * 1000;
+    const yielders = scene.vehicles.filter(v => v.id !== 'you' && v.kind !== 'tram' && (resolution.yields[v.id] || []).includes('you'));
+    junction.earlyTraffic = new Set();
+    // Several passes: a car may only go once the cars it yields to have a start.
+    for (let pass = 0; pass < 3 && junction.earlyTraffic.size < yielders.length - 1; pass++) {
+      for (const v of yielders) {
+        if (junction.earlyTraffic.size >= yielders.length - 1) break;
+        const deps = resolution.yields[v.id] || [];
+        if (junction.starts[v.id] !== null || junction.queueBack[v.id] > 2) continue;
+        if (deps.some(id => id !== 'you' && junction.starts[id] === null)) continue;
+        const at = slotAmong(junction, v.id, deps, run.now + 700);
+        const clears = clearMsOf(junction, v.id);
+        if (at + clears + EARLY_CLEAR_MS >= earliestPlayer) continue;
+        junction.starts[v.id] = at;
+        spaceTraffic(junction, run.now, [v.id]);
+        if (junction.starts[v.id] + clears + EARLY_CLEAR_MS >= earliestPlayer) { junction.starts[v.id] = null; continue; }
+        junction.earlyTraffic.add(v.id);
+      }
     }
+    if (!junction.earlyTraffic.size) junction.earlyTraffic = null;
   }
   clearAtReal = -Infinity;
   for (const id of holdIds) {
@@ -582,7 +643,7 @@ const startFollowers = (run, junction, from) => {
   let t = from;
   for (let k = junction.youGroup; k < groups.length; k++) {
     for (const id of groups[k] || []) if (id !== 'you' && junction.starts[id] === null) junction.starts[id] = t;
-    t += GROUP_GAP_MS;
+    t += FOLLOWER_GAP_MS;
   }
   // Vehicles left out of the order by a deadlock still cross, after you.
   for (const id of Object.keys(junction.starts)) if (id !== 'you' && junction.starts[id] === null) junction.starts[id] = t;
@@ -904,18 +965,20 @@ const markWrongWay = (run, junction) => {
     record: junctionRecord(run, junction, 'spoiled') });
 };
 
-/** After a crash at a roundabout entry the car still drives round to the instructed exit. */
+/**
+ * After a crash in a roundabout the car restarts at the entry and drives
+ * straight round to the instructed exit: the laps already driven are not
+ * replayed, whatever the path had grown to.
+ */
 const completeRing = (run, junction) => {
   const ring = junction.ring;
   if (!ring || ring.exitTo) return;
   const target = junction.instruction.to;
-  let guard = 0;
-  while (ring.order[ring.next] !== target && guard++ < 4) {
-    ring.next = (ring.next + 1) % ring.order.length;
-    const to = ringLeaveDeg(ring.order[ring.next]);
-    ring.path = [...ring.path, ...ringArc(ring.lastDeg, to).slice(1)];
-    ring.lastDeg = to;
-  }
+  const fresh = createRing();
+  const to = ringLeaveDeg(target);
+  ring.next = ring.order.indexOf(target);
+  ring.path = [...fresh.path, ...ringArc(fresh.lastDeg, to).slice(1)];
+  ring.lastDeg = to;
   ring.exitTo = target;
   ring.path = [...ring.path, ...exitCurveFor(target).points.slice(1)];
   junction.executedTo = target;
@@ -1004,9 +1067,10 @@ export const step = (run, now) => {
   const crashedHere = run.junctions.find((j) => j.crashed && !j.passed && j.index < junction.index);
   if (crashedHere && !recovering) crashedHere.passed = true;
 
-  // Do not release crossing traffic underneath a player still in the box.
+  // Do not release crossing traffic underneath a player still in the box;
+  // once your rear has left it the others move off, in their order.
   for (const j of run.junctions) {
-    if (j.scheduled && !j.followersStarted && (j.starts.you !== null || j.crashed) && run.s >= j.sEnd + 10) startFollowers(run, j, now + ALL_RED_MS);
+    if (j.scheduled && !j.followersStarted && (j.starts.you !== null || j.crashed) && run.s >= Math.min(j.sExitBox + FOLLOWER_CLEAR, j.sEnd + 10)) startFollowers(run, j, now + ALL_RED_MS);
   }
 
   const previousS = run.s;
@@ -1070,11 +1134,14 @@ export const step = (run, now) => {
         if (run.braking) run.stoppedAt = next;
       }
     }
-    const atLine = !learningStop && beforeLine && mustStop && (next >= junction.sWait || junction.sWait - next < 0.3);
+    // A brake pressed after the wait line stops the car where it comes to
+    // rest; it is never pulled back to the line.
+    const pastLine = previousS > junction.sWait + 0.3;
+    const atLine = !learningStop && beforeLine && mustStop && (pastLine ? run.v === 0 : next >= junction.sWait || junction.sWait - next < 0.3);
     if (!beforeLine && mustStop && run.v === 0) run.stoppedAt = next;
     if (atLine && noStraight && !run.braking) {
       // No straight ahead and no direction chosen: wait at the line for a swipe.
-      next = junction.sWait;
+      if (!pastLine) next = junction.sWait;
       run.stoppedAt = next;
       run.v = 0;
       junction.stoppedAtTime = now;
@@ -1082,7 +1149,7 @@ export const step = (run, now) => {
       junction.stopped = true;
       run.events.push({ type: 'needTurn', junction: junction.index, instruction: junction.instruction });
     } else if (atLine) {
-      next = junction.sWait;
+      if (!pastLine) next = junction.sWait;
       run.stoppedAt = next;
       run.v = 0;
       junction.stoppedAtTime = now;
@@ -1188,8 +1255,8 @@ export const step = (run, now) => {
         if (car.junction !== area || !area.earlyTraffic.has(car.vehicle.id)) continue;
         const previous = previousByKey.get(keyOf(car));
         if (!previous || car.progress >= 0.1 || distance(previous) < WAIT - 0.5 || distance(car) >= distance(previous)) continue;
-        const timeAvailable = Math.max(0, area.sWait - run.s) / MAX_SPEED * 1000;
-        const timeNeeded = traversalDuration(area.scene, car.vehicle, area.pathCache) * (1 - car.progress) + 1800;
+        const timeAvailable = Math.max(0, area.sWait - run.s) / run.speed * 1000;
+        const timeNeeded = clearMsOf(area, car.vehicle.id) + EARLY_CLEAR_MS;
         // A safe early slot may disappear if another car delays this one.
         // Recheck before committing; never pull out merely because a timer fired.
         if (timeAvailable < timeNeeded) entryFractions.set(keyOf(car), 0);
@@ -1205,12 +1272,19 @@ export const step = (run, now) => {
       area.entryOwner = arriving[0] ? keyOf(arriving[0]) : null;
     }
     const playerInside = distance({ pose: playerPose }) < inner;
+    // The crossing is held only against traffic whose path really meets the
+    // occupant's: two cars whose movements never come near each other cross
+    // together, as they would on the road. Traffic carried over from another
+    // junction has no path here, so it always waits.
+    const meetsPlayer = car => car.junction !== area || area.clearFraction[car.vehicle.id] !== null;
+    const holder = area.entryOwner ? proposedTraffic.find(car => keyOf(car) === area.entryOwner) : null;
+    const meetsOwner = car => !holder || car.junction !== area || holder.junction !== area || pathsMeet(area.scene, car.vehicle, holder.vehicle);
     for (const car of proposedTraffic) {
       const previous = previousByKey.get(keyOf(car));
       const approach = distance(car);
       const slowing = area.ring ? 20 : 0;
       if (!previous || distance(previous) < inner || approach > radius + slowing || approach >= distance(previous)) continue;
-      if (playerInside || (area.entryOwner && area.entryOwner !== keyOf(car))) {
+      if ((playerInside && meetsPlayer(car)) || (area.entryOwner && area.entryOwner !== keyOf(car) && meetsOwner(car))) {
         const fraction = slowing ? Math.max(0, Math.min(1, (approach - radius) / slowing)) : 0;
         entryFractions.set(keyOf(car), Math.min(entryFractions.get(keyOf(car)) ?? 1, fraction));
       }
@@ -1249,6 +1323,12 @@ export const step = (run, now) => {
     return true;
   };
   for (const car of candidates) if (bodiesOverlap(car.pose, car.vehicle, playerPose, playerVehicle, PLAYER_CLEARANCE)) freeze(car);
+  // Two bodies that already touch in their old poses would freeze each other
+  // for ever. After MUTUAL_FREEZE_MS the one further along drives on and out
+  // of the other, which then follows; a moment of overlap beats a junction
+  // that never clears.
+  run.mutualFreezes ||= new Map();
+  const touching = new Set();
   for (let pass = 0; pass < candidates.length; pass++) {
     let changed = false;
     for (let a = 0; a < candidates.length; a++) for (let b = a + 1; b < candidates.length; b++) {
@@ -1257,10 +1337,20 @@ export const step = (run, now) => {
       const oldCar = previousByKey.get(keyOf(car)), oldOther = previousByKey.get(keyOf(other));
       if (oldCar && !bodiesOverlap(oldCar.pose, car.vehicle, other.pose, other.vehicle, 1.2)) changed = freeze(car) || changed;
       else if (oldOther && !bodiesOverlap(car.pose, car.vehicle, oldOther.pose, other.vehicle, 1.2)) changed = freeze(other) || changed;
-      else { changed = freeze(car) || changed; changed = freeze(other) || changed; }
+      else {
+        const pair = `${keyOf(car)}|${keyOf(other)}`;
+        touching.add(pair);
+        const since = run.mutualFreezes.get(pair) ?? now;
+        run.mutualFreezes.set(pair, since);
+        if (now - since > MUTUAL_FREEZE_MS) {
+          const leader = car.progress >= other.progress ? car : other;
+          changed = freeze(leader === car ? other : car) || changed;
+        } else { changed = freeze(car) || changed; changed = freeze(other) || changed; }
+      }
     }
     if (!changed) break;
   }
+  for (const pair of run.mutualFreezes.keys()) if (!touching.has(pair)) run.mutualFreezes.delete(pair);
   for (const car of candidates) {
     if (!(delays.get(keyOf(car)) > 0)) continue;
     const holdsLight = car.junction.scene.control?.crossFirst && crossIdsOf(car.junction.scene).includes(car.vehicle.id);

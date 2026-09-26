@@ -1664,6 +1664,11 @@ export const STR = {
     2: 'Roundabout with a give-way sign: {vehicle} in the ring goes first.',
     3: 'Körforgalom elsőbbségadás táblával: {vehicle} a körben megy először.',
   },
+  'rule.roundaboutStop': {
+    1: 'Kruhový objazd so značkou STOP: {vehicle} v objazde ide prvé.',
+    2: 'Roundabout with a STOP sign: {vehicle} in the ring goes first.',
+    3: 'Körforgalom STOP táblával: {vehicle} a körben megy először.',
+  },
   'rule.queue': {
     1: 'Vozidlo pred tebou ide prvé: {vehicle}.',
     2: 'The vehicle ahead of you goes first: {vehicle}.',

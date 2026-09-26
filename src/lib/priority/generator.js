@@ -130,6 +130,8 @@ const buildCrossing = (rng, band) => {
   return { layout: isT ? 't' : 'cross', arms, signs, mainRoad, tramTracks, control: null, vehicles, pedestrians: [] };
 };
 
+/** Exits the instructor may ask for from S: straight on (second) or left (third), never the first. */
+export const PLAYER_RING_EXITS = ['N', 'W'];
 const RING_MAX = 3;                                 // cars already on the ring, at most
 export const RING_MIN_GAP_DEG = 45;                 // never closer than this to each other
 const RING_GAP_DEG = RING_MIN_GAP_DEG + 10;         // nominal gap, plus up to RING_JITTER_DEG
@@ -157,7 +159,10 @@ const buildRoundabout = (rng, band) => {
   const signs = Object.fromEntries(arms.map((a) => [a, sign]));
   const exits = arms.filter((a) => a !== 'S');
   const colours = shuffle(rng, COLOURS);
-  const vehicles = [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: pick(rng, exits) }];
+  // Your route is always the second or third exit. The first exit comes up
+  // right after the entry bend, too soon to signal for it while still
+  // giving way to the ring, so it is never asked for.
+  const vehicles = [{ id: 'you', kind: 'car', color: 'you', from: 'S', to: pick(rng, PLAYER_RING_EXITS) }];
   // Some of the traffic is already circulating, the rest is entering; there
   // is always at least one car on the ring.
   const onRing = Math.max(1, Math.min(band.others, RING_MAX, 1 + Math.floor(rng() * Math.ceil(band.others / 2))));

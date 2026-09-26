@@ -20,6 +20,12 @@ export const instructionLabel = (instruction, lang) => {
 
 const THEIRS = new Set(['right-hand', 'sign', 'left-turn', 'roundabout', 'queue', 'signal', 'entry']);
 
+/** The string for a rule against you: the roundabout line names the sign you actually faced. */
+const ruleKey = (record, rule) => {
+  const sign = record.scene.signs?.S;
+  return rule === 'roundabout' && (sign === 'stop' || sign === 'roundabout-stop') ? 'rule.roundaboutStop' : `rule.${rule}`;
+};
+
 export const isDriveRecord = record => record && ['clean', 'spoiled', 'crash'].includes(record.outcome)
   && Number.isFinite(record.index) && Array.isArray(record.scene?.arms) && Array.isArray(record.scene?.vehicles)
   && record.scene.vehicles.some(vehicle => vehicle.id === 'you' && ['N', 'E', 'S', 'W'].includes(vehicle.from));
@@ -39,7 +45,7 @@ export const explainRecord = (record, lang) => {
   let headline;
   if (record.outcome === 'crash') {
     headline = tf('crossing.log.crashWith', lang, { vehicle: vehicleName(record, record.culprit, lang) });
-    if (record.rule) lines.push(tf(`rule.${record.rule}`, lang, { vehicle: vehicleName(record, record.culprit, lang) }));
+    if (record.rule) lines.push(tf(ruleKey(record, record.rule), lang, { vehicle: vehicleName(record, record.culprit, lang) }));
   } else if (record.ranRed) {
     headline = t('crossing.redLight', lang);
   } else if (record.ranStop) {
@@ -69,7 +75,7 @@ export const explainRecord = (record, lang) => {
   // Every rule that involved you, both ways round.
   const yielded = (record.reasons || []).filter((r) => r.who === 'you' && !(record.outcome === 'crash' && r.to === record.culprit));
   const theirs = (record.reasons || []).filter((r) => r.to === 'you');
-  for (const r of yielded) lines.push(tf(`rule.${r.rule}`, lang, { vehicle: vehicleName(record, r.to, lang) }));
+  for (const r of yielded) lines.push(tf(ruleKey(record, r.rule), lang, { vehicle: vehicleName(record, r.to, lang) }));
   for (const r of theirs) {
     const why = t(`crossing.log.theirs.${THEIRS.has(r.rule) ? r.rule : 'other'}`, lang);
     lines.push(tf('crossing.log.yielded', lang, { vehicle: cap(vehicleName(record, r.who, lang)), why }));

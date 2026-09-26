@@ -42,7 +42,11 @@ JunctionFrame.displayName = 'JunctionFrame';
 
 
 export function WorldRoads({ junctions, lights = {}, renderLights = true }: { junctions: WorldJunction[]; lights?: Record<number, Record<string, LightPhase> | null>; renderLights?: boolean }) {
-  return <>{junctions.map(j => <JunctionFrame key={j.index} scene={j.scene} index={j.index} cx={j.cx} cy={j.cy} rot={j.rot}
+  // Earlier junctions paint over later ones. A side road of a junction two
+  // ahead can run across the block behind you (after two turns the same way);
+  // drawn underneath, it can never lay its kerb across the road you are on.
+  const ordered = [...junctions].sort((a, b) => b.index - a.index);
+  return <>{ordered.map(j => <JunctionFrame key={j.index} scene={j.scene} index={j.index} cx={j.cx} cy={j.cy} rot={j.rot}
     gapBefore={j.gapBefore ?? 80} gapAfter={j.gapAfter ?? 80} youTo={j.scene.vehicles.find((v: SceneVehicle) => v.id === 'you')?.to ?? null} dark={false}
     renderLights={renderLights} lightKey={renderLights ? ['N', 'E', 'S', 'W'].map(arm => lights[j.index]?.[arm] ?? '').join(',') : ''} />)}</>;
 }
