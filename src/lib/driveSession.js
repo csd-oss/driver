@@ -77,6 +77,30 @@ export const junctionKind = scene => {
   return 'right_hand_rule';
 };
 
+const nextTask = flush => { const id = setTimeout(flush, 0); return () => clearTimeout(id); };
+
+/**
+ * Analytics kept off the frame loop. PostHog's capture serializes its whole
+ * queue to storage and may flush over the network, so the drive tick only
+ * queues here; the events go out in a later task, or on demand, in order.
+ */
+export function createDeferredTracker(send, schedule = nextTask) {
+  const queue = [];
+  let cancel = null;
+  const flush = () => {
+    if (cancel) { cancel(); cancel = null; }
+    for (const [name, properties] of queue.splice(0)) send(name, properties);
+  };
+  return {
+    track(name, properties) {
+      queue.push([name, properties]);
+      if (!cancel) cancel = schedule(flush);
+    },
+    flush,
+    get pending() { return queue.length; },
+  };
+}
+
 /** PostHog properties for one finished junction (`crossing_junction`). */
 export const junctionAnalytics = record => ({
   index: record.index,

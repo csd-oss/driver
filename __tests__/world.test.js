@@ -1075,18 +1075,23 @@ describe('the guide', () => {
   });
 
   it('asks for the swipe that matches the moment', () => {
+    // The guide is one continuous drive: the right-hand lesson is reached
+    // along the connecting street after the controls lesson, with a stretch
+    // of plain watching before anything is asked.
     const index = LESSONS.findIndex((l) => l.id === 'rightHand');
-    const run = createRun(makeRng(4), 1, { lesson: index });
-    const j = run.junctions[0];
+    const run = createRun(makeRng(4), 1, { lesson: 0, continuousGuide: true });
     const seen = [];
-    let now = 0;
-    for (let i = 0; i < 6000 && !j.passed; i++) {
+    let now = 0, j = null;
+    for (let i = 0; i < 12000 && !j?.passed; i++) {
       now += 16;
       step(run, now);
+      const current = currentJunction(run);
+      if (current.lessonIndex === index) j = current;
       const hint = lessonHint(run);
-      if (hint && seen[seen.length - 1] !== hint.step) seen.push(hint.step);
+      if (j && hint && seen[seen.length - 1] !== hint.step) seen.push(hint.step);
       obey(run);
     }
+    expect(j.passed).toBe(true);
     expect(seen[0]).toBe('observe');
     expect(seen).toContain('giveWay');
     expect(seen).toContain('go');

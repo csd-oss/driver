@@ -49,6 +49,8 @@ export const CRASH_PAUSE_MS = 1400;
 export const JUNCTIONS_PER_LEVEL = 4;
 export const LIVES = 3;
 export const COACH_SPEED = 0.6;       // the guide drives slower
+export const REACTION_S = 2.5;         // practice: a braking prompt comes this long plus the braking distance before the line
+export const COACH_REACTION_S = 4.5;   // the guide: time to read the prompt, then act, before the braking distance
 export const ACCEL = 14;               // units/s² when moving off or speeding up
 export const DECEL = 12;               // the final braking curve into the line
 export const SOFT_DECEL = 6;           // the immediate, gentle slow-down when you swipe to stop
@@ -482,10 +484,13 @@ const schedule = (run, junction) => {
   // out by a deadlock) stays put, no jumping back.
   junction.rollIn = Object.fromEntries(scene.vehicles.map((v) => [v.id, 0]));
   // Last blocking group clears at clearAt; earlier groups one gap earlier each.
+  // In the guide a priority vehicle approaches at the guide's pace, so it is
+  // in view long enough for Alex to name it before the learner must brake.
+  const rollInMs = run.coach ? ROLL_IN_MS / COACH_SPEED : ROLL_IN_MS;
   let groupStart = clearAt;
   for (let k = junction.youGroup - 1; k >= 0; k--) {
     for (const id of groups[k]) junction.rollIn[id] = junction.willRollIn.has(id)
-      ? rollingDuration(scene, scene.vehicles.find(v => v.id === id), junction.pathCache, ROLL_IN_MS) : 0;
+      ? rollingDuration(scene, scene.vehicles.find(v => v.id === id), junction.pathCache, rollInMs) : 0;
     let longest = 0;
     for (const id of groups[k]) longest = Math.max(longest, clearMsOf(junction, id));
     const start = Math.max(run.now, groupStart - longest);
@@ -527,7 +532,7 @@ const schedule = (run, junction) => {
   }
   junction.t0 = run.now;
   for (const v of scene.vehicles) {
-    if (junction.willRollIn.has(v.id) && junction.queueBack[v.id] > 0) junction.rollIn[v.id] = ROLL_IN_MS;
+    if (junction.willRollIn.has(v.id) && junction.queueBack[v.id] > 0) junction.rollIn[v.id] = rollInMs;
     if (v.from === 'ring' && junction.starts[v.id] !== null) {
       junction.rollIn[v.id] = rollingDuration(scene, v, junction.pathCache);
       // Show the entire arrival on its road, never halfway round the ring.
@@ -1362,7 +1367,9 @@ export const drivingHint = (run, { visibleVehicles = null, junctionVisible = tru
     const visibleBlocker = blockers.find(id => visibleVehicles === null || visibleVehicles.includes(id));
     // Announce turns early, but ask for braking only near the stopping zone.
     // Otherwise following the coach creates a long crawl at the creep speed.
-    const brakingZone = Math.max(28, run.speed * 2.5 + run.speed * run.speed / (2 * DECEL));
+    // The guide asks sooner: a learner reads the whole prompt before acting.
+    const reaction = run.coach ? COACH_REACTION_S : REACTION_S;
+    const brakingZone = Math.max(28, run.speed * reaction + run.speed * run.speed / (2 * DECEL));
     if (junction.sWait - run.s > brakingZone && (visibleBlocker || red || stopSignFor(junction))) return { step: 'observe' };
     if (red) return { step: 'redLight' };
     if (stopSignFor(junction)) return { step: 'stopSign' };

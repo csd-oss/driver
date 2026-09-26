@@ -19,14 +19,14 @@ import { generateId } from '@/src/db/utils';
 import { t, tf } from '@/src/i18n/i18n';
 import { trackEvent, trackScreenView } from '@/src/lib/analytics';
 import { explainRecord } from '@/src/lib/crossingLog';
-import { createDriveRecorder, driveSummary, junctionAnalytics, mergeDriveRecord } from '@/src/lib/driveSession';
+import { createDeferredTracker, createDriveRecorder, driveSummary, junctionAnalytics, mergeDriveRecord } from '@/src/lib/driveSession';
 import { confirmDialog } from '@/src/lib/dialog';
 import { getCachedLanguage, getGuideFinished, getLanguage, setGuideFinished } from '@/src/lib/settings';
 import { makeRng } from '@/src/lib/priority/generator';
 import { createInstructor, instructorFrame, shiftInstructorTime } from '@/src/lib/priority/instructor';
 import { LESSON_COUNT } from '@/src/lib/priority/lessons';
 import { nextSnapshotAt, SNAPSHOT_MS } from '@/src/lib/priority/render';
-import { cameraView, visibleInRoad } from '@/src/lib/priority/view';
+import { cameraView, createVisibility } from '@/src/lib/priority/view';
 import { LIVES, applyInput, createRun, currentJunction, lightState, shiftTime, step, vehiclePoses, visibleJunctions, youPose, youSignalFor } from '@/src/lib/priority/world';
 
 type Input = 'left' | 'right' | 'brake' | 'go';
@@ -60,9 +60,13 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
   const instructorRef = useRef(createInstructor());
   const learnedSwipesRef = useRef(new Set<string>());
   const sizeRef = useRef({ width: 393, height: 600, occludedTop: 114 });
-  const seenRef = useRef({ junction: -1, road: false, vehicles: new Set<string>() });
+  const visibilityRef = useRef(createVisibility());
   const shakeUntilRef = useRef(0);
   const highlightRef = useRef<string[]>([]);
+  // The frame loop only queues analytics; PostHog does its work in a later task.
+  const posthogRef = useRef(posthog);
+  posthogRef.current = posthog;
+  const tracker = useMemo(() => createDeferredTracker((name: string, properties?: Record<string, any>) => trackEvent(posthogRef.current, name, properties)), []);
 
   const stopLoop = useCallback(() => {
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
@@ -83,7 +87,7 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     startedAtRef.current = Date.now();
     instructorRef.current = createInstructor();
     learnedSwipesRef.current.clear();
-    seenRef.current = { junction: -1, road: false, vehicles: new Set() };
+    visibilityRef.current = createVisibility();
     lastTickRef.current = 0;
     headingRef.current = 0;
     shakeUntilRef.current = 0;
@@ -139,10 +143,11 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     for (const record of recordsRef.current) {
       if (reportedRef.current.has(record.index)) continue;
       reportedRef.current.add(record.index);
-      trackEvent(posthog, 'crossing_junction', { language: lang, ...junctionAnalytics(record) });
+      tracker.track('crossing_junction', { language: lang, ...junctionAnalytics(record) });
     }
-    trackEvent(posthog, 'crossing_finished', { language: lang, score: run.score, junctions: practice.length, faults: driveSummary(practice).faults });
-  }, [lang, posthog, saveDrive, stopLoop]);
+    tracker.track('crossing_finished', { language: lang, score: run.score, junctions: practice.length, faults: driveSummary(practice).faults });
+    tracker.flush();
+  }, [lang, saveDrive, stopLoop, tracker]);
 
   useEffect(() => {
     if (phase !== 'running' || paused || !isFocused) return;
@@ -173,14 +178,14 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
           // A junction can emit a fault before its final record; report it once, when done.
           if (event.record.completed && !reportedRef.current.has(event.record.index)) {
             reportedRef.current.add(event.record.index);
-            trackEvent(posthog, 'crossing_junction', { language: lang, ...junctionAnalytics(event.record) });
+            tracker.track('crossing_junction', { language: lang, ...junctionAnalytics(event.record) });
           }
         }
         if (event.type === 'guideComplete') {
           guideDoneRef.current = true;
           setGuideFinished(true).catch(() => setSaveFailed(true));
           const guide = recordsRef.current.filter(record => record.mode === 'guide');
-          trackEvent(posthog, 'guide_completed', { language: lang, junctions: guide.length,
+          tracker.track('guide_completed', { language: lang, junctions: guide.length,
             faults: driveSummary(guide).faults, duration_sec: Math.round((Date.now() - startedAtRef.current) / 1000) });
         }
         if (event.type === 'crash') {
@@ -199,15 +204,7 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
       const visible = visibleJunctions(run);
       const vehicles = vehiclePoses(run);
       const view = cameraView(sizeRef.current.width, sizeRef.current.height, you, headingRef.current, sizeRef.current.occludedTop);
-      if (seenRef.current.junction !== current.index) seenRef.current = { junction: current.index, road: false, vehicles: new Set() };
-      const seen = seenRef.current;
-      seen.road ||= visibleInRoad({ x: current.cx, y: current.cy }, view);
-      const visibility = { junctionVisible: seen.road, visibleVehicles: vehicles.filter((vehicle: any) => {
-        if (vehicle.junction.index !== current.index) return false;
-        if (visibleInRoad(vehicle.pose, view)) seen.vehicles.add(vehicle.vehicle.id);
-        if (!visibleInRoad(vehicle.pose, { ...view, occludedTop: 0 })) seen.vehicles.delete(vehicle.vehicle.id);
-        return seen.vehicles.has(vehicle.vehicle.id);
-      }).map((vehicle: any) => vehicle.vehicle.id) };
+      const visibility = visibilityRef.current(current, vehicles, view);
       const speech = instructorFrame(instructorRef.current, run, { lang, events, visibility, traffic: vehicles });
       const lights: Record<number, any> = {};
       for (const junction of visible) if (junction.scene.control?.type === 'lights') lights[junction.index] = lightState(junction, time);
@@ -224,14 +221,16 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     };
     frameRef.current = requestAnimationFrame(tick);
     return stopLoop;
-  }, [finishRun, isFocused, lang, paused, phase, posthog, stopLoop]);
+  }, [finishRun, isFocused, lang, paused, phase, stopLoop, tracker]);
 
   useEffect(() => { if (!isFocused) setPaused(true); }, [isFocused]);
+  // A pause is a quiet moment for whatever the frame loop has queued.
+  useEffect(() => { if (paused) tracker.flush(); }, [paused, tracker]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => { if (state !== 'active') setPaused(true); });
-    return () => { subscription.remove(); stopLoop(); };
-  }, [stopLoop]);
+    return () => { subscription.remove(); stopLoop(); tracker.flush(); };
+  }, [stopLoop, tracker]);
 
   const input = useCallback((value: Input) => {
     if (phase !== 'running' || paused || !isFocused) return;

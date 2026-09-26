@@ -239,3 +239,16 @@ Road painting still produced occasional bursts in the simulator, so these checks
 do not prove zero hitches or sustained 120 fps on the physical iPhone. Avoid
 treating total "mounting" samples as React commits: this configuration's native
 transform fast path also appears under RCTMountingManager in the profiler.
+
+Build 41 reintroduced stutters: the PostHog `crossing_junction` and
+`guide_completed` captures ran synchronously inside the driving
+`requestAnimationFrame` tick, before that snapshot's React commit. A capture
+serializes PostHog's whole persisted queue and, every twenty events, flushes over
+the network. Build 42 moves that work off the frame loop. The tick only queues
+events in `createDeferredTracker` (`src/lib/driveSession.js`); they are sent, in
+order and with the same names and properties, in a later task, on pause, at
+drive end (after the unreported junctions) and on unmount. The loop's effect
+also no longer depends on the PostHog client. Coaching visibility bookkeeping
+moved into `createVisibility` (`src/lib/priority/view.js`), which reuses one set
+per drive instead of filtering and mapping the traffic on every snapshot.
+`drivingExperience.test.js` checks the queue never sends during the tick.

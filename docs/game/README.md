@@ -35,4 +35,7 @@ answer. Nothing about priority may change with that suite red.
 `kind` is what you faced from your own arm: `roundabout`, `lights`, `stop`,
 `yield`, `main_road` or `right_hand_rule` (`junctionKind` in
 `src/lib/driveSession.js`). A drive that is killed mid-run sends
-`crossing_started` with no `crossing_finished`.
+`crossing_started` with no `crossing_finished`. During a drive, events are
+queued by the frame loop and captured in a later task (`createDeferredTracker`),
+so PostHog's storage and network work never runs inside a road tick; the queue
+is also flushed on pause and at drive end.

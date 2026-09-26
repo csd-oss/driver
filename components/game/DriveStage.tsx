@@ -62,7 +62,7 @@ const InstructorOverlay = memo(function InstructorOverlay({ lang, instruction, d
     <View style={{ flex: 1 }}>
       <Text style={[styles.eyebrow, { color: palette.secondary, marginBottom: instruction || status ? 4 : 0 }]}>{direction === 'left' ? '←  ' : direction === 'right' ? '→  ' : ''}Alex · {t('crossing.control.instructor', lang)}</Text>
       {!!instruction && <Text style={[styles.instruction, { color: palette.text }]} maxFontSizeMultiplier={1.3}>{instruction}</Text>}
-      {status && status !== instruction && <Text testID="crossing.coaching" style={[styles.coaching, { color: palette.secondary }]} maxFontSizeMultiplier={1.3} accessibilityLiveRegion="polite">{status}</Text>}
+      {status && status !== instruction && <Text testID="crossing.coaching" style={[styles.instruction, styles.coaching, { color: palette.text }]} maxFontSizeMultiplier={1.3} accessibilityLiveRegion="polite">{status}</Text>}
       {swipe && !paused && <View style={styles.swipe} testID="crossing.swipeHint"><SwipeHint direction={swipe} size={36} colour={palette.accent} /><Text style={[styles.swipeText, { color: palette.secondary }]}>{t(`guide.swipe.${swipe}`, lang)}</Text></View>}
     </View>
     {onPause && <Pressable onPress={onPause} accessibilityRole="button" accessibilityLabel={t(`crossing.control.${paused ? 'resume' : 'pause'}`, lang)} style={styles.overlayButton} testID="crossing.pause"><Text style={[styles.pauseText, { color: palette.text }]}>{paused ? '▶' : 'Ⅱ'}</Text></Pressable>}
@@ -88,7 +88,8 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 9, fontWeight: '700', letterSpacing: 1.6, textTransform: 'uppercase', color: '#73816c', marginBottom: 4 },
   instruction: { color: '#223b34', fontSize: 14, lineHeight: 19, fontWeight: '600' },
   console: { flexShrink: 0, width: '100%', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14, backgroundColor: '#142d29' },
-  coaching: { fontSize: 12, lineHeight: 17, marginTop: 6 },
+  // Everything Alex says shares one size; only the eyebrow and swipe caption are small.
+  coaching: { marginTop: 6 },
   swipe: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }, swipeText: { fontSize: 11, lineHeight: 15 },
   paused: { ...StyleSheet.absoluteFillObject, backgroundColor: '#142d2970', justifyContent: 'center', alignItems: 'center' }, pausedText: { color: '#fffdf3', fontSize: 22, fontWeight: '600' },
 });

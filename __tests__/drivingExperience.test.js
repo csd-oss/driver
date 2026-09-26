@@ -2,7 +2,7 @@ import { makeRng } from '../src/lib/priority/generator';
 import { LESSONS, LESSON_COUNT } from '../src/lib/priority/lessons';
 import { createRun, currentJunction, applyInput, drivingHint, junctionRecord, lightState, step, vehiclePoses, youPose } from '../src/lib/priority/world';
 import { createInstructor, instructorFrame, shiftInstructorTime } from '../src/lib/priority/instructor';
-import { createDriveRecorder, groupDrives, mergeDriveRecord } from '../src/lib/driveSession';
+import { createDeferredTracker, createDriveRecorder, groupDrives, mergeDriveRecord } from '../src/lib/driveSession';
 import { explainRecord, isDriveRecord } from '../src/lib/crossingLog';
 import { PRACTICE } from '../src/i18n/practice';
 import * as i18n from '../src/i18n/i18n';
@@ -175,6 +175,65 @@ test('the instructor does not announce priority in either guide or practice', ()
   }
   expect(instructorFrame(guided, run, options).instruction).toBeNull();
   expect(guided.said.size).toBe(0);
+});
+
+test.each(['rightHand', 'sideRoad', 'tram'])('at %s the guide names who goes first; practice leaves that decision to you', id => {
+  const spoken = practice => {
+    const run = sceneRun(id, practice), junction = currentJunction(run), state = createInstructor();
+    const everyone = junction.scene.vehicles.map(vehicle => vehicle.id);
+    const lines = new Set();
+    driveUntil(run, () => junction.passed, current => {
+      const speech = instructorFrame(state, current, { lang: 2, visibility: { junctionVisible: true, visibleVehicles: everyone }, traffic: vehiclePoses(current) });
+      for (const text of [speech.instruction, speech.status]) if (text) lines.add(text);
+      obey(current);
+    });
+    expect(junction).toMatchObject({ passed: true, crashed: false, stopped: true });
+    return [...lines];
+  };
+  const guide = spoken(false);
+  expect(guide.some(line => /has priority/.test(line))).toBe(true);
+  expect(guide.some(line => /^Wait for|The way is clear/.test(line))).toBe(true);
+  expect(spoken(true)).toEqual([]);
+});
+
+test('practice still reads signs, signals and the route, and explains a fault', () => {
+  const run = sceneRun('stopSign', true), junction = currentJunction(run), state = createInstructor();
+  const lines = new Set();
+  driveUntil(run, () => junction.passed, current => {
+    for (const text of Object.values(instructorFrame(state, current, { lang: 2, visibility: { junctionVisible: true, visibleVehicles: [] } }))) if (typeof text === 'string') lines.add(text);
+  });
+  expect([...lines]).toEqual(expect.arrayContaining(['We have a STOP sign. Stop fully before the line, then check the junction.', 'down']));
+  const fresh = sceneRun('stopSign', true);
+  step(fresh, 32);
+  expect(instructorFrame(createInstructor(), fresh, { lang: 2, events: [{ type: 'ranStop', junction: 0 }] }).instruction).toBe('We need a complete stop at STOP signs. Let’s do that next time.');
+});
+
+test('what Alex may say in practice never mentions priority, in any language', () => {
+  const guideOnly = new Set(['practice.coach.wait']);
+  const keys = [...Object.keys(PRACTICE).filter(key => key.startsWith('practice.coach.') && !guideOnly.has(key)),
+    'crossing.coach.turn', 'crossing.coach.dirLeft', 'crossing.coach.dirRight',
+    ...['left', 'right', 'straight', 'main', 'roundabout.left', 'roundabout.right', 'roundabout.straight'].map(kind => `crossing.instr.${kind}`)];
+  for (const key of keys) for (const lang of [1, 2, 3]) expect(`${key} (${lang}): ${i18n.t(key, lang)}`).not.toMatch(/prednos|priority|elsőbbs|right of way|goes first|prv[ýá] (ide|prejde)|first to go/i);
+});
+
+test('drive analytics leave the frame loop: queued during the tick, sent in a later task or on demand', () => {
+  jest.useFakeTimers();
+  try {
+    const send = jest.fn();
+    const tracker = createDeferredTracker(send);
+    tracker.track('crossing_junction', { index: 0 });
+    tracker.track('guide_completed', { junctions: 11 });
+    expect(send).not.toHaveBeenCalled();
+    expect(tracker.pending).toBe(2);
+    jest.runAllTimers();
+    expect(send.mock.calls).toEqual([['crossing_junction', { index: 0 }], ['guide_completed', { junctions: 11 }]]);
+    tracker.track('crossing_finished', { score: 1 });
+    tracker.flush();
+    expect(send).toHaveBeenLastCalledWith('crossing_finished', { score: 1 });
+    jest.runAllTimers();
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(tracker.pending).toBe(0);
+  } finally { jest.useRealTimers(); }
 });
 
 test('pause preserves an explanation, and unseen traffic is not announced', () => {

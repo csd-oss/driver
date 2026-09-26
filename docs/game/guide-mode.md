@@ -18,17 +18,37 @@ is 60% of practice speed, with short approaches and 140-unit spacing.
 
 The first Stop exercise is learner-paced. The car rolls slowly and waits before
 the junction until Stop is pressed, then waits for Go. Reading the message
-cannot skip the exercise. Later braking prompts allow current-speed braking
-distance plus 2.5 seconds to react, with a minimum of 28 units.
+cannot skip the exercise. Later braking prompts allow the current-speed braking
+distance plus a reaction window, with a minimum of 28 units: `COACH_REACTION_S`
+(4.5 s) in the guide, `REACTION_S` (2.5 s) in practice. A prompt that names a
+vehicle waits until that vehicle is in the road viewport, so in the guide the
+vehicles with priority roll in at the guide's pace (`ROLL_IN_MS / COACH_SPEED`)
+and are in view sooner. On a phone-sized viewport the guide asks for the brake
+4 to 5 seconds before the line at every lesson except the left turn, where the
+oncoming car cannot be on screen much before 3.5 seconds. `guidePacing.test.js`
+drives the whole guide with that viewport and a 2.5-second reading delay.
 
 ## Instructor and controls
 
 Alex speaks in the first person from the single top panel, and reviews the drive
 afterwards. `src/lib/priority/instructor.js` gives guide and practice the same
 message cadence: a situation is explained once, directions stay available until
-the turn, and there is no repeated filler on a straight road. Feedback never
-hides an upcoming route instruction. Situational coaching names traffic only
-after it appears in the road viewport.
+the turn, and there is no repeated filler on a straight road. A message lasts
+8 seconds in the guide and 5.5 in practice, and vanishes as soon as it is acted
+on. Feedback never hides an upcoming route instruction. Situational coaching
+names traffic only after it appears in the road viewport
+(`createVisibility` in `view.js`, shared with the pacing tests).
+
+Only the guide says who goes first. In practice Alex gives the route, reads a
+STOP sign or a red light, asks for a turn or an exit, and explains a fault
+afterwards; he never names the vehicle with priority, tells you to wait, or
+clears you to go before you have decided (`PRIORITY_STEPS` in
+`instructor.js`). `drivingExperience.test.js` drives the same lessons in both
+modes and checks that the practice copy in all three languages never mentions
+priority.
+
+Everything Alex says is set in one size and colour; only the "Alex · Instructor"
+label and the swipe caption are smaller (`DriveStage.tsx`).
 
 Buttons and swipes share the same inputs. Turn selection never releases the
 brake. The first lesson teaches Stop/Go gestures; turn and exit prompts introduce

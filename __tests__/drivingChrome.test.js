@@ -1,4 +1,4 @@
-import { AccessibilityInfo, Animated, View } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet, Text, View } from 'react-native';
 import { act, create } from 'react-test-renderer';
 import { DriveStage } from '../components/game/DriveStage';
 import * as i18n from '../src/i18n/i18n';
@@ -36,5 +36,29 @@ test('road snapshots do not rebuild unchanged coaching or its native animation g
     if (tree) await act(async () => tree.unmount());
     jest.restoreAllMocks();
     jest.useRealTimers();
+  }
+});
+
+test('everything Alex says shares one size and colour; only the label and swipe caption are small', async () => {
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+  const instruction = 'At the roundabout, take the second exit.';
+  const status = 'We have a STOP sign. Stop fully before the line, then check the junction.';
+  const props = { lang: 2, detail: 'Guide · 5 / 11', instruction, status, swipe: 'down', onInput: jest.fn(), onBack: jest.fn(), onPause: jest.fn(), testID: 'drive' };
+  let tree;
+  try {
+    await act(async () => { tree = create(<DriveStage {...props}>{() => <View />}</DriveStage>); });
+    const styleOf = text => StyleSheet.flatten(text.props.style);
+    const texts = tree.root.findAllByType(Text);
+    const spoken = texts.filter(text => text.props.children === instruction || text.props.children === status);
+    expect(spoken).toHaveLength(2);
+    const [main, secondary] = spoken.map(styleOf);
+    expect(secondary.fontSize).toBe(main.fontSize);
+    expect(secondary.lineHeight).toBe(main.lineHeight);
+    expect(secondary.color).toBe(main.color);
+    const caption = texts.find(text => text.props.children === 'Swipe down');
+    expect(styleOf(caption).fontSize).toBeLessThan(main.fontSize);
+  } finally {
+    if (tree) await act(async () => tree.unmount());
+    jest.restoreAllMocks();
   }
 });
