@@ -39,11 +39,11 @@ on. Feedback never hides an upcoming route instruction. Situational coaching
 names traffic only after it appears in the road viewport
 (`createVisibility` in `view.js`, shared with the pacing tests).
 
-Only the guide says who goes first. In practice Alex gives the route, reads a
-STOP sign or a red light, asks for a turn or an exit, and explains a fault
-afterwards; he never names the vehicle with priority, tells you to wait, or
-clears you to go before you have decided (`PRIORITY_STEPS` in
-`instructor.js`). `drivingExperience.test.js` drives the same lessons in both
+Only the guide hints at the junction itself. In practice Alex gives the route,
+asks for a turn or an exit, and explains a fault afterwards (including a missed
+STOP or a red light); he never names the vehicle with priority, tells you to
+wait or go, or points out a STOP sign or a red light before you have decided
+(`GUIDE_ONLY_STEPS` in `instructor.js`). `drivingExperience.test.js` drives the same lessons in both
 modes and checks that the practice copy in all three languages never mentions
 priority.
 

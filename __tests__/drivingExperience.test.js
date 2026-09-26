@@ -196,13 +196,16 @@ test.each(['rightHand', 'sideRoad', 'tram'])('at %s the guide names who goes fir
   expect(spoken(true)).toEqual([]);
 });
 
-test('practice still reads signs, signals and the route, and explains a fault', () => {
-  const run = sceneRun('stopSign', true), junction = currentJunction(run), state = createInstructor();
-  const lines = new Set();
-  driveUntil(run, () => junction.passed, current => {
-    for (const text of Object.values(instructorFrame(state, current, { lang: 2, visibility: { junctionVisible: true, visibleVehicles: [] } }))) if (typeof text === 'string') lines.add(text);
-  });
-  expect([...lines]).toEqual(expect.arrayContaining(['We have a STOP sign. Stop fully before the line, then check the junction.', 'down']));
+test('practice gives the route but no STOP or red-light hint, and explains a fault afterwards', () => {
+  for (const id of ['stopSign', 'lights']) {
+    const run = sceneRun(id, true), junction = currentJunction(run), state = createInstructor();
+    const lines = new Set();
+    driveUntil(run, () => junction.passed, current => {
+      for (const text of Object.values(instructorFrame(state, current, { lang: 2, visibility: { junctionVisible: true, visibleVehicles: [] } }))) if (typeof text === 'string') lines.add(text);
+    });
+    expect([...lines]).not.toContain(i18n.t('practice.coach.stop', 2));
+    expect([...lines]).not.toContain(i18n.t('practice.coach.red', 2));
+  }
   const fresh = sceneRun('stopSign', true);
   step(fresh, 32);
   expect(instructorFrame(createInstructor(), fresh, { lang: 2, events: [{ type: 'ranStop', junction: 0 }] }).instruction).toBe('We need a complete stop at STOP signs. Let’s do that next time.');

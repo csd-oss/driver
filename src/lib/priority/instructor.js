@@ -11,13 +11,14 @@ export const shiftInstructorTime = (state, duration) => { state.until += duratio
 export const MESSAGE_MS = 5500;        // practice advice is brief
 export const COACH_MESSAGE_MS = 8000;  // the guide leaves a learner time to read
 
-// Practice never says who goes first: naming the vehicle with priority,
-// telling you to wait, or clearing you to go is the guide's job. In practice
-// you read the junction yourself and hear about it afterwards.
-const PRIORITY_STEPS = new Set(['giveWay', 'wait', 'go']);
+// Practice gives no hints about the junction itself: naming the vehicle with
+// priority, telling you to wait or go, and pointing out a STOP sign or a red
+// light are the guide's job. In practice you read the junction yourself and
+// hear about it afterwards (fault feedback still explains a missed STOP or red).
+const GUIDE_ONLY_STEPS = new Set(['giveWay', 'wait', 'go', 'stopSign', 'redLight']);
 
 /** The same quiet, situational coaching in the guide and in practice; only
- * the guide speaks about priority.
+ * the guide hints at priority, signs and signals before you decide.
  * @param {any} state
  * @param {any} run
  * @param {{lang?: number, events?: any[], visibility?: any, traffic?: any[]}} options
@@ -52,7 +53,7 @@ export function instructorFrame(state, run, { lang, events = [], visibility = {}
   const instruction = hasDirection ? state.route.text : null;
   const hint = drivingHint(run, { ...visibility, traffic });
   let candidate = null;
-  if (hint && (run.coach || !PRIORITY_STEPS.has(hint.step))) {
+  if (hint && (run.coach || !GUIDE_ONLY_STEPS.has(hint.step))) {
     const car = junction.scene.vehicles.find(v => v.id === hint.vehicle);
     const prompt = (key, swipe = null, persistent = false) => {
       // Most snapshots keep exactly the same advice. Translate and allocate
