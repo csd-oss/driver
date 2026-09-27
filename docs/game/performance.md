@@ -252,28 +252,3 @@ also no longer depends on the PostHog client. Coaching visibility bookkeeping
 moved into `createVisibility` (`src/lib/priority/view.js`), which reuses one set
 per drive instead of filtering and mapping the traffic on every snapshot.
 `drivingExperience.test.js` checks the queue never sends during the tick.
-
-Build 44 profiles the per-frame JavaScript headlessly at level 12 with up to 13
-simulated vehicles (`step`, `vehiclePoses`, `visibleJunctions`, `instructorFrame`
-and the snapshot's render prep: view culling, path hints, road-layout capture,
-light phases) over 12,000 snapshots per seed. The whole frame costs 0.03 ms at
-the median and 0.1 ms at the 99th percentile on the desktop, with isolated
-spikes up to 4 ms from trajectory reservations when a junction is scheduled;
-the simulation is not where a phone spends its frame. What scales with the
-number of cars on screen is native: one composited view per vehicle and one
-path-hint SVG per vehicle whose path was rewritten on every snapshot while the
-car moved. A hint is now redrawn only after its car has travelled 2.5 units
-(`HINT_STEP` in `WorldPathHint.native.tsx`), anchored where it was drawn so it
-never slides from its lane; at cruising speed that is one SVG rewrite in four,
-and the first units of a trail lie under the car body anyway.
-`nativeSprites.test.js` checks the redraw cadence.
-
-The same profile exposed a scheduling deadlock at levels 6 and above: two cars
-whose paths pass 8.5 units apart were admitted to a crossing together, their
-bodies touched, and the mutual freeze held both for ever while the player's
-clearance kept growing (11 of 50 drives had cars frozen inside a box). The
-entry now uses a body-sized path distance and the freeze is released after a
-second; `npcStalls.test.js` fails on either regression, and audits that
-on-screen traffic does not stand still without a rule or a body requiring it
-(20 stall-seconds per 160-second drive before the build 44 scheduling changes,
-5 after).

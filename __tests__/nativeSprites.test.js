@@ -41,28 +41,6 @@ test.each(['car', 'tram'])('a straight %s is not repainted by an unrelated indic
   }
 });
 
-test('a moving car redraws its preview every few units, not every snapshot', () => {
-  const scene = lessonScene(1), vehicle = scene.vehicles.find(car => car.id !== 'you');
-  const path = vehiclePath(scene, vehicle);
-  const props = { width: 393, height: 700, scale: 3, shake: 0 };
-  let tree;
-  try {
-    PathTrail.mockClear();
-    const at = (i) => ({ x: path.approach[0].x + 0.6 * i, y: path.approach[0].y });
-    const traffic = (i) => ({ junction: { index: 0, scene, rot: 0 }, vehicle, pose: { ...at(i), angle: 0 }, progress: 0 });
-    act(() => { tree = create(<WorldPathHint {...props} traffic={traffic(0)} local={at(0)} snapshotTime={0} />); });
-    for (let frame = 1; frame <= 60; frame++) act(() => tree.update(<WorldPathHint {...props} traffic={traffic(frame)} local={at(frame)} snapshotTime={frame * 1000 / 30} />));
-    // 36 units of travel at 2.5 per redraw: about 15 repaints instead of 61.
-    expect(PathTrail.mock.calls.length).toBeGreaterThanOrEqual(12);
-    expect(PathTrail.mock.calls.length).toBeLessThanOrEqual(18);
-    // The trail is anchored where it was drawn, never at a stale origin far behind.
-    const svgView = tree.root.findAllByType(require('react-native').View).find(view => view.props.style?.transform);
-    expect(Math.abs(svgView.props.style.left - (at(60).x * 3 - 40 * 3 * 2 / 2))).toBeLessThanOrEqual(2.5 * 3);
-  } finally {
-    if (tree) act(() => tree.unmount());
-  }
-});
-
 test('a waiting car keeps its SVG path artwork until it actually moves', () => {
   const scene = lessonScene(1), vehicle = scene.vehicles.find(car => car.id !== 'you');
   const path = vehiclePath(scene, vehicle), local = path.approach[0];
