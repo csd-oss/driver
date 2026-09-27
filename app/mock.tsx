@@ -17,8 +17,8 @@ import { getRandomTestWithIndex, getQuestionFromTest, getTests } from '@/src/lib
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
 import { IMAGE_MANIFEST } from '@/data/imageManifest';
-import { t } from '@/src/i18n/i18n';
-import { alertDialog, confirmDialog } from '@/src/lib/dialog';
+import { t, tf } from '@/src/i18n/i18n';
+import { confirmDialog } from '@/src/lib/dialog';
 import * as MockDB from '@/src/db/queries/mockExams';
 import * as AttemptsDB from '@/src/db/queries/attempts';
 import * as MistakesDB from '@/src/db/queries/mistakes';
@@ -45,7 +45,8 @@ export default function MockScreen() {
   const [timeSpentMs, setTimeSpentMs] = useState({}); // Accumulated milliseconds per question
   const currentQuestionStartedAtRef = useRef<Date | null>(null); // When current question view started
   const [isFinished, setIsFinished] = useState(false);
-  const [addedWrongToMistakes, setAddedWrongToMistakes] = useState(false);
+  // How many wrong answers the finished exam put into Mistakes (null until it finishes).
+  const [addedToMistakes, setAddedToMistakes] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
   const [passed, setPassed] = useState(false);
@@ -143,7 +144,7 @@ export default function MockScreen() {
     setTimeSpentMs({});
     currentQuestionStartedAtRef.current = null;
     setIsFinished(false);
-    setAddedWrongToMistakes(false);
+    setAddedToMistakes(null);
     setScore(0);
     setMaxScore(newTest?.maxbody || 0);
     setPassed(false);
@@ -235,6 +236,19 @@ export default function MockScreen() {
       wrongCount,
       durationSec,
     }, examStartedAt);
+
+    // Every answered-but-wrong question goes to Mistakes automatically.
+    // Unanswered ones don't: they would flood the Smart Practice queue.
+    let added = 0;
+    for (const [qNoStr, correct] of Object.entries(questionResults)) {
+      if (correct) continue;
+      const q = test.otazky[qNoStr]?.[0];
+      if (!q) continue;
+      await applyAnswer(null, lang, String(q.id), false);
+      added += 1;
+    }
+    if (added > 0) await MockDB.updateAddedToMistakesCount(mockExamId, added);
+    setAddedToMistakes(added);
   }, [test, testIndex, answers, lang, timeRemaining, mockExamId, examStartedAt, questionShownAt, timeSpentMs, currentQuestion, saveAnsweredAttempts]);
 
   const requestFinish = useCallback(() => {
@@ -290,36 +304,6 @@ export default function MockScreen() {
         contentScrollRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  };
-
-  const handleAddWrongToMistakes = async () => {
-    if (!test || addedWrongToMistakes) return;
-    setAddedWrongToMistakes(true);
-
-    let wrongCount = 0;
-
-    for (let qNo = 1; qNo <= test.pocet; qNo++) {
-      const qNoStr = String(qNo);
-      const questionData = test.otazky[qNoStr];
-      if (!questionData || !questionData[0]) continue;
-
-      const q = questionData[0];
-      const userAnswer = answers[qNoStr];
-
-      // Only questions the user actually answered incorrectly — unanswered
-      // questions would otherwise flood the Smart Practice mistake queue.
-      if (userAnswer !== undefined && userAnswer !== q.platna) {
-        await applyAnswer(null, lang, String(q.id), false);
-        wrongCount += 1;
-      }
-    }
-
-    // Update added to mistakes count
-    if (mockExamId && wrongCount > 0) {
-      await MockDB.updateAddedToMistakesCount(mockExamId, wrongCount);
-    }
-
-    void alertDialog(t('mock.addWrongSuccessTitle', lang), t('mock.addWrongSuccessMessage', lang));
   };
 
   const formatTime = (seconds) => {
@@ -430,14 +414,11 @@ export default function MockScreen() {
             </View>
           </Card>
 
-          <Button
-            onPress={handleAddWrongToMistakes}
-            variant="outline"
-            className="w-full"
-            disabled={addedWrongToMistakes}
-          >
-            {t('mock.addWrong', lang)}
-          </Button>
+          {addedToMistakes !== null && (
+            <UIText variant="caption" className="text-center text-slate-500 dark:text-slate-400" testID="mock.addedToMistakes">
+              {addedToMistakes > 0 ? tf('mock.addedToMistakes', lang, { count: addedToMistakes }) : t('mock.noMistakesToAdd', lang)}
+            </UIText>
+          )}
 
           <Button
             onPress={() => startNewTest(lang)}

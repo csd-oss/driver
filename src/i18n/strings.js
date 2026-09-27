@@ -134,10 +134,15 @@ export const STR = {
     2: 'Passing Score:',
     3: 'Sikeres teljesítéshez:',
   },
-  'mock.addWrong': {
-    1: 'Pridať chyby do zoznamu',
-    2: 'Add wrong to mistakes',
-    3: 'Hibák hozzáadása',
+  'mock.addedToMistakes': {
+    1: 'Nesprávne odpovede sme pridali do chýb: {count}',
+    2: 'Wrong answers added to Mistakes: {count}',
+    3: 'A hibás válaszokat hozzáadtuk a hibákhoz: {count}',
+  },
+  'mock.noMistakesToAdd': {
+    1: 'Žiadne nesprávne odpovede na pridanie do chýb.',
+    2: 'No wrong answers to add to Mistakes.',
+    3: 'Nincs hibás válasz, amit a hibákhoz kellene adni.',
   },
   'mock.new': {
     1: 'Nový test',
@@ -738,16 +743,6 @@ export const STR = {
     1: 'Zatvoriť',
     2: 'Close',
     3: 'Bezárás',
-  },
-  'mock.addWrongSuccessTitle': {
-    1: 'Hotovo',
-    2: 'Done',
-    3: 'Kész',
-  },
-  'mock.addWrongSuccessMessage': {
-    1: 'Nesprávne odpovede boli pridané do chýb',
-    2: 'Wrong answers added to mistakes',
-    3: 'A hibás válaszok hozzáadva a hibákhoz',
   },
   'mock.finishEarlyTitle': {
     1: 'Ukončiť skúšobný test?',

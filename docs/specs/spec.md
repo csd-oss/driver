@@ -234,7 +234,7 @@ Approach:
   - home.study, home.mistakes, home.mock, home.settings, home.reset
   - study.next, study.correct, study.wrong
   - mistakes.empty, mistakes.mastery, mistakes.next
-  - mock.finish, mock.score, mock.pass, mock.fail, mock.addWrong, mock.new
+  - mock.finish, mock.score, mock.pass, mock.fail, mock.addedToMistakes, mock.new
   - language.selectTitle
   - settings.languageTitle
 
