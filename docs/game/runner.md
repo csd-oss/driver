@@ -90,13 +90,35 @@ time; delayed cross-phase traffic also extends its traffic-light phase.
 
 At ordinary junctions, followers are released once the player's rear has left
 the box (`FOLLOWER_CLEAR` past `sExitBox`), each following group
-`FOLLOWER_GAP_MS` after the previous. In generated unsignalled scenes, cars
-that give way to the player cross earlier when they are out of the player's
-lane `EARLY_CLEAR_MS` before the player could reach the line at cruising speed;
-the last of them keeps waiting, so somebody still gives way when you arrive. A
-delayed car rechecks that gap before entering. A car whose path never meets
-yours rolls in and through; one whose path merely passes near yours goes from
-its line when it is clear 1.2 s before your arrival, otherwise it follows you.
+`FOLLOWER_GAP_MS` after the previous.
+
+In generated junctions without lights the traffic that gives way to the
+player is scheduled by `scheduleYielders` against the earliest moment the
+player could reach the line at cruising speed. Each vehicle has a style drawn
+once from the scene (`stylesFor`, not from the run's generator, so a seed's
+road is unchanged): `PARKED_SHARE` of them stand at their line from the start,
+the rest are not there yet and drive in once the junction is scheduled
+(`willRollIn`). Whatever its style, a car that can be out of every path the
+player could swipe into (`clearMsAnyTurn`) `EARLY_CLEAR_MS` before that moment
+goes: a standing car moves off at once, an arriving one rolls in and through
+(`THROUGH_SHARE` of them prefer this, reaching the line no sooner than
+`THROUGH_LEAD_MS` after scheduling so that they appear off screen). There is
+no "last one keeps waiting" rule any more. The other arriving cars roll up and
+stop in front of the player: `junction.arrivals[id]` is the moment a car
+reaches its line, `STOP_LEAD_MIN_MS`..`STOP_LEAD_MAX_MS` before the player
+could, and `poseAt` drives it in over `ROLL_UP_MS` (`ROLL_UP_CRUISE` units at
+`ROLL_UP_SPEED`, then a straight-line brake over `ROLL_UP_BRAKE` units) and
+holds it there until its start, which is never before its arrival. A standing
+car without the time to go simply keeps waiting; a car behind another in its
+lane goes after it (`queueAhead`), arrives `QUEUE_ARRIVAL_GAP_MS` later, and
+`spaceTraffic` shifts arrivals as it shifts starts. A car released early
+rechecks its gap before entering and brakes to its line if the gap has gone,
+unless a swipe has since given it priority over the player: then it is waited
+for. Traffic unrelated to the player that has to wait its turn for a rolling
+priority vehicle also rolls up and stops rather than standing at its line
+from the moment of scheduling. A car whose path never meets yours rolls in
+and through; one whose path merely passes near yours goes from its line when
+it is clear 1.2 s before your arrival, otherwise it follows you.
 Among themselves, cars use gaps too (`slotAmong`): a car may cross ahead of a
 priority vehicle that is still rolling in when it is out of that vehicle's
 path with a margin before it arrives, and a rule-only dependency whose paths
@@ -104,11 +126,21 @@ never meet imposes no timing. Roundabout entrants start at once and judge
 their own gap at the entrance (`RING_LOOK_BACK_DEG`, about 3.5 s of ring
 travel); they never wait for a scheduled turn while the ring is empty.
 
+`yielders.test.js` audits what the player sees of that traffic over many
+drives (`support/trafficAudit.js`): build 46 parked 64 to 76 percent of the
+yielders in view on their line for the whole approach and showed 0 to 2
+percent driving up and stopping; now 53 to 83 percent are seen rolling up and
+stopping, 3 to 7 percent stand all along, and the time yielders spend waiting
+with room to go fell from 9.0 / 2.5 / 1.0 s per drive (levels 1 / 3 / 8) to
+0.25 / 0.33 / 0.22 s. The guide's lessons are excluded (`plainJunction`): their
+traffic waits on its line as the lesson describes.
+
 The crossing is held against an arriving car only while the occupant's path
 can meet its body (`pathsMeet`, `BODY_RADIUS`); two cars whose movements never
 come near each other cross together. Two bodies that touch inside a crossing
-are held apart for `MUTUAL_FREEZE_MS`; then the one further along drives on so
-the junction always clears. `npcStalls.test.js` audits on-screen traffic that
+are held apart for `MUTUAL_FREEZE_MS`; then the one the other gives way to
+(or the one further along) drives on so the junction always clears, and a
+later pass of the same frame does not freeze it again for that contact. `npcStalls.test.js` audits on-screen traffic that
 stands still with no rule or body requiring it, and fails above a few short
 stalls per drive.
 Departing vehicles remain visible beyond the original

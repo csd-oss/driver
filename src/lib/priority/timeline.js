@@ -112,6 +112,23 @@ const lengthOf = (points) =>
 // speed all along. Vehicles rolling up to a line slow into it.
 export const EASE = 0.3;
 export const ROLL_IN_MAX = 88; // a rolling-in vehicle appears at most this far behind its line
+// A vehicle that arrives to give way rolls up at ROLL_UP_SPEED (units/ms,
+// the ring cruise) for ROLL_UP_CRUISE units, then brakes steadily over
+// ROLL_UP_BRAKE units and stops on its line. It appears ROLL_UP_DISTANCE
+// behind the line, off the screen at every junction it is scheduled for.
+export const ROLL_UP_SPEED = 0.018;
+export const ROLL_UP_CRUISE = 40;
+export const ROLL_UP_BRAKE = 24;
+export const ROLL_UP_DISTANCE = ROLL_UP_CRUISE + ROLL_UP_BRAKE;
+export const ROLL_UP_MS = Math.round((ROLL_UP_CRUISE + 2 * ROLL_UP_BRAKE) / ROLL_UP_SPEED);
+/** Distance covered `t` ms into a roll-up: cruise, then a straight-line brake to rest. */
+export const rollUpDistance = (t) => {
+  if (t <= 0) return 0;
+  const cruiseMs = ROLL_UP_CRUISE / ROLL_UP_SPEED;
+  if (t <= cruiseMs) return ROLL_UP_SPEED * t;
+  const u = Math.min(1, (t - cruiseMs) / (2 * ROLL_UP_BRAKE / ROLL_UP_SPEED));
+  return ROLL_UP_CRUISE + ROLL_UP_BRAKE * (1 - (1 - u) * (1 - u));
+};
 const V_EASE = 1 / (1 - EASE / 2);
 /** Distance share covered at time share `u` when starting from rest. */
 export const easeIn = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u <= EASE ? (V_EASE * u * u) / (2 * EASE) : V_EASE * (u - EASE / 2));
@@ -187,9 +204,12 @@ export const clearTimeMs = (scene, vehicle, fraction, eased, queueBack, pathCach
  * share of the through path, or null once it has left the scene.
  * `rollInMs` > 0: it rolls in at cruising speed and crosses without
  * stopping. Otherwise it rolls up to its (queued) line, waits, and
- * accelerates away from rest when its start comes.
+ * accelerates away from rest when its start comes. With `arriveMs` (scene
+ * time) it is not there at first: it drives up during the ROLL_UP_MS before
+ * that moment, brakes to a stop on its line, and then waits for its start,
+ * which is never before it has arrived.
  */
-export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queueBack = 0, exitDistance = 0) => {
+export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queueBack = 0, exitDistance = 0, arriveMs = null) => {
   const path = cached(scene, vehicle, pathCache);
   const L = path.throughLength || 1;
   const D = traversalDuration(scene, vehicle, pathCache);
@@ -209,6 +229,15 @@ export const poseAt = (scene, vehicle, start, now, pathCache, rollInMs = 0, queu
     if (!path.rollPaths.has(distance)) path.rollPaths.set(distance, tailOf(approach, distance));
     return path.rollPaths.get(distance);
   };
+  if (arriveMs !== null && rollInMs === 0) {
+    if (now < arriveMs) {
+      const from = arriveMs - ROLL_UP_MS;
+      if (now < from) return null;
+      if (!approach.length) return { ...pointAlong(path.through, 0.001), progress: 0 };
+      return { ...pointAlong(rollPath(ROLL_UP_DISTANCE), rollUpDistance(now - from) / ROLL_UP_DISTANCE), progress: 0 };
+    }
+    if (start !== null && start < arriveMs) start = arriveMs;
+  }
   if (start === null && rollInMs > 0 && exitDistance) {
     return { ...pointAlong(rollPath(ROLL_IN_MAX), 0), progress: 0 };
   }

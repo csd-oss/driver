@@ -1,7 +1,7 @@
 import { bodiesOverlap, followingFraction, followingGap, spaceTraffic, vehicleSize } from './traffic';
 import { entersTramStreet, tramStreet } from './streetNetwork';
 import { resolve } from './engine';
-import { generatePlayable } from './generator';
+import { generatePlayable, makeRng } from './generator';
 import { leftOf, rightOf, oppositeOf, turnOf } from './geometry';
 import { clearFractionFor, pathsMeet } from './conflict';
 import {
@@ -10,7 +10,7 @@ import {
 } from './layout';
 import { queueBackFor } from './queue';
 import { lessonAt, lessonScene, LESSON_COUNT } from './lessons';
-import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt, rollingDuration } from './timeline';
+import { clearTimeMs, GROUP_GAP_MS, CLEAR_FRACTION, poseAt, rollingDuration, ROLL_UP_MS } from './timeline';
 
 /**
  * Endless road for the Crossings runner.
@@ -46,6 +46,17 @@ export const ALL_RED_MS = 700;          // both sides red between the cross traf
 export const FOLLOWER_GAP_MS = 500;     // after you have passed, each following group moves off this long after the previous
 export const FOLLOWER_CLEAR = 8;        // followers are released once your centre is this far past the box edge
 export const EARLY_CLEAR_MS = 1800;     // a car giving way may still cross if it is out of your lane this long before you could arrive
+// Traffic that gives way to you at a generated junction without lights.
+// Most of it is not there yet when the junction comes up: it drives in
+// while you approach and either crosses while there is still time or rolls
+// up to its line and stops in front of you. The rest has been standing at
+// its line all along and goes at once if it has the time.
+export const PARKED_SHARE = 0.3;        // share of yielders standing at their line from the start
+export const THROUGH_SHARE = 0.5;       // share of arriving yielders that cross ahead of you when there is time
+export const THROUGH_LEAD_MS = 3200;    // a crossing yielder reaches its line at the earliest this long after scheduling (it appears off screen)
+export const STOP_LEAD_MIN_MS = 800;    // a yielder that stops for you arrives at its line between these two
+export const STOP_LEAD_MAX_MS = 2500;   //   times before you could reach yours
+export const QUEUE_ARRIVAL_GAP_MS = 600; // a queued yielder arrives this long after the one ahead of it
 export const LIGHT_CHANGE_MS = 800;    // red+yellow before green; yellow before red
 export const LIGHT_YELLOW_LEAD_MS = 1500; // the side losing green goes yellow this long before the other side's green
 export const CRASH_PAUSE_MS = 1400;
@@ -288,6 +299,56 @@ const slotAmong = (junction, id, deps, at) => {
   return at;
 };
 
+/**
+ * Milliseconds after its start when `id` is out of your way whichever arm
+ * you take: a yielder that goes while you are still far off must be clear
+ * of the path you could swipe into, not only the one the instructor asked
+ * for. A vehicle that meets none of your paths cannot be hit at all.
+ */
+const clearMsAnyTurn = (junction, id) => {
+  const { scene } = junction;
+  const vehicle = scene.vehicles.find((v) => v.id === id);
+  const you = scene.vehicles.find((v) => v.id === 'you');
+  if (!vehicle || !you) return 0;
+  let fraction = 0.15;
+  for (const to of scene.arms) {
+    if (to === you.from) continue;
+    const f = clearFractionFor(scene, vehicle, { ...you, to });
+    if (f !== null && f > fraction) fraction = f;
+  }
+  const eased = !(junction.rollIn && junction.rollIn[id]);
+  return clearTimeMs(scene, vehicle, fraction, eased, junction.queueBack ? junction.queueBack[id] : 0, junction.pathCache);
+};
+
+/** The vehicles standing ahead of `v` on its arm (same lane kind); it goes only after them. */
+const queueAhead = (junction, v) => junction.scene.vehicles.filter((p) =>
+  p.id !== 'you' && p !== v && p.from === v.from && p.from !== 'ring' && (p.kind === 'tram') === (v.kind === 'tram') && junction.queueBack[p.id] < junction.queueBack[v.id]);
+
+/** A generated junction without lights or a ring: where traffic gives way to you by rule alone. */
+const plainJunction = (junction) => !junction.ring && !junction.lesson && !junction.scene.control && !junction.tramStreet;
+
+/**
+ * How each vehicle of a plain junction behaves towards you, drawn once per
+ * junction from the scene itself (not from the run's generator, so the
+ * road ahead is the same for a seed as before): `parked` stands at its
+ * line from the start, otherwise it drives in while you approach; `through`
+ * prefers crossing ahead of you when there is time; `lead` spreads arrival
+ * times.
+ */
+const stylesFor = (junction) => {
+  let seed = junction.index + 1;
+  for (const v of junction.scene.vehicles) {
+    for (const ch of `${v.id}${v.from}${v.to}`) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) >>> 0;
+  }
+  const rng = makeRng(seed);
+  const styles = {};
+  for (const v of junction.scene.vehicles) {
+    if (v.id === 'you') continue;
+    styles[v.id] = { parked: rng() < PARKED_SHARE, through: rng() < THROUGH_SHARE, lead: rng() };
+  }
+  return styles;
+};
+
 /** The blocker among `ids` that clears your way last, or null. */
 const latestOf = (junction, ids) => {
   let culprit = null;
@@ -359,6 +420,9 @@ const applyResolution = (junction) => {
     ...scene.vehicles
       .filter((v) => v.id !== 'you' && junction.clearFraction[v.id] === null && !(resolution.yields[v.id] || []).length)
       .map((v) => v.id),
+    // At a plain junction most of the traffic that gives way to you is
+    // still on its way: it drives in once the junction is scheduled.
+    ...scene.vehicles.filter((v) => v.id !== 'you' && v.kind !== 'tram' && junction.styles?.[v.id] && !junction.styles[v.id].parked).map((v) => v.id),
   ]); // the rest wait at their line, so they are drawn there all along
   for (const v of scene.vehicles) {
     if (v.id !== 'you' && v.from !== 'ring' && scene.vehicles.some(other => other.from === v.from && (other.kind === 'tram') === (v.kind === 'tram') && junction.willRollIn.has(other.id))) junction.willRollIn.add(v.id);
@@ -403,8 +467,9 @@ const createJunction = (rng, level, prev, lessonIndex = null) => {
   junction.entryLights = null;
   junction.stoppedAtTime = null;
   junction.resumedAt = null;
-  applyResolution(junction);
   junction.index = prev ? prev.index + 1 : 0;
+  junction.styles = plainJunction(junction) ? stylesFor(junction) : null;
+  applyResolution(junction);
   junction.starts = Object.fromEntries(scene.vehicles.map((v) => [v.id, null]));
   junction.scheduled = false;
   junction.passed = false;
@@ -555,6 +620,7 @@ const schedule = (run, junction) => {
   // reached the junction. Only a vehicle that has to wait for you keeps
   // waiting at its line. Several passes, so a queue of them resolves in
   // order (a car behind the cars it follows).
+  junction.arrivals = {};
   for (let pass = 0; pass < 4; pass++) {
     for (const v of scene.vehicles) {
       if (v.id === 'you' || junction.starts[v.id] != null) continue;
@@ -564,6 +630,9 @@ const schedule = (run, junction) => {
       if (junction.ring && v.from !== 'ring') continue;
       const deps = resolution.yields[v.id] || [];
       if (deps.includes('you') || junction.blockers.includes(v.id) || deps.some((d) => junction.starts[d] == null)) continue;
+      // Behind another car in its lane it goes after that car, never through it.
+      const front = queueAhead(junction, v);
+      if (front.some((p) => junction.starts[p.id] === null)) continue;
       // Never meets your path: it rolls in and through. Passes close to it:
       // it may still go from its line, but only when it is clear of your
       // lane well before you could get there; otherwise it waits behind you.
@@ -571,22 +640,29 @@ const schedule = (run, junction) => {
       // A car that has been standing at its line all along (not a roll-in)
       // moves off from there; only unseen traffic may appear rolling in.
       const rolls = junction.willRollIn.has(v.id);
-      const at = slotAmong(junction, v.id, deps, run.now + (rolls ? ROLL_IN_MS : 700));
+      let base = run.now + (rolls ? ROLL_IN_MS : 700);
+      for (const p of front) base = Math.max(base, junction.starts[p.id] + 300);
+      const at = slotAmong(junction, v.id, deps, base);
       if (!unrelated) {
         junction.rollIn[v.id] = 0;
         if (at + clearMsOf(junction, v.id) + 1200 >= arriveAt) continue;
         junction.starts[v.id] = at;
+        if (rolls) junction.arrivals[v.id] = Math.max(run.now + 500, at - 400);
         continue;
       }
       junction.starts[v.id] = at;
       // One that goes straight away rolls in; one that has to wait its turn
-      // stands at its line until then, as it would in traffic.
-      junction.rollIn[v.id] = rolls && at <= run.now + ROLL_IN_MS + 400 ? ROLL_IN_MS : 0;
+      // drives up to its line and stops there until then, as it would in traffic.
+      if (rolls && at <= run.now + ROLL_IN_MS + 400) junction.rollIn[v.id] = ROLL_IN_MS;
+      else {
+        junction.rollIn[v.id] = 0;
+        if (rolls) junction.arrivals[v.id] = Math.max(run.now + 500, at - 400);
+      }
     }
   }
   junction.t0 = run.now;
   for (const v of scene.vehicles) {
-    if (junction.willRollIn.has(v.id) && junction.queueBack[v.id] > 0) junction.rollIn[v.id] = rollInMs;
+    if (junction.willRollIn.has(v.id) && junction.queueBack[v.id] > 0) { junction.rollIn[v.id] = rollInMs; delete junction.arrivals[v.id]; }
     if (v.from === 'ring' && junction.starts[v.id] !== null) {
       junction.rollIn[v.id] = rollingDuration(scene, v, junction.pathCache);
       // Show the entire arrival on its road, never halfway round the ring.
@@ -600,33 +676,7 @@ const schedule = (run, junction) => {
       if (v.id !== 'you' && junction.starts[v.id] === null) junction.starts[v.id] = run.now + 300;
     }
   } else spaceTraffic(junction, run.now);
-  if (!junction.ring && !junction.lesson && !scene.control && !junction.tramStreet) {
-    // A distant priority vehicle does not reserve an empty junction. A car
-    // that has to give way to you may still cross while you are far off,
-    // as long as it is out of your lane EARLY_CLEAR_MS before you could get
-    // to your line at cruising speed. The last of them keeps waiting, so
-    // there is still somebody giving way to you when you arrive.
-    const earliestPlayer = run.now + Math.max(0, junction.sWait - run.s) / run.speed * 1000;
-    const yielders = scene.vehicles.filter(v => v.id !== 'you' && v.kind !== 'tram' && (resolution.yields[v.id] || []).includes('you'));
-    junction.earlyTraffic = new Set();
-    // Several passes: a car may only go once the cars it yields to have a start.
-    for (let pass = 0; pass < 3 && junction.earlyTraffic.size < yielders.length - 1; pass++) {
-      for (const v of yielders) {
-        if (junction.earlyTraffic.size >= yielders.length - 1) break;
-        const deps = resolution.yields[v.id] || [];
-        if (junction.starts[v.id] !== null || junction.queueBack[v.id] > 2) continue;
-        if (deps.some(id => id !== 'you' && junction.starts[id] === null)) continue;
-        const at = slotAmong(junction, v.id, deps, run.now + 700);
-        const clears = clearMsOf(junction, v.id);
-        if (at + clears + EARLY_CLEAR_MS >= earliestPlayer) continue;
-        junction.starts[v.id] = at;
-        spaceTraffic(junction, run.now, [v.id]);
-        if (junction.starts[v.id] + clears + EARLY_CLEAR_MS >= earliestPlayer) { junction.starts[v.id] = null; continue; }
-        junction.earlyTraffic.add(v.id);
-      }
-    }
-    if (!junction.earlyTraffic.size) junction.earlyTraffic = null;
-  }
+  if (plainJunction(junction)) scheduleYielders(run, junction);
   clearAtReal = -Infinity;
   for (const id of holdIds) {
     if (junction.starts[id] !== null) clearAtReal = Math.max(clearAtReal, junction.starts[id] + clearMsOf(junction, id));
@@ -635,6 +685,88 @@ const schedule = (run, junction) => {
   junction.clearAt = holdIds.length && clearAtReal > -Infinity ? clearAtReal : run.now;
   junction.t0 = run.now;
   junction.scheduled = true;
+};
+
+/**
+ * The traffic that has to wait for you at a plain junction (by rule, or
+ * because it waits for a car that does), scheduled against the earliest
+ * moment you could reach your line at cruising speed. A distant priority
+ * vehicle does not reserve an empty junction: a car that can be out of
+ * every path you could take EARLY_CLEAR_MS before then goes, whether it
+ * has been standing at its line (it moves off at once) or is still on its
+ * way (it rolls in and through). The rest of the arriving traffic drives up
+ * while you approach and stops on its line STOP_LEAD_MIN_MS..MAX before you
+ * could arrive, so you see it give way; a car standing at its line without
+ * the time to go just keeps waiting. Nothing goes before the cars it must
+ * let pass have gone, and a queue keeps its order.
+ */
+const scheduleYielders = (run, junction) => {
+  const { scene, resolution } = junction;
+  const earliestPlayer = run.now + Math.max(0, junction.sWait - run.s) / run.speed * 1000;
+  junction.earlyTraffic = new Set();
+  const decided = new Set();
+  const byId = Object.fromEntries(scene.vehicles.map((v) => [v.id, v]));
+  const pending = scene.vehicles
+    .filter((v) => v.id !== 'you' && v.kind !== 'tram' && junction.starts[v.id] === null && !junction.blockers.includes(v.id))
+    .sort((a, b) => junction.queueBack[a.id] - junction.queueBack[b.id]);
+  // Cars ahead of `v` on its arm; it can only go once they have.
+  const ahead = (v) => queueAhead(junction, v);
+  // Drives up and stops in front of you, behind the car ahead of it in its queue.
+  const rollUp = (v) => {
+    let arrival = earliestPlayer - STOP_LEAD_MAX_MS + junction.styles[v.id].lead * (STOP_LEAD_MAX_MS - STOP_LEAD_MIN_MS);
+    for (const p of ahead(v)) if (junction.arrivals[p.id] != null) arrival = Math.max(arrival, junction.arrivals[p.id] + QUEUE_ARRIVAL_GAP_MS);
+    // The whole drive up is shown: a junction scheduled with little road
+    // left gets its car later rather than part-way along its approach.
+    junction.arrivals[v.id] = Math.max(arrival, run.now + ROLL_UP_MS);
+    junction.rollIn[v.id] = 0;
+    spaceTraffic(junction, run.now, [v.id]);
+    decided.add(v.id);
+  };
+  // Several passes: a car is placed once the cars it yields to are. What is
+  // not pending here (a blocker, a tram) is as settled as it will get.
+  const settled = (id) => !pending.includes(byId[id]) || decided.has(id);
+  for (let pass = 0; pass < 4; pass++) {
+    for (const v of pending) {
+      if (decided.has(v.id)) continue;
+      const deps = (resolution.yields[v.id] || []).filter((id) => id !== 'you' && byId[id]);
+      if (deps.some((id) => !settled(id)) || ahead(v).some((p) => !settled(p.id))) continue;
+      const style = junction.styles[v.id];
+      const arriving = junction.willRollIn.has(v.id);
+      // Free to go: everything it lets pass is on its way, and nobody ahead of it stands still.
+      const free = deps.every((id) => junction.starts[id] !== null) && ahead(v).every((p) => junction.starts[p.id] !== null);
+      if (!arriving) {
+        // Standing at its line all along: moves off at once when it has the time.
+        if (free) {
+          const at = slotAmong(junction, v.id, deps, run.now + 700);
+          if (at + clearMsAnyTurn(junction, v.id) + EARLY_CLEAR_MS < earliestPlayer) {
+            junction.starts[v.id] = at;
+            spaceTraffic(junction, run.now, [v.id]);
+            if (junction.starts[v.id] + clearMsAnyTurn(junction, v.id) + EARLY_CLEAR_MS < earliestPlayer) junction.earlyTraffic.add(v.id);
+            else junction.starts[v.id] = null;
+          }
+        }
+        decided.add(v.id); // otherwise it keeps waiting for you
+        continue;
+      }
+      if (free && style.through) {
+        // Rolls in and crosses ahead of you, when it can be out of your way in time.
+        junction.rollIn[v.id] = ROLL_IN_MS;
+        const at = slotAmong(junction, v.id, deps, run.now + THROUGH_LEAD_MS);
+        const clears = clearMsAnyTurn(junction, v.id);
+        const slack = earliestPlayer - EARLY_CLEAR_MS - clears - at;
+        if (slack > 0) {
+          junction.starts[v.id] = at + style.lead * Math.min(slack, 1500);
+          spaceTraffic(junction, run.now, [v.id]);
+          if (junction.starts[v.id] + clears + EARLY_CLEAR_MS < earliestPlayer) { junction.earlyTraffic.add(v.id); decided.add(v.id); continue; }
+          junction.starts[v.id] = null;
+        }
+        junction.rollIn[v.id] = 0;
+      }
+      rollUp(v);
+    }
+  }
+  for (const v of pending) if (!decided.has(v.id)) { if (junction.willRollIn.has(v.id)) rollUp(v); else decided.add(v.id); }
+  if (!junction.earlyTraffic.size) junction.earlyTraffic = null;
 };
 
 const startFollowers = (run, junction, from) => {
@@ -647,7 +779,11 @@ const startFollowers = (run, junction, from) => {
   }
   // Vehicles left out of the order by a deadlock still cross, after you.
   for (const id of Object.keys(junction.starts)) if (id !== 'you' && junction.starts[id] === null) junction.starts[id] = t;
-  for (const id of newlyStarted) if (junction.rollIn[id]) junction.starts[id] = Math.max(junction.starts[id], run.now + junction.rollIn[id]);
+  for (const id of newlyStarted) {
+    if (junction.rollIn[id]) junction.starts[id] = Math.max(junction.starts[id], run.now + junction.rollIn[id]);
+    // A car still driving up to its line goes from there once it has arrived.
+    if (junction.arrivals?.[id] != null) junction.starts[id] = Math.max(junction.starts[id], junction.arrivals[id]);
+  }
   spaceTraffic(junction, run.now, newlyStarted);
   junction.followersStarted = true;
 };
@@ -664,6 +800,8 @@ const setYourMovement = (run, junction, to, keepStarts = false) => {
   applyResolution(junction);
   junction.through = throughWorld(junction);
   if (junction.scheduled && !keepStarts) {
+    // A car that was crossing early is now one you give way to: it goes on.
+    for (const id of junction.blockers) junction.earlyTraffic?.delete(id);
     const required = new Set(junction.blockers);
     const addDependencies = id => {
       for (const dependency of junction.resolution.yields[id] || []) {
@@ -676,7 +814,10 @@ const setYourMovement = (run, junction, to, keepStarts = false) => {
     const newlyStarted = [];
     for (const id of junction.resolution.order.flat()) {
       if (!required.has(id) || junction.starts[id] !== null) continue;
-      let at = run.now + (junction.rollIn[id] || 0);
+      // A car that is driving up to give way stops on its line first, then
+      // goes: it does not swerve into a roll-through when a swipe of yours
+      // hands it priority.
+      let at = Math.max(run.now + (junction.rollIn[id] || 0), junction.arrivals?.[id] ?? -Infinity);
       for (const dependency of junction.resolution.yields[id] || []) {
         if (dependency !== 'you' && junction.starts[dependency] !== null) at = Math.max(at, junction.starts[dependency] + clearMsOf(junction, dependency) + GROUP_GAP_MS);
       }
@@ -1252,14 +1393,20 @@ export const step = (run, now) => {
     };
     if (area.earlyTraffic && run.s < area.sEnd + 10) {
       for (const car of proposedTraffic) {
-        if (car.junction !== area || !area.earlyTraffic.has(car.vehicle.id)) continue;
+        // A car your swipe has since given priority over you is waited for, never held.
+        if (car.junction !== area || !area.earlyTraffic.has(car.vehicle.id) || area.blockers.includes(car.vehicle.id)) continue;
         const previous = previousByKey.get(keyOf(car));
         if (!previous || car.progress >= 0.1 || distance(previous) < WAIT - 0.5 || distance(car) >= distance(previous)) continue;
         const timeAvailable = Math.max(0, area.sWait - run.s) / run.speed * 1000;
-        const timeNeeded = clearMsOf(area, car.vehicle.id) + EARLY_CLEAR_MS;
+        const timeNeeded = clearMsAnyTurn(area, car.vehicle.id) + EARLY_CLEAR_MS;
         // A safe early slot may disappear if another car delays this one.
-        // Recheck before committing; never pull out merely because a timer fired.
-        if (timeAvailable < timeNeeded) entryFractions.set(keyOf(car), 0);
+        // Recheck before committing; never pull out merely because a timer
+        // fired. A car still rolling in brakes to its line instead of
+        // freezing on the road.
+        if (timeAvailable >= timeNeeded) continue;
+        const d = distance(previous), nextD = distance(car);
+        const remaining = Math.max(0, d - WAIT);
+        entryFractions.set(keyOf(car), Math.min(entryFractions.get(keyOf(car)) ?? 1, remaining / Math.max(0.001, d - nextD), remaining / 18));
       }
     }
     const owner = previousTraffic.find(car => keyOf(car) === area.entryOwner);
@@ -1290,9 +1437,11 @@ export const step = (run, now) => {
       }
     }
   }
+  // A car is timed by its start or, while it drives up to give way, by its
+  // arrival; holding it back pushes whichever it runs on.
+  const clockOf = car => (car.junction.starts[car.vehicle.id] !== null ? car.junction.starts : car.junction.arrivals?.[car.vehicle.id] != null ? car.junction.arrivals : null);
   for (const car of proposedTraffic) {
-    const start = car.junction.starts[car.vehicle.id];
-    if (start === null || !car.junction.scheduled) continue;
+    if (!car.junction.scheduled || !clockOf(car)) continue;
     const ownKey = keyOf(car);
     let fraction = car.progress === 1 ? followingFraction(car.pose, car.vehicle, playerPose, playerVehicle) : 1;
     const previous = previousByKey.get(ownKey);
@@ -1308,15 +1457,15 @@ export const step = (run, now) => {
       if (keyOf(other) !== ownKey && car.progress === 1) fraction = Math.min(fraction, followingFraction(car.pose, car.vehicle, other.pose, other.vehicle));
     }
     const delay = dt * (1 - fraction);
-    car.junction.starts[car.vehicle.id] += delay;
+    clockOf(car)[car.vehicle.id] += delay;
     delays.set(ownKey, delay);
   }
   const candidates = vehiclePoses(run);
   const frozen = new Set();
   const freeze = car => {
     const key = keyOf(car), previous = previousByKey.get(key);
-    if (frozen.has(key) || !previous || car.junction.starts[car.vehicle.id] === null) return false;
-    car.junction.starts[car.vehicle.id] += dt - (delays.get(key) || 0);
+    if (frozen.has(key) || !previous || !clockOf(car)) return false;
+    clockOf(car)[car.vehicle.id] += dt - (delays.get(key) || 0);
     delays.set(key, dt);
     car.pose = previous.pose;
     frozen.add(key);
@@ -1329,22 +1478,30 @@ export const step = (run, now) => {
   // that never clears.
   run.mutualFreezes ||= new Map();
   const touching = new Set();
+  // A pair the breaker has let apart this frame: the leader has driven into
+  // the frozen follower on purpose, so a later pass must not freeze it for
+  // that. The leader is the vehicle the other one gives way to, or, between
+  // vehicles that owe each other nothing, the one further along.
+  const released = new Set();
+  const yieldsTo = (a, b) => a.junction === b.junction && (a.junction.resolution.yields[a.vehicle.id] || []).includes(b.vehicle.id);
   for (let pass = 0; pass < candidates.length; pass++) {
     let changed = false;
     for (let a = 0; a < candidates.length; a++) for (let b = a + 1; b < candidates.length; b++) {
       const car = candidates[a], other = candidates[b];
       if (!bodiesOverlap(car.pose, car.vehicle, other.pose, other.vehicle, 1.2)) continue;
+      const pair = `${keyOf(car)}|${keyOf(other)}`;
+      if (released.has(pair)) continue;
       const oldCar = previousByKey.get(keyOf(car)), oldOther = previousByKey.get(keyOf(other));
       if (oldCar && !bodiesOverlap(oldCar.pose, car.vehicle, other.pose, other.vehicle, 1.2)) changed = freeze(car) || changed;
       else if (oldOther && !bodiesOverlap(car.pose, car.vehicle, oldOther.pose, other.vehicle, 1.2)) changed = freeze(other) || changed;
       else {
-        const pair = `${keyOf(car)}|${keyOf(other)}`;
         touching.add(pair);
         const since = run.mutualFreezes.get(pair) ?? now;
         run.mutualFreezes.set(pair, since);
         if (now - since > MUTUAL_FREEZE_MS) {
-          const leader = car.progress >= other.progress ? car : other;
+          const leader = yieldsTo(car, other) ? other : yieldsTo(other, car) ? car : car.progress >= other.progress ? car : other;
           changed = freeze(leader === car ? other : car) || changed;
+          released.add(pair);
         } else { changed = freeze(car) || changed; changed = freeze(other) || changed; }
       }
     }
@@ -1352,7 +1509,7 @@ export const step = (run, now) => {
   }
   for (const pair of run.mutualFreezes.keys()) if (!touching.has(pair)) run.mutualFreezes.delete(pair);
   for (const car of candidates) {
-    if (!(delays.get(keyOf(car)) > 0)) continue;
+    if (!(delays.get(keyOf(car)) > 0) || car.junction.starts[car.vehicle.id] === null) continue;
     const holdsLight = car.junction.scene.control?.crossFirst && crossIdsOf(car.junction.scene).includes(car.vehicle.id);
     if (car.junction.ring || holdsLight || car.junction.blockers.includes(car.vehicle.id)) car.junction.clearAt = Math.max(car.junction.clearAt, car.junction.starts[car.vehicle.id] + clearMsOf(car.junction, car.vehicle.id));
   }
@@ -1496,7 +1653,8 @@ export const vehiclePoses = (run, at = run.now) => {
       const absolute = junction.scheduled ? junction.starts[v.id] : null;
       const start = absolute === null ? null : absolute - junction.t0;
       const local = junction.scheduled ? at - junction.t0 : 0;
-      const pose = poseAt(junction.scene, v, start, local, junction.pathCache, junction.rollIn ? junction.rollIn[v.id] : 0, junction.queueBack ? junction.queueBack[v.id] : 0, Infinity);
+      const arrival = junction.scheduled && junction.arrivals?.[v.id] != null ? junction.arrivals[v.id] - junction.t0 : null;
+      const pose = poseAt(junction.scene, v, start, local, junction.pathCache, junction.rollIn ? junction.rollIn[v.id] : 0, junction.queueBack ? junction.queueBack[v.id] : 0, Infinity, arrival);
       if (!pose) continue;
       const w = toWorld(junction, pose);
       let worldPose = { x: w.x, y: w.y, angle: (pose.angle + junction.rot) % 360 };
@@ -1578,5 +1736,6 @@ export const shiftTime = (run, delta) => {
     if (j.stoppedAtTime !== null) j.stoppedAtTime += delta;
     if (j.resumedAt !== null) j.resumedAt += delta;
     for (const id of Object.keys(j.starts)) if (j.starts[id] !== null) j.starts[id] += delta;
+    for (const id of Object.keys(j.arrivals || {})) j.arrivals[id] += delta;
   }
 };

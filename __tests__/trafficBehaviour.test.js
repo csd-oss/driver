@@ -65,24 +65,32 @@ test('braking behind another car leaves a visible bumper gap', () => {
 },60000);
 
 test('one yielding car can clear a distant junction while another keeps yielding as the player arrives', () => {
-  let examples=0;
-  for(let seed=1;seed<=120;seed++) {
-    const run=createRun(makeRng(seed),1),j=currentJunction(run);
-    if(j.ring||j.scene.control)continue;
-    const yielding=j.scene.vehicles.filter(v=>v.id!=='you'&&(j.resolution.yields[v.id]||[]).includes('you'));
-    if(yielding.length<2)continue;
-    let early=false, waited=false;
-    while(run.now<12000 && run.s<j.sLine) {
-      step(run,run.now+32);
-      for(const car of vehiclePoses(run).filter(c=>c.junction===j&&yielding.some(v=>v.id===c.vehicle.id))) {
-        if(car.progress>0.7&&j.sWait-run.s>35)early=true;
-        if(car.progress===0&&j.sWait-run.s<40&&j.starts[car.vehicle.id]===null)waited=true;
+  // Over the first junctions of sixty level-1 drives: at a junction with two
+  // or more cars giving way to you, one of them is out of the way while you
+  // are still 30 units off and another is still standing at its line when
+  // you are close (a through crossing or an early move-off, and a car that
+  // rolled up and stopped, or one that waited all along).
+  let examples = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const run = createRun(makeRng(seed), 1);
+    const seen = new Map();
+    for (let frame = 0; frame < 1500 && !run.over; frame++) {
+      step(run, run.now + 32); careful(run);
+      const j = currentJunction(run);
+      if (j.index > 3 || j.ring || j.scene.control || !j.scheduled) continue;
+      const yielding = j.scene.vehicles.filter(v => v.id !== 'you' && (j.resolution.yields[v.id] || []).includes('you'));
+      if (yielding.length < 2) continue;
+      let rec = seen.get(j.index);
+      if (!rec) { rec = { early: false, waited: false }; seen.set(j.index, rec); }
+      for (const car of vehiclePoses(run).filter(c => c.junction === j && yielding.some(v => v.id === c.vehicle.id))) {
+        if (car.progress > 0.5 && j.sWait - run.s > 30) rec.early = true;
+        if (car.progress === 0 && j.sWait - run.s < 40 && run.s < j.sWait && j.starts[car.vehicle.id] === null) rec.waited = true;
       }
     }
-    if(early&&waited)examples++;
+    for (const rec of seen.values()) if (rec.early && rec.waited) examples++;
   }
-  expect(examples).toBeGreaterThan(2);
-},30000);
+  expect(examples).toBeGreaterThanOrEqual(5);
+}, 60000);
 
 test('moving forward in a queue does not report a red light before reaching the line', () => {
   let run;
