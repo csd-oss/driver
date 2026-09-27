@@ -1,3 +1,6 @@
+/** Preview length in scene units for a share of a 70-unit look-ahead. */
+export const hintLength = (span) => Math.max(12, 70 * span);
+
 /** A short preview along the actual lane, starting at the moving vehicle.
  * In particular, a roundabout approach must include its entry bend and
  * circulating arc instead of drawing a chord to the later waiting point.
@@ -14,7 +17,7 @@ export const pathHint = (path, progress, from, span) => {
     const distance = Math.hypot(start.x - a.x - fraction * dx, start.y - a.y - fraction * dy);
     if (distance < nearest) { nearest = distance; segment = i; }
   }
-  let remaining = Math.max(12, 70 * span);
+  let remaining = hintLength(span);
   const shown = [start];
   for (let i = segment; i < points.length && remaining > 0; i++) {
     const a = shown[shown.length - 1], b = points[i];

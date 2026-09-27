@@ -252,3 +252,61 @@ also no longer depends on the PostHog client. Coaching visibility bookkeeping
 moved into `createVisibility` (`src/lib/priority/view.js`), which reuses one set
 per drive instead of filtering and mapping the traffic on every snapshot.
 `drivingExperience.test.js` checks the queue never sends during the tick.
+
+After build 45, path hints are no longer rewritten. A headless profile at level 12 with up to
+13 simulated vehicles puts the whole per-frame JavaScript (`step`,
+`vehiclePoses`, coaching and render prep) at 0.03 ms median and 0.1 ms at the
+99th percentile on the desktop, so what scaled with the number of cars on
+screen was native: one path-hint SVG per visible vehicle whose two path `d`
+strings and arrowhead polygon were rebuilt by React on every 30 Hz snapshot,
+re-parsed by react-native-svg and repainted, and whose canvas view was moved
+with a new left/top each time. Build 44 tried redrawing only every 2.5 units
+of travel and was reverted: on the phone the line visibly stepped.
+
+A hint is now one static SVG per vehicle (`components/game/RouteHint.native.tsx`,
+geometry in `src/lib/priority/routeHint.js`). `routeTable` builds the whole
+route polyline once where the hint mounts (approach plus through path, with a
+straight extension back to a car that rolls in from behind the approach, and
+clipped past the point where the fade-out window ends), with cumulative arc
+lengths and one `d` string. The canvas covers that route's bounding box plus a
+stroke margin, placed once in junction coordinates and rotated with the
+junction, under the same camera transform as the roads and cars. React's per
+snapshot work per hint is `routeDistance`: the exact arc length from the
+simulation's progress inside the junction, or a projection onto the approach
+while the car is still arriving. That distance is published through the same
+timestamped sample history the car sprite uses (`useNativePoseSamples`), so
+line and car read one delayed clock and cannot drift apart.
+
+The window ahead of the car is revealed by two dash patterns whose period is
+longer than any route: the white under-stroke is a single 35-unit dash, the
+coloured stroke repeats 3-on 2-off across the window and then the same long
+gap, and one `strokeDashoffset` (animated with `useAnimatedProps` on the UI
+thread) starts both at the car's arc length, so the dashes stay anchored to the
+car as before. The arrowhead is a fixed polygon inside an SVG group whose
+`matrix` prop a worklet sets from a binary search of the arc-length table at
+the window's end. A worklet evaluates default parameters before it unpacks its closure, so
+`arrowAt(table, s, window = HINT_WINDOW)` compiled fine, passed Jest and threw
+`Property 'HINT_WINDOW' doesn't exist` on the UI runtime, which aborts a
+Release build; worklets in `routeHint.js` read module constants in their
+bodies only. Nothing in the SVG changes through React after mount:
+`nativeSprites.test.js` renders 90 moving snapshots and checks the route
+artwork rendered once with the same table, sample store and camera objects;
+`routeHintNative.test.js` evaluates the worklets between snapshots and checks
+the window starts between the two poses either side and the arrowhead lands on
+the route; `routeHint.test.js` covers the arc-length table, progress and
+approach projection, roll-ins from behind the approach, the dash patterns and
+arrowhead parity with `pathHint` (within 0.05 units) across every lesson path.
+
+Per visible hint, each snapshot previously cost a React render that built two
+SVG path strings and a polygon string, a native prop update of `d` on three
+nodes and a layout of the moved canvas; it now costs one projection (about 30
+segments) and one sample append, with no SVG prop update through React. The
+trade is on the UI thread: a dash offset and a group matrix update per display
+frame per hint, and the SVG repaint that follows. Hint canvases are painted at
+the road's capped density (two physical pixels per point, `roadRasterScale`) to
+bound that repaint. Route canvases are larger than the old 80-by-80 window
+(median about 1.5 times the area across lesson and generated scenes; a car
+rolling in 88 units behind its line adds a strip that long), and they now
+repaint at display rate rather than at 30 Hz, so the physical-iPhone check of
+this build should watch frame pacing with several cars on screen, not only
+whether the lines move smoothly. Web keeps `PathArrow` and `pathHint` unchanged.
