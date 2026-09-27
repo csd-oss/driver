@@ -51,7 +51,7 @@ describe('crossing drive log', () => {
     }
   });
 
-  it('a crash record names the culprit and the rule', () => {
+  it('a failure to give way names the culprit and the rule', () => {
     const run = createRun(makeRng(5), 1);
     const events = drive(run, 200000, (r, now, evs) => {
       const j = currentJunction(r);
@@ -60,11 +60,11 @@ describe('crossing drive log', () => {
       armRing(r);
       if (r.stoppedAt !== null && !j.needTurn) applyInput(r, 'go');
     });
-    const crash = events.find((e) => e.type === 'crash');
+    const crash = events.find((e) => e.type === 'noGiveWay');
     expect(crash).toBeTruthy();
     const info = explainRecord(crash.record, 2);
-    expect(info.outcome).toBe('crash');
-    expect(info.headline).toMatch(/^Crash with /);
+    expect(crash.record.outcome).toBe('spoiled');
+    expect(info.headline).toMatch(/^You did not give way to /);
     expect(info.lines[0]).toBeTruthy();
     expect(crash.record.reasons.some((r) => r.who === 'you' && r.to === crash.culprit)).toBe(true);
   });

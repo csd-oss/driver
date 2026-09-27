@@ -33,7 +33,7 @@ export function instructorFrame(state, run, { lang, events = [], visibility = {}
   const stopped = run.stoppedAt !== null;
   if (stopped && !state.wasStopped) state.said.delete('crossing.coach.goSwipe');
   state.wasStopped = stopped;
-  const fault = [...events].reverse().find(e => ['crash', 'wrongWay', 'redLight', 'ranStop'].includes(e.type));
+  const fault = [...events].reverse().find(e => ['crash', 'wrongWay', 'redLight', 'ranStop', 'noGiveWay'].includes(e.type));
   if (fault) {
     const key = fault.type === 'wrongWay' && fault.record?.movement === 'circling' ? 'missedExit' : fault.type;
     state.feedback = t(`practice.coach.${key}`, lang);

@@ -175,6 +175,7 @@ export const lessonVerdict = (lesson, junction) => {
   if (junction.wrongWay) return fail('wrongWay');
   if (junction.ranRed) return fail('red');
   if (junction.ranStop || (lesson.pass.mustStop && !junction.stopped)) return fail('noStop');
+  if (junction.noGiveWay) return fail('noGiveWay');
   if (lesson.pass.noNeedlessStop && junction.hesitated) return fail('needlessStop');
   return { passed: true, reason: null };
 };

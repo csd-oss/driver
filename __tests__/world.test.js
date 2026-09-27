@@ -58,16 +58,20 @@ describe('world', () => {
     expect(visibleJunctions(run).length).toBeGreaterThan(0);
   });
 
-  it('crashes when you ignore a vehicle with priority and names the rule', () => {
+  it('ignoring a vehicle with priority is failing to give way: it names the rule and costs one life', () => {
     const run = createRun(makeRng(1000), 1, { lesson: LESSONS.findIndex(lesson => lesson.id === 'rightHand') });
     run.coach = false;
     // Ignore the visible vehicle with priority in a fixed right-hand scene.
-    const events = runUntil(run, (r, evs) => evs.some((e) => e.type === 'crash'), { maxMs: 30000 });
-    const crash = events.find((e) => e.type === 'crash');
-    expect(crash).toBeDefined();
-    expect(crash.culprit).toBeTruthy();
-    expect(crash.rule).toBeTruthy();
-    expect(crash.record.outcome).toBe('crash');
+    const events = runUntil(run, (r, evs) => evs.some((e) => e.type === 'noGiveWay' || e.type === 'crash'), { maxMs: 30000 });
+    const fault = events.find((e) => e.type === 'noGiveWay');
+    expect(fault).toBeDefined();
+    expect(fault.culprit).toBeTruthy();
+    expect(fault.rule).toBeTruthy();
+    expect(fault.record).toMatchObject({ outcome: 'spoiled', noGiveWay: true, crashed: false });
+    expect(run.lives).toBe(LIVES - 1);
+    // The car you cut up brakes and holds where it is; no crash follows.
+    const later = runUntil(run, (r) => currentJunction(r).index > fault.junction, { maxMs: 30000 });
+    expect(later.some((e) => e.type === 'crash')).toBe(false);
     expect(run.lives).toBe(LIVES - 1);
   });
 
@@ -1050,7 +1054,9 @@ describe('the guide', () => {
   });
 
   it('fails the lesson, without cost, when the player ignores it', () => {
-    const cases = { sideRoad: 'crash', stopSign: 'noStop', lights: 'crash', turn: 'wrongWay', leftTurn: 'wrongWay' };
+    // Lights: the cross traffic is still waiting at its line when you run the red,
+    // so the fault is the red light, not a crash with a car that never moved.
+    const cases = { sideRoad: 'crash', stopSign: 'noStop', lights: 'red', turn: 'wrongWay', leftTurn: 'wrongWay' };
     for (const [id, reason] of Object.entries(cases)) {
       const index = LESSONS.findIndex((l) => l.id === id);
       const { run, verdict } = play(index, (r, junction) => {

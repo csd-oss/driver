@@ -50,6 +50,8 @@ export const explainRecord = (record, lang) => {
     headline = t('crossing.redLight', lang);
   } else if (record.ranStop) {
     headline = t('crossing.ranStop', lang);
+  } else if (record.noGiveWay) {
+    headline = tf('crossing.noGiveWay', lang, { vehicle: vehicleName(record, record.culprit, lang) });
   } else if (record.wrongWay) {
     headline = t(record.laps > 0 || record.movement === 'circling' ? 'practice.logMissedExit' : 'practice.logWrongWay', lang);
   } else if (record.stoppedForRed && record.entryLights?.S === 'green') {
@@ -69,6 +71,10 @@ export const explainRecord = (record, lang) => {
   ]) {
     const line = occurred ? t(key, lang) : null;
     if (line && line !== headline) lines.push(line);
+  }
+  if (record.noGiveWay) {
+    const line = tf('crossing.noGiveWay', lang, { vehicle: vehicleName(record, record.culprit, lang) });
+    if (line !== headline) lines.push(line);
   }
   if (record.entryLights?.S) lines.push(tf('practice.logSignal', lang, { phase: t(`practice.signal.${record.entryLights.S}`, lang) }));
 

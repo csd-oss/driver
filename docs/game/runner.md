@@ -153,8 +153,25 @@ including vehicles carried over from earlier junctions. Red-light queues do not
 reserve the crossing against green traffic. The phase change depends on the
 cross traffic clearing, independently of cars waiting for that next green.
 
-Roundabout crashes require vehicle-body contact; the old clearance timestamp
-does not penalise a safe gap. Guide advice checks the actual entrance traffic,
+Every crash requires vehicle-body contact. Entering a junction while a vehicle
+with priority is still due is failing to give way (`noGiveWay`): it costs the
+same single life, the log says "You did not give way to …" with the rule, and
+the vehicles you cut up brake and hold where they are (`heldUntil`, applied with
+the other traffic delays) until you are through. It used to be recorded as a
+crash with a car that had not even left its line. After a crash at an ordinary
+junction the car stays where the contact happened; only the ring moves it back
+to the entry, because its exit path is rebuilt from there.
+
+Two deadlock breakers keep a junction from freezing: two vehicles touching for
+`MUTUAL_FREEZE_MS` are let apart, and a vehicle that blocks you while it is held
+only because it touches you drives on after `PLAYER_DEADLOCK_MS`. You standing
+still on purpose releases nobody. A car that sets off after you counts as
+following you only if it comes out after you have left the junction; one that
+comes out ahead takes its own departure route, so it is never held "behind" you
+from in front. `__tests__/fuzzRegressions.test.js` keeps the fuzzed cases.
+
+Roundabout crashes likewise need contact; the old clearance timestamp does not
+penalise a safe gap. Guide advice checks the actual entrance traffic,
 including cars that entered from other approaches. The player waits
 before the junction during recovery, allowing the conflicting traffic to clear.
 Guide interventions explain the error without consuming a life.

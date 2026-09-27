@@ -2032,6 +2032,11 @@ export const STR = {
     2: 'You missed your exit and went round again. The instructor said: {instruction}',
     3: 'Elhagytad a kijáratodat és körbementél. Az oktató azt mondta: {instruction}',
   },
+  'crossing.noGiveWay': {
+    1: 'Nedal si prednosť: {vehicle}.',
+    2: 'You did not give way to {vehicle}.',
+    3: 'Nem adtál elsőbbséget: {vehicle}.',
+  },
   'crossing.ranStop': {
     1: 'Nezastavil si na značke STOP.',
     2: 'You did not stop at the STOP sign.',

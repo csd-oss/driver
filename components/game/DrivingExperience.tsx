@@ -192,7 +192,7 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
           highlightRef.current = [`${event.junction}-${event.culprit}`, 'you'];
           shakeUntilRef.current = time + 600;
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        } else if (['wrongWay', 'redLight', 'ranStop'].includes(event.type)) {
+        } else if (['wrongWay', 'redLight', 'ranStop', 'noGiveWay'].includes(event.type)) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
         } else if (event.type === 'passed' && event.record?.outcome === 'clean') {
           // A clean junction is a small win: a light tap, not a buzz.

@@ -210,7 +210,8 @@ test('practice gives the route but no STOP or red-light hint, and explains a fau
 });
 
 test('what Alex may say in practice never mentions priority, in any language', () => {
-  const guideOnly = new Set(['practice.coach.wait', 'practice.coach.mainRoad', 'practice.coach.yourWay']);
+  // Guide-only lines, and feedback given after the decision (you failed to give way).
+  const guideOnly = new Set(['practice.coach.wait', 'practice.coach.mainRoad', 'practice.coach.yourWay', 'practice.coach.noGiveWay']);
   const keys = [...Object.keys(PRACTICE).filter(key => key.startsWith('practice.coach.') && !guideOnly.has(key)),
     'crossing.coach.turn', 'crossing.coach.dirLeft', 'crossing.coach.dirRight',
     ...['left', 'right', 'straight', 'main', 'roundabout.left', 'roundabout.right', 'roundabout.straight'].map(kind => `crossing.instr.${kind}`)];
