@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, PanResponder, Platform, Pressable, ScrollView, View } from 'react-native';
+import { AppState, BackHandler, PanResponder, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
@@ -261,6 +261,15 @@ export function DrivingExperience({ withGuide = false }: { withGuide?: boolean }
     if (end) finishRun();
     else setPaused(wasPaused);
   }, [phase, paused, router, lang, finishRun]);
+
+  // Android's back button and back gesture do what the on-screen back does:
+  // mid-drive, ask before ending (and reviewing) the drive; in the review, go
+  // to the practice hub instead of popping back into a finished drive.
+  useEffect(() => {
+    if (!isFocused) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { back(); return true; });
+    return () => subscription.remove();
+  }, [back, isFocused]);
 
   if (phase === 'running') return <DriveStage lang={lang}
     detail={(frame?.guided ?? runRef.current?.coach) ? tf('practice.guideProgress', lang, { n: Math.min((frame?.lessonIndex ?? 0) + 1, LESSON_COUNT), total: LESSON_COUNT })

@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import Purchases, { LOG_LEVEL, type CustomerInfo } from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
@@ -19,12 +19,22 @@ const entitlementListeners = new Set<(active: boolean) => void>();
 // checkForSimulatedStoreAPIKeyInRelease assertion if it ever runs in a Release
 // build, so it's only used in Debug.
 const APPL_KEY = 'appl_svNneUZQGGxDtuPbXLcOAriHqEh';
+// Google Play SDK key (goog_…) of the "Driver SK Android" app in RevenueCat.
+// Empty until that app exists: Android then stays free, as it always was.
+const GOOG_KEY = '';
 const TEST_KEY = 'test_sTWtiZkHRlSHrBAZEPpqgnuufJh';
 
+type PurchaseExtra = { revenueCatIosKey?: string; revenueCatAndroidKey?: string };
+
 const getApiKey = (): string | undefined => {
-  const fromExtra = (Constants.expoConfig?.extra as { revenueCatIosKey?: string } | undefined)
-    ?.revenueCatIosKey;
-  if (fromExtra) return fromExtra;
+  const extra = Constants.expoConfig?.extra as PurchaseExtra | undefined;
+  if (Platform.OS === 'android') {
+    const key = extra?.revenueCatAndroidKey || process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || GOOG_KEY;
+    // Debug builds use the Test Store only once Play purchases are set up at all.
+    if (!key) return undefined;
+    return __DEV__ ? TEST_KEY : key;
+  }
+  if (extra?.revenueCatIosKey) return extra.revenueCatIosKey;
   if (process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY) return process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
   // Default per build type: __DEV__ is set by Metro at bundle time and is true
   // for Debug builds, false for Release. Reliable across both expo run:ios and
@@ -61,7 +71,7 @@ export const isPaywallBypassed = (): boolean =>
   Boolean((Constants.expoConfig?.extra as { bypassPaywall?: boolean } | undefined)?.bypassPaywall);
 
 export const isPurchasesSupported = (): boolean =>
-  Platform.OS === 'ios' && Boolean(getApiKey()) && !isPaywallBypassed();
+  (Platform.OS === 'ios' || Platform.OS === 'android') && Boolean(getApiKey()) && !isPaywallBypassed();
 
 // App language (1 = Slovak, 2 = English, 3 = Hungarian) → BCP-47 locale used
 // by the RevenueCat paywall. Matches the Slovak/Hungarian/English (US) columns
@@ -191,6 +201,20 @@ export const ensureProAccess = async (): Promise<boolean> => {
 export const presentRedeemCode = async (): Promise<void> => {
   if (!isPurchasesSupported()) return;
   await configurePurchases();
+  if (Platform.OS === 'android') {
+    // Google Play has no in-app code sheet: codes are redeemed in the Play
+    // Store. When the user comes back, ask RevenueCat to pick the purchase up.
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      subscription.remove();
+      Purchases.syncPurchases()
+        .then(() => Purchases.getCustomerInfo())
+        .then(updateFromCustomerInfo)
+        .catch(() => { /* the next launch checks again */ });
+    });
+    await Linking.openURL('https://play.google.com/redeem');
+    return;
+  }
   await Purchases.presentCodeRedemptionSheet();
 };
 

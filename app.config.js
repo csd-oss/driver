@@ -12,6 +12,8 @@ export default ({ config }) => {
       // so Release archives accidentally baked in the Test Store key and RevenueCat
       // crashed at launch via checkForSimulatedStoreAPIKeyInRelease.
       revenueCatIosKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || undefined,
+      // Same for Google Play (goog_…); purchases.ts also has it built in once it exists.
+      revenueCatAndroidKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || undefined,
       // E2E test mode — when EXPO_PUBLIC_BYPASS_PAYWALL=true at build time
       // the paywall wrapper treats every check as if the user holds the
       // Pro entitlement. Used by the Maestro suite so it can navigate

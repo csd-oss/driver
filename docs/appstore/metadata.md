@@ -200,3 +200,14 @@ Subscription (Driver SK Pro): "Smart Study" and "Mistakes" review require Pro. M
 Promo codes: offer codes can be redeemed from Settings → Subscription → "Redeem a promo code" or from "Redeem code" on the paywall; both open Apple's code redemption sheet.
 
 All study data is stored on the device. Analytics are anonymous and can be turned off in Settings. Privacy Policy and Terms of Use are linked in Settings and on the paywall.
+
+---
+
+## Google Play short descriptions (≤ 80 characters)
+
+- English (73): Slovak driving theory: official questions, mock exams and a driving game.
+- Slovak (79): Priprav sa na vodičák: oficiálne otázky, testy nanečisto a hra na križovatkách.
+- Hungarian (76): Készülj a szlovák KRESZ-vizsgára: hivatalos kérdések, próbavizsgák, vezetés.
+
+The full descriptions above work for Play as they are (limit 4000). Play has no
+promotional text or keyword field; the title is "Driver SK" (≤ 30).

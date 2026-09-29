@@ -12,7 +12,9 @@
     "test": "jest",
     "bump:ios": "node scripts/bump-ios-build.js",
     "build:web": "node scripts/build-web.mjs",
-    "serve:web": "node scripts/serve-web.mjs"
+    "serve:web": "node scripts/serve-web.mjs",
+    "bump:android": "node scripts/bump-android-version.js",
+    "build:android": "cd android && ./gradlew bundleRelease"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

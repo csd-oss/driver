@@ -165,6 +165,9 @@ if (Platform.OS !== 'web') {
   });
 }
 
+const REMINDER_CHANNEL = 'study-reminders';
+const CHANNEL_NAME: Record<number, string> = { 1: 'Pripomienky učenia', 2: 'Study reminders', 3: 'Tanulási emlékeztetők' };
+
 function toLocalDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -234,6 +237,14 @@ export async function syncNotificationsWithCurrentSettings(): Promise<void> {
   if (enabledSlots.length === 0) return;
 
   const copy = getLanguageCopy(settings.lang);
+  // Android files notifications under channels the user can manage by name;
+  // without one, reminders land in a generic "Miscellaneous" channel.
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL, {
+      name: CHANNEL_NAME[settings.lang] || CHANNEL_NAME[2],
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  }
   const todayKey = toLocalDateKey(new Date());
   const lastStudyDate = await EngagementDB.getLastStudyDate(settings.lang);
   const hasStudyToday = lastStudyDate === todayKey;
@@ -265,6 +276,7 @@ export async function syncNotificationsWithCurrentSettings(): Promise<void> {
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: triggerDate,
+          channelId: REMINDER_CHANNEL,
         },
       });
     }

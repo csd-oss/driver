@@ -87,7 +87,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.smartie.driver"
+      "package": "com.smartie.driver",
+      "versionCode": 1
     },
     "web": {
       "output": "single",
@@ -118,7 +119,8 @@
           "color": "#4f46e5"
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      "./plugins/withAndroidRelease"
     ],
     "experiments": {
       "typedRoutes": true,

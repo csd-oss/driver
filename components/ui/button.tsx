@@ -1,4 +1,4 @@
-import { Text, type PressableProps, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { Platform, Text, type PressableProps, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import type { ReactNode } from 'react';
 import { useFontScaleContext } from '@/contexts/FontScaleContext';
 import { PressableScale } from './pressable-scale';
@@ -58,7 +58,10 @@ export const Button = ({
   // Use updateKey from context to force re-render when font scale changes
   // React Native's allowFontScaling will handle the actual scaling automatically
   const { updateKey } = useFontScaleContext();
-  const baseClasses = 'px-5 py-3 rounded-xl items-center justify-center min-h-[48px] shadow-sm';
+  // Android draws a view's shadow through a see-through background as a
+  // lighter box inside the button, so the translucent variants go without.
+  const shadow = Platform.OS === 'android' && variant !== 'default' ? '' : ' shadow-sm';
+  const baseClasses = `px-5 py-3 rounded-xl items-center justify-center min-h-[48px]${shadow}`;
   const variantClass = variantStyles[variant] || variantStyles.default;
   const disabledClass = disabled ? 'opacity-50' : '';
 
