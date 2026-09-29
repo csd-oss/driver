@@ -23,7 +23,7 @@ const Signal = memo(function Signal({ junction, arm, phase, width, height, scale
     return { transform: [{ translateX: screen.x - size / 2 }, { translateY: screen.y - size / 2 }, { rotate: `${screen.angle}deg` }] };
   });
   return <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: size, height: size }, style]}>
-    <View shouldRasterizeIOS renderToHardwareTextureAndroid>
+    <View shouldRasterizeIOS>
       <Svg width={size} height={size} viewBox={`${local.x - 8} ${local.y - 8} 16 16`}>
         <LightHead scene={junction.scene} arm={arm} phase={phase} />
       </Svg>

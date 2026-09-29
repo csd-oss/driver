@@ -3,7 +3,8 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { vehiclePath } from '@/src/lib/priority/layout';
 import { HINT_FADE_AT, routeDistance, routeTable } from '@/src/lib/priority/routeHint';
 import { toWorld } from '@/src/lib/priority/world';
-import { RouteHint } from './RouteHint.native';
+// Resolved per platform: RouteHint.android.tsx draws with views, iOS keeps RouteHint.native.tsx.
+import { RouteHint } from './RouteHint';
 import { useSceneCamera } from './SceneCamera.native';
 import { useNativePoseSamples } from './useNativePose';
 import type { WorldVehicle } from './WorldScene';

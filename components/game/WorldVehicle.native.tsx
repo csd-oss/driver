@@ -21,7 +21,8 @@ export function WorldVehicle({ v, pose, glow, dim, blinkOn, signal, brakeLights 
     return { transform: [{ translateX: point.x - w / 2 }, { translateY: point.y - h / 2 }, { rotate: `${point.angle}deg` }] };
   });
   return <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, top: 0, width: w, height: h, opacity: dim ? 0.35 : 1 }, style]}>
-    <View shouldRasterizeIOS renderToHardwareTextureAndroid style={{ width: w, height: h }}>
+    {/* Android's SVG canvas is a bitmap already; a hardware layer would repaint it at every blink. */}
+    <View shouldRasterizeIOS style={{ width: w, height: h }}>
       <Svg width={w} height={h} viewBox="-8 -14 16 28">
         <VehicleBody kind={v.kind} color={v.color} glow={glow} turn={turn} blinkOn={turn === 'left' || turn === 'right' ? blinkOn : false} brakeLights={brakeLights} />
       </Svg>

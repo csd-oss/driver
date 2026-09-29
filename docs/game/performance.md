@@ -310,3 +310,94 @@ rolling in 88 units behind its line adds a strip that long), and they now
 repaint at display rate rather than at 30 Hz, so the physical-iPhone check of
 this build should watch frame pacing with several cars on screen, not only
 whether the lines move smoothly. Web keeps `PathArrow` and `pathHint` unchanged.
+
+## Android
+
+Everything above was tuned on iOS. Android draws the same scene through
+different machinery, and three of its costs have no iOS counterpart:
+
+- **react-native-svg paints on the CPU.** An Android `SvgView` rasterises its
+  whole canvas into an ARGB bitmap on the UI thread (`SvgView.drawOutput`) and
+  throws that bitmap away whenever any prop inside it changes; the next frame
+  allocates a new one, paints it, and uploads it as a texture. The iOS hint
+  (one SVG per route whose `strokeDashoffset` and arrowhead matrix move every
+  display frame) therefore cost a full rasterisation plus upload per visible
+  hint per frame: about 1 MB of bitmap each, `Record View#draw()` at 6 ms per
+  frame, `HeapTaskDaemon` busy recycling them.
+- **Reanimated committed a shadow tree per frame.** Without
+  `ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS`, every animated transform (camera
+  layers, cars, hints, lamps) went through a Fabric commit, Yoga layout and
+  mount on the UI thread, about 3 ms a frame. iOS had the equivalent fast path
+  since build 35.
+- **Every SVG element reported its layout.** `VirtualView.setClientRect`
+  dispatches a `topSvgLayout` event for each element it paints with a new
+  client rect. Reanimated's event listener runs `performOperations` after each
+  event, so while a road patch with hundreds of elements was being painted at a
+  cache handover, Reanimated re-applied all its animated props hundreds of
+  times: handovers took 110 to 175 ms on the UI thread, of which the actual
+  painting was about 45 ms.
+
+What changed (iOS untouched):
+
+- `components/game/RouteHint.android.tsx` (Metro picks it over
+  `RouteHint.native.tsx` on Android) builds the same 35-unit window from plain
+  views: chords of the white under-stroke with round caps at the window's ends,
+  one 3-unit coloured dash per 5-unit period, and one static arrowhead SVG.
+  Each piece is placed by a worklet that changes only the view's transform,
+  read from the same `routeTable`, sample history and camera clock as iOS, so
+  the line glides at display rate and never drifts from the car. A straight
+  route gets one chord per period (8 animated views per hint); a route with a
+  turn (bend radius 4 to 7 units at junctions, 7 on the ring) gets three (22).
+  The dash and the white line blend separately instead of as one 0.38 group,
+  which whitens the dash by about a tenth; the arrowhead keeps its group
+  opacity inside its own SVG. `routeHintAndroid.test.js` checks the chord
+  coverage, dash positions, caps, and that every chord and the arrowhead land
+  on the route at the interpolated distance, across lessons 1, 3, 7 and 10.
+- `ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS: true` in `package.json` (a static
+  flag compiled into the Android build; the C++ reads it under `#ifdef
+  ANDROID` only). Opacity and transform updates now go straight to the views
+  through `FabricUIManager.synchronouslyUpdateViewOnUIThread`, the same setter
+  a mount uses.
+- `patches/react-native-svg+15.15.5.patch` removes the `topSvgLayout` dispatch
+  from `VirtualView.setClientRect` (Android source only; nothing in the app
+  uses `onLayout` on an SVG element). `patch-package` applies it on
+  `postinstall`.
+- `renderToHardwareTextureAndroid` is gone from the road patches, cars and
+  lamps: the SVG canvas is already one bitmap, so a hardware layer only added a
+  second full-size texture per patch (about 23 MB each on a 420 dpi phone) and
+  a copy at every handover.
+
+Measured on the Android 16 emulator (`maestro_test`, arm64, 1080x1920 at 420
+dpi, the release APK AOT-compiled with `cmd package compile -m speed`), 12 s
+practice drives started by `driver://crossing`, three cars in view at times.
+The emulator's GPU goes through a GL-to-Metal translation, so its RenderThread
+and swap times mean little; the UI-thread, texture-upload and JS numbers do.
+
+| 12 s drive, `dumpsys gfxinfo` | before | after |
+| --- | ---: | ---: |
+| Frames rendered | 579 | 655 to 679 |
+| Janky frames | 98 (16.9%) | 16 to 19 (2.4 to 2.9%) |
+| Frame time p50 / p90 / p99 | 32 / 48 / 150 ms | 29 / 32 to 36 / 101 to 117 ms |
+| Slow UI thread / slow bitmap uploads / slow draw commands | 72 / 26 / 71 | 10 to 16 / 6 to 8 / 14 to 18 |
+| UI thread per frame (framestats median / p90 / p99) | 7.5 / 13.4 / 25.7 ms | 2.8 to 3.5 / 5.5 to 6.0 / 7.8 to 13.0 ms |
+| Sync with texture uploads (median / p99) | 2.2 / 10.7 ms | 0.9 / 3.2 ms |
+
+Perfetto over 10 s of the same drives: `Record View#draw()` (SVG painting on
+the UI thread) fell from 3.1 s to 0.13 s; Reanimated's `animation` callback
+from 4.6 to 3.6 ms per frame; the road patch handover from 79 to 114 ms to 45
+to 54 ms of UI thread; `HeapTaskDaemon` CPU from 1.1 s to 0.39 s. The UI
+thread's remaining per-frame work is the synchronous transform updates (about
+2 ms for 40 animated views, `BaseViewManager.setTransformProperty`) and the
+30 Hz React mounts. The JS thread is unchanged at about 3.7 s per 10 s
+(React render, Fabric commit and Yoga layout per snapshot), which is shared
+code and does not block the UI thread.
+
+Tried and reverted: painting the road patches at 1.5 instead of 2 physical
+pixels per point. It shaved little off a handover because the cost was the
+layout events, not the pixels, and it softened the artwork.
+
+Still to judge on a real Android phone: the handover hitch (one 45 to 55 ms
+UI-thread stall every 64 world units of travel; iOS hides it behind the
+retained patch, Android cannot paint the SVG off the UI thread), whether 22
+transform updates per turning hint stay cheap on a mid-range GPU driver, and
+frame pacing at 90 or 120 Hz.

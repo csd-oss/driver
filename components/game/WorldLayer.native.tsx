@@ -16,7 +16,10 @@ const CachedPatch = memo(function CachedPatch({ patch: p, scale, resolution, ras
   const paintedSize = size * resolution;
   return <View collapsable={false}
     style={{ position: 'absolute', left: (p.anchorX - p.half) * scale, top: (p.anchorY - p.half) * scale, width: size, height: size }}>
-    <View collapsable={false} shouldRasterizeIOS={rasterize} renderToHardwareTextureAndroid={rasterize}
+    {/* No hardware layer on Android: react-native-svg already paints the
+        canvas into one bitmap there, so a layer would only add a second
+        full-size texture per patch and a copy at every handover. */}
+    <View collapsable={false} shouldRasterizeIOS={rasterize}
       style={{ width: paintedSize, height: paintedSize, transformOrigin: 'top left', transform: [{ scale: 1 / resolution }] }}>
       <Svg width={paintedSize} height={paintedSize} viewBox={`${p.anchorX - p.half} ${p.anchorY - p.half} ${p.half * 2} ${p.half * 2}`}>
         {children}

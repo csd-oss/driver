@@ -62,6 +62,42 @@ Store; we sign uploads with an *upload key*.
 - Notifications use the channel `study-reminders` ("Study reminders", localised).
 - Outlined and secondary buttons have no shadow on Android: Android draws a
   shadow through a translucent background as a lighter box inside the button.
+- The driving game draws its route hints with plain views instead of an
+  animated SVG (`components/game/RouteHint.android.tsx`), Reanimated applies
+  transforms synchronously (`ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS` in
+  `package.json`, compiled into the native build), and `patches/` removes
+  react-native-svg's per-element Android layout events. The reasons and the
+  measurements are in `docs/game/performance.md`, section "Android".
+
+## Dependency patches
+
+`patch-package` runs on `postinstall` and applies `patches/*.patch` to
+`node_modules`. The only patch is Android-only:
+`react-native-svg+15.15.5.patch` stops `VirtualView.setClientRect` from
+dispatching a `topSvgLayout` event for every SVG element it paints (nothing in
+the app listens to `onLayout` on SVG elements). After bumping react-native-svg,
+re-apply the same change and regenerate the file with
+`npx patch-package react-native-svg --include 'android/src/main/java/com/horcrux/svg/VirtualView\.java'`.
+The iOS sources of the package are untouched.
+
+## Measuring the driving game on the emulator
+
+The emulator's GPU goes through a GL-to-Metal translation, so GPU and swap
+timings are not meaningful; CPU work on the UI thread, the RenderThread's
+sync (texture uploads) and the JS thread are. The app is AOT-compiled first so
+Java frames are neither interpreted nor JIT noise
+(`adb shell cmd package compile -m speed -f com.smartie.driver`, which Play
+does through profiles on real phones).
+
+```bash
+adb shell "sqlite3 /data/data/com.smartie.driver/files/SQLite/driver.db 'update settings set has_finished_guide=1'"   # needs adb root
+adb shell am start -W -a android.intent.action.VIEW -d driver://crossing com.smartie.driver   # a practice drive that cruises by itself
+adb shell dumpsys gfxinfo com.smartie.driver reset; sleep 12
+adb shell dumpsys gfxinfo com.smartie.driver framestats       # jank counts, percentiles, per-frame UI/RenderThread times
+cat perfetto.cfg | adb shell "perfetto -c - --txt -o /data/misc/perfetto-traces/drive.pftrace"   # gfx, view, sched; analyse with the perfetto Python package
+adb shell simpleperf record -p $(adb shell pidof com.smartie.driver) -e cpu-clock -f 1000 --call-graph dwarf --duration 12 -o /data/local/tmp/perf.data
+adb shell simpleperf report -i /data/local/tmp/perf.data --tids <ui tid> --children --sort symbol   # DWARF unwinding attributes time to Java methods
+```
 
 ## Play Console checklist (organization account, Smartie s.r.o.)
 

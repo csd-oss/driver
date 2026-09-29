@@ -1,0 +1,27 @@
+diff --git a/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/VirtualView.java b/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/VirtualView.java
+index 4d71806..993899c 100644
+--- a/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/VirtualView.java
++++ b/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/VirtualView.java
+@@ -608,18 +608,10 @@ public abstract class VirtualView extends ReactViewGroup {
+         setBottom(Math.min(bottom, root.getHeight()));
+       }
+     }
+-    EventDispatcher eventDispatcher =
+-        UIManagerHelper.getEventDispatcherForReactTag(mContext, getId());
+-    if (eventDispatcher != null) {
+-      eventDispatcher.dispatchEvent(
+-        new SvgOnLayoutEvent(
+-          UIManagerHelper.getSurfaceId(VirtualView.this),
+-          this.getId(),
+-          left,
+-          top,
+-          width,
+-          height));
+-    }
++    // Driver SK (patches/react-native-svg): no SVG element in this app uses
++    // onLayout, and every one of these events made Reanimated re-apply all of
++    // its animated props while a road patch with hundreds of elements was
++    // being painted, stalling the UI thread for about 100 ms per patch.
+   }
+ 
+   RectF getClientRect() {
