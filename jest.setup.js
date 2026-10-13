@@ -52,3 +52,7 @@ jest.mock('react-native-purchases-ui', () => ({
     RESTORED: 'RESTORED',
   },
 }));
+
+// The app loads the question bank at runtime (src/lib/questionData.ts); the
+// tests use the bundled file, as the web build does.
+require('./src/lib/questionData').setQuestionData(require('./data/data5.js').data);

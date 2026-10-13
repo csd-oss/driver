@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Header } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { UIText } from '@/components/ui/text';
-import { IMAGE_MANIFEST } from '@/data/imageManifest';
+import { questionImageSource } from '@/src/lib/contentPack';
 import * as AttemptsDB from '@/src/db/queries/attempts';
 import * as MistakesDB from '@/src/db/queries/mistakes';
 import * as StudySessionDB from '@/src/db/queries/studySessions';
@@ -293,7 +293,7 @@ export default function StudyScreen() {
     );
   }
 
-  const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
+  const imageSource = questionImageSource(question.image);
 
   return (
     <Screen testID="screen.study" header={<Header title={t('study.smartTitle', lang)} />}>

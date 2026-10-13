@@ -1,5 +1,5 @@
-// data5.js is a 4.8MB untyped JS module; cast to Test[][] below.
-import { data } from '../../data/data5.js';
+// The bank is loaded at runtime (see questionData.ts); cast to Test[][] below.
+import { getQuestionData } from './questionData';
 
 // ---------- Raw shapes (as they live in data5.js) ----------
 
@@ -31,8 +31,9 @@ export interface Test {
   [key: string]: unknown;
 }
 
-// data5.js exports `data` shaped as [lang1Tests[], lang2Tests[], lang3Tests[]]
-const tests = data as Test[][];
+// [lang1Tests[], lang2Tests[], lang3Tests[]], read when needed: the bank is
+// loaded after this module, at startup.
+const tests = (): Test[][] => getQuestionData() as Test[][];
 
 // ---------- Normalized shapes used by app code ----------
 
@@ -66,7 +67,7 @@ const normalizeLang = (lang: number): number => {
 
 export const getTests = (lang: number): Test[] => {
   const safeLang = normalizeLang(lang);
-  return tests[safeLang - 1] || [];
+  return tests()[safeLang - 1] || [];
 };
 
 export const getRandomTest = (lang: number): Test | null => {

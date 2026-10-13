@@ -14,6 +14,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FontScaleProvider } from '@/contexts/FontScaleContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { runMigrations } from '@/src/db/migrate';
+import { ContentGate } from '@/components/ContentGate';
+import { checkForContentUpdate, loadInstalledContent } from '@/src/lib/contentPack';
 import { identifyUser, trackError } from '@/src/lib/analytics';
 import { syncNotificationsWithCurrentSettings } from '@/src/lib/notifications';
 import { getSettings } from '@/src/lib/settings';
@@ -71,6 +73,9 @@ export default function RootLayout() {
   // opt-out preference. Native splash stays visible during this brief window.
   const [analyticsReady, setAnalyticsReady] = useState(false);
   const [optedOut, setOptedOut] = useState(false);
+  // The question bank is loaded from the device; on first launch (or after
+  // the OS cleared the cache) ContentGate downloads it first.
+  const [contentReady, setContentReady] = useState(false);
 
   useEffect(() => {
     const initApp = async () => {
@@ -80,6 +85,10 @@ export default function RootLayout() {
         await runMigrations();
         const settings = await getSettings();
         isOptedOut = settings?.analyticsOptOut === true;
+        if (await loadInstalledContent()) {
+          setContentReady(true);
+          checkForContentUpdate().catch(() => {});
+        }
       } catch (error) {
         // If migrations fail we can't read the opt-out preference; default to
         // opt-out so a recoverable error never leaks tracking events.
@@ -105,6 +114,7 @@ export default function RootLayout() {
   // covers this; the React tree (including the intro animation in app/index)
   // mounts exactly once after the analytics decision is made.
   if (!analyticsReady) return null;
+  if (!contentReady) return <ContentGate onReady={() => setContentReady(true)} />;
 
   const appContent = (
     <SafeAreaProvider>

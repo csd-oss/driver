@@ -9,6 +9,9 @@
  * 2. Generate dist/sw.js from scripts/sw.template.js with a precache list of
  *    every exported file and a version derived from their content.
  * 3. Sanity-check that index.html still carries the PWA head tags.
+ * 4. Build the native apps' question-bank content pack into dist/content/v1
+ *    (scripts/build-content.mjs). It is served from this site but not
+ *    precached: the PWA bundles the questions itself.
  */
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
@@ -40,6 +43,7 @@ execSync('npx expo export -p web --output-dir dist', { cwd: root, stdio: 'inheri
 const files = walk(dist).filter((file) => {
   const url = toUrl(file);
   if (url === '/sw.js') return false;
+  if (url.startsWith('/content/')) return false;
   if (url.endsWith('.map')) return false;
   if (url.endsWith('.DS_Store')) return false;
   return true;
@@ -71,3 +75,6 @@ if (missing.length) {
 
 const totalBytes = files.reduce((sum, file) => sum + statSync(file).size, 0);
 console.log(`\nPWA ready: dist/ (${files.length} files, ${(totalBytes / 1024 / 1024).toFixed(1)} MB precached, sw version ${version})`);
+
+// 4. Content pack for the native apps (after the precache list, which skips it anyway).
+execSync('node scripts/build-content.mjs dist/content/v1', { cwd: root, stdio: 'inherit' });

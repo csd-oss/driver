@@ -1,4 +1,4 @@
-import { data } from '../../data/data5.js';
+import { getQuestionData } from './questionData';
 
 /**
  * Get list of categories for a language
@@ -12,7 +12,7 @@ export const getCategories = (lang) => {
     lang = 1;
   }
   
-  const tests = data[lang - 1];
+  const tests = getQuestionData()[lang - 1];
   if (!tests || tests.length === 0) {
     return [];
   }

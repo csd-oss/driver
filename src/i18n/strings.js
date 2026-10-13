@@ -134,6 +134,26 @@ export const STR = {
     2: 'Passing Score:',
     3: 'Sikeres teljesítéshez:',
   },
+  'content.title': {
+    1: 'Pripravujeme otázky',
+    2: 'Getting the questions ready',
+    3: 'Előkészítjük a kérdéseket',
+  },
+  'content.body': {
+    1: 'Pri prvom spustení si stiahneme oficiálne otázky a obrázky (asi 11 MB). Potom aplikácia funguje aj offline.',
+    2: 'On first launch we download the official questions and pictures (about 11 MB). After that the app works offline.',
+    3: 'Az első indításkor letöltjük a hivatalos kérdéseket és képeket (kb. 11 MB). Utána az alkalmazás internet nélkül is működik.',
+  },
+  'content.error': {
+    1: 'Otázky sa nepodarilo stiahnuť. Skontroluj pripojenie na internet a skús to znova.',
+    2: "We couldn't download the questions. Check your internet connection and try again.",
+    3: 'Nem sikerült letölteni a kérdéseket. Ellenőrizd az internetkapcsolatot, és próbáld újra.',
+  },
+  'content.retry': {
+    1: 'Skúsiť znova',
+    2: 'Try again',
+    3: 'Újra',
+  },
   'mock.addedToMistakes': {
     1: 'Nesprávne odpovede sme pridali do chýb: {count}',
     2: 'Wrong answers added to Mistakes: {count}',

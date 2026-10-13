@@ -12,7 +12,7 @@ import { getCachedLanguage, getLanguage, getSelectedCategory, setSelectedCategor
 import { findQuestionById, getTestForQuestion } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
-import { IMAGE_MANIFEST } from '@/data/imageManifest';
+import { questionImageSource } from '@/src/lib/contentPack';
 import { t } from '@/src/i18n/i18n';
 import { CategorySelector } from '@/components/CategorySelector';
 import * as MistakesDB from '@/src/db/queries/mistakes';
@@ -397,7 +397,7 @@ export default function MistakesScreen() {
 
   const mastery = Math.floor(streak / 2);
 
-  const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
+  const imageSource = questionImageSource(question.image);
 
   return (
     <Screen testID="screen.mistakes" header={<Header title={t('nav.mistakes', lang)} />}>

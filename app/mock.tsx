@@ -16,7 +16,7 @@ import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
 import { getRandomTestWithIndex, getQuestionFromTest, getTests } from '@/src/lib/bank';
 import { getCategoryForQuestion } from '@/src/lib/categories';
 import { applyAnswer } from '@/src/lib/engine';
-import { IMAGE_MANIFEST } from '@/data/imageManifest';
+import { questionImageSource } from '@/src/lib/contentPack';
 import { t, tf } from '@/src/i18n/i18n';
 import { confirmDialog } from '@/src/lib/dialog';
 import * as MockDB from '@/src/db/queries/mockExams';
@@ -495,7 +495,7 @@ export default function MockScreen() {
             >
               {selectedQuestionDetail && (() => {
                 const { question, userAnswer } = selectedQuestionDetail;
-                const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
+                const imageSource = questionImageSource(question.image);
                 
                 return (
                   <Card 
@@ -717,7 +717,7 @@ export default function MockScreen() {
     if (!question) return null;
 
     const userAnswer = answers[qNoStr];
-    const imageSource = question.image ? IMAGE_MANIFEST[question.image] : null;
+    const imageSource = questionImageSource(question.image);
 
     return (
       <ScrollView 
