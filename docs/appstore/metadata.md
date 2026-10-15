@@ -45,7 +45,7 @@ LEARN RIGHT OF WAY BY DRIVING
 Drive through endless Slovak junctions in a top-down game where every other car follows the real priority rules: signs, traffic lights, the right-hand rule, trams and roundabouts. A step-by-step guide first teaches the controls and every type of junction, and the drive log explains each decision afterwards.
 
 STUDY ANYWHERE
-Fully offline. The entire question bank — including road-sign images — works with no connection: on the bus, in a queue, anywhere.
+Works offline. After a one-time download on first launch, the entire question bank — including road-sign images — works with no connection: on the bus, in a queue, anywhere.
 
 THREE LANGUAGES
 The complete question bank in Slovak, English, and Hungarian. Perfect if you're taking the Slovak test but think in another language. Switch anytime.
@@ -98,7 +98,7 @@ PREDNOSŤ V JAZDE ZA VOLANTOM
 Prejdi nekonečné slovenské križovatky v hre, kde každé auto dodržiava skutočné pravidlá prednosti: značky, semafory, pravidlo pravej ruky, električky aj kruhové objazdy. Sprievodca ťa najprv krok po kroku naučí ovládanie a každý typ križovatky a denník jázd potom vysvetlí každé rozhodnutie.
 
 ŠTUDUJ KDEKOĽVEK
-Úplne offline. Celá databáza otázok — vrátane obrázkov dopravných značiek — funguje aj bez pripojenia: v autobuse, v rade, kdekoľvek.
+Funguje offline. Po jednorazovom stiahnutí pri prvom spustení funguje celá databáza otázok — vrátane obrázkov dopravných značiek — aj bez pripojenia: v autobuse, v rade, kdekoľvek.
 
 TRI JAZYKY
 Kompletná databáza otázok v slovenčine, angličtine a maďarčine. Ideálne, ak robíš slovenskú skúšku, ale rozmýšľaš v inom jazyku. Prepínaj kedykoľvek.
@@ -151,7 +151,7 @@ ELSŐBBSÉG VEZETÉS KÖZBEN
 Vezess végtelen szlovák kereszteződéseken egy játékban, ahol minden autó a valódi elsőbbségi szabályokat követi: táblák, jelzőlámpák, jobbkéz-szabály, villamosok és körforgalmak. Egy lépésről lépésre haladó útmutató előbb megtanítja az irányítást és minden kereszteződéstípust, a menetnapló pedig utólag elmagyaráz minden döntést.
 
 TANULJ BÁRHOL
-Teljesen offline. A teljes kérdésbank — a közlekedési táblák képeivel együtt — internet nélkül is működik: buszon, sorban állva, bárhol.
+Offline is használható. Az első indításkor egyszeri letöltés után a teljes kérdésbank — a közlekedési táblák képeivel együtt — internet nélkül is működik: buszon, sorban állva, bárhol.
 
 HÁROM NYELV
 A teljes kérdésbank szlovákul, angolul és magyarul. Ideális, ha a szlovák vizsgát teszed le, de más nyelven gondolkodsz. Válts bármikor.
@@ -186,20 +186,29 @@ Draft ideas (verify length):
 
 ---
 
-## App Review notes (as saved in App Store Connect, Sep 2026)
+## App Review notes (as saved in App Store Connect, Oct 2026, build 49)
 
-Driver SK is an offline study app for the Slovak driving-licence theory test, with the same official question bank in Slovak, English, and Hungarian. No account or login is required.
+Driver SK is a study app for the Slovak driving-licence theory test, in Slovak, English and Hungarian. No account or login is required.
 
-What this version adds since the previous review (guideline 4.3):
-- Driving practice (Home → "Driving practice", free): an original top-down driving game built on our own right-of-way engine. Every other vehicle follows the Slovak priority rules (Act 8/2009, Decree 30/2020): signs, traffic lights, the right-hand rule, trams and roundabouts. A guided first drive with an instructor teaches the swipe controls and each junction type, and a drive log explains every decision afterwards. The engine is tested against all 39 official exam junction pictures.
-- Exam readiness forecast: a readiness score and an estimate of how many days of practice at the user's own pace remain before they are ready, with what still stands in the way.
-- Recording the real exam result, which switches reminders off after a pass.
+Changes in build 49:
 
-Subscription (Driver SK Pro): "Smart Study" and "Mistakes" review require Pro. Mock exams and driving practice are free. The paywall appears after onboarding and when tapping "Start now" (Smart Study) or "Mistakes" on Home. Products: Weekly and Yearly (each with a 3-day free trial) and a one-time Lifetime purchase. Please use the StoreKit sandbox to purchase.
+Guideline 4.3(a): As discussed during the consultation, we removed code that could be flagged as a duplicate by automated checks.
 
-Promo codes: offer codes can be redeemed from Settings → Subscription → "Redeem a promo code" or from "Redeem code" on the paywall; both open Apple's code redemption sheet.
+Guideline 2.3.2: The promotional image of the "Driver SK Pro — Lifetime" in-app purchase is now original 1024×1024 artwork. It is not a screenshot, and its text is large and legible. Weekly and Yearly use matching artwork.
 
-All study data is stored on the device. Analytics are anonymous and can be turned off in Settings. Privacy Policy and Terms of Use are linked in Settings and on the paywall.
+The first launch needs an internet connection. The app downloads its study content once (about 11 MB) and shows a progress screen while it does. After that it works fully offline.
+
+What the app offers:
+- Smart Study: adaptive practice that picks the questions the user misses or answers slowly.
+- Mock exams with the real exam's length, time limit and scoring.
+- Exam readiness forecast: a readiness score and an estimate of how many days of practice remain at the user's own pace.
+- Driving practice (Home → "Driving practice", free): an original top-down driving game built on our own right-of-way engine. Every other vehicle follows the Slovak priority rules (Act 8/2009, Decree 30/2020). A guided first drive teaches the controls and each junction type, and a drive log explains every decision afterwards.
+
+Subscription (Driver SK Pro): Smart Study and Mistakes review require Pro. Mock exams and driving practice are free. The paywall appears after onboarding and when tapping "Start now" (Smart Study) or "Mistakes" on Home. Products are Weekly and Yearly, each with a 3-day free trial, and a one-time Lifetime purchase. Please use the StoreKit sandbox to purchase.
+
+Promo codes can be redeemed in Settings → Subscription → "Redeem a promo code" or with "Redeem code" on the paywall. Both open Apple's code redemption sheet.
+
+All study data stays on the device. Analytics are anonymous and can be turned off in Settings. The Privacy Policy and Terms of Use are linked in Settings and on the paywall.
 
 ---
 
