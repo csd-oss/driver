@@ -1,0 +1,159 @@
+@import 'tailwindcss';
+@import './tokens.css';
+@import './theme.css';
+
+/* Motion used by the component library (web/src/components/ui). Mirrors the
+   prototype keyframes in web/prototypes/_src/shared.css. Durations come from
+   tokens, which collapse to 0 under prefers-reduced-motion. */
+@theme {
+  --animate-pop: pop var(--dur-fast) var(--curve-spring) both;
+  --animate-pop-dialog: pop var(--dur-normal) var(--curve-spring) both;
+  --animate-fade: fade var(--dur-fast) var(--curve-out) both;
+  --animate-slide-in: slide-in var(--dur-normal) var(--curve-spring) both;
+  --animate-sheet-up: sheet-up var(--dur-normal) var(--curve-spring) both;
+  --animate-toast-in: toast-in var(--dur-normal) var(--curve-spring) both;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.97) translateY(-2px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-in {
+    from {
+      transform: translateX(16px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-sm text-fg antialiased;
+  }
+
+  * {
+    @apply border-line;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+
+  /* Prototype icons are 1.75px strokes; lucide ships 2px. */
+  .lucide {
+    stroke-width: 1.75;
+  }
+
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+}
+
+/* Edge shadows on a sideways scroller, only where there is more to scroll to
+   (the "local" layers cover the "scroll" shadows once an end is reached).
+   Needs the scroller to sit on the surface colour. */
+@layer components {
+  .scroll-hint-x {
+    background:
+      linear-gradient(to right, var(--surface) 30%, transparent) left / 1.5rem 100% no-repeat local,
+      linear-gradient(to left, var(--surface) 30%, transparent) right / 1.5rem 100% no-repeat local,
+      linear-gradient(to right, oklch(0 0 0 / 0.16), transparent) left / 0.75rem 100% no-repeat scroll,
+      linear-gradient(to left, oklch(0 0 0 / 0.16), transparent) right / 0.75rem 100% no-repeat scroll;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Driver pre autoškoly: phones. Toasts sit above the tab bar; text fields stay at 16px so
+   iOS doesn't zoom on focus (unlayered, so it beats the text-sm utilities). */
+@media (max-width: 899px) {
+  :root {
+    --toast-lift: var(--tabbar-h);
+  }
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Amounts: tabular figures everywhere they appear. */
+[data-amount] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The transaction panel docks on desktop: the main card makes room for it. */
+@media (min-width: 900px) {
+  [data-main-card] {
+    transition: margin-right var(--dur-normal) var(--curve-standard);
+  }
+  :root[data-panel-open] [data-main-card] {
+    margin-right: calc(min(var(--panel-w), 100vw) + var(--space-2));
+  }
+}
+:root[data-bulk-bar] {
+  --bulk-lift: 4rem;
+}

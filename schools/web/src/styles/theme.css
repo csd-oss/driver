@@ -1,0 +1,217 @@
+/* ==========================================================================
+   Driver pre autoškoly — Tailwind v4 theme mapping (from Roadmaper v2)
+   --------------------------------------------------------------------------
+   Usage (web/src/index.css):
+     @import "tailwindcss";
+     @import "./styles/tokens.css";
+     @import "./styles/theme.css";
+
+   `@theme inline` makes every utility resolve to var(--token) at use time,
+   so light/dark switching happens purely through tokens.css and no `dark:`
+   variants are needed for colour. Tailwind's default colour palette is
+   cleared so only design-system colours exist (no stray `bg-blue-500`).
+
+   Naming:
+     backgrounds  bg-canvas bg-canvas-subtle bg-surface bg-raised bg-sunken
+                  bg-hover bg-selected bg-scrim
+     text         text-fg text-muted text-subtle text-faint text-inverse
+                  (text-subtle is the lightest for anything readable; text-faint
+                  is placeholders, disabled and decoration only, see tokens.css)
+     borders      border-line border-line-strong border-line-subtle border-line-input
+     accent       bg-accent text-accent-fg bg-accent-soft text-accent-text
+     semantic     {bg,text}-{success,warning,danger,info}[-soft|-text]
+     money        text-in bg-in-fill bg-out-fill text-over bg-over-soft text-warn bg-cat-0 … bg-cat-9
+   ========================================================================== */
+
+@theme inline {
+  --color-*: initial;
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: oklch(1 0 0);
+  --color-black: oklch(0 0 0);
+
+  /* Surfaces */
+  --color-canvas: var(--canvas);
+  --color-canvas-subtle: var(--canvas-subtle);
+  --color-surface: var(--surface);
+  --color-raised: var(--surface-raised);
+  --color-sunken: var(--surface-sunken);
+  --color-hover: var(--surface-hover);
+  --color-selected: var(--surface-selected);
+  --color-scrim: var(--scrim);
+  --color-inverse: var(--inverse);
+
+  /* Lines */
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-subtle: var(--line-subtle);
+  --color-line-input: var(--line-input);
+
+  /* Text (text-fg, text-muted, text-subtle, text-faint, text-on-inverse) */
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-subtle: var(--fg-subtle);
+  --color-faint: var(--fg-faint);
+  --color-on-inverse: var(--fg-inverse);
+
+  /* Accent */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-ring: var(--focus-ring);
+
+  /* Semantic */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-text: var(--danger-text);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-text: var(--info-text);
+
+  /* Money (Driver pre autoškoly): text-in, bg-over-soft, bg-cat-3 … */
+  --color-in: var(--in);
+  --color-in-soft: var(--in-soft);
+  --color-in-fill: var(--in-fill);
+  --color-out-fill: var(--out-fill);
+  --color-over: var(--over);
+  --color-over-soft: var(--over-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-cat-0: var(--cat-0);
+  --color-cat-1: var(--cat-1);
+  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);
+  --color-cat-4: var(--cat-4);
+  --color-cat-5: var(--cat-5);
+  --color-cat-6: var(--cat-6);
+  --color-cat-7: var(--cat-7);
+  --color-cat-8: var(--cat-8);
+  --color-cat-9: var(--cat-9);
+
+  /* Typography: text-2xs … text-3xl carry their own line-height */
+  --font-sans: var(--ff-sans);
+  --font-mono: var(--ff-mono);
+  --text-2xs: var(--fs-2xs);
+  --text-2xs--line-height: 1rem;
+  --text-xs: var(--fs-xs);
+  --text-xs--line-height: 1rem;
+  --text-sm: var(--fs-sm);
+  --text-sm--line-height: 1.25rem;
+  --text-base: var(--fs-base);
+  --text-base--line-height: 1.375rem;
+  --text-md: var(--fs-md);
+  --text-md--line-height: 1.5rem;
+  --text-lg: var(--fs-lg);
+  --text-lg--line-height: 1.625rem;
+  --text-xl: var(--fs-xl);
+  --text-xl--line-height: 1.75rem;
+  --text-xl--letter-spacing: var(--ls-tight);
+  --text-2xl: var(--fs-2xl);
+  --text-2xl--line-height: 2.125rem;
+  --text-2xl--letter-spacing: var(--ls-tight);
+  --text-3xl: var(--fs-3xl);
+  --text-3xl--line-height: 2.625rem;
+  --text-3xl--letter-spacing: var(--ls-tight);
+
+  /* Radii */
+  --radius-xs: var(--round-xs);
+  --radius-sm: var(--round-sm);
+  --radius-md: var(--round-md);
+  --radius-lg: var(--round-lg);
+  --radius-xl: var(--round-xl);
+  --radius-2xl: var(--round-2xl);
+
+  /* Elevation */
+  --shadow-xs: var(--elev-xs);
+  --shadow-sm: var(--elev-sm);
+  --shadow-md: var(--elev-md);
+  --shadow-lg: var(--elev-lg);
+  --shadow-xl: var(--elev-xl);
+
+  /* Motion: ease-standard, ease-spring, … (durations via duration-[var(--dur-fast)]) */
+  --ease-standard: var(--curve-standard);
+  --ease-out: var(--curve-out);
+  --ease-in: var(--curve-in);
+  --ease-spring: var(--curve-spring);
+
+  /* Density-aware sizes: h-row, h-control, w-sidebar, w-panel, … */
+  --spacing-row: var(--row-h);
+  --spacing-control: var(--control-h);
+  --spacing-control-sm: var(--control-h-sm);
+  --spacing-control-lg: var(--control-h-lg);
+  --spacing-touch: var(--touch-min);
+  --spacing-sidebar: var(--sidebar-w);
+  --spacing-panel: var(--panel-w);
+  --spacing-tabbar: var(--tabbar-h);
+  --spacing-rail: var(--sidebar-rail-w);
+  --container-content: var(--content-max);
+
+  /* Breakpoints: `desk` = sidebar + side panels; below it the phone tab bar and sheets */
+  --breakpoint-desk: 56.25rem; /* 900px */
+}
+
+/* `dark:` variant for the rare non-colour case (e.g. swapping an image).
+   Mirrors tokens.css: system dark unless forced light, or forced dark.   */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+}
+
+/* Z layers are not a Tailwind theme namespace; expose them as utilities. */
+@utility z-raised { z-index: var(--z-raised); }
+@utility z-sticky { z-index: var(--z-sticky); }
+@utility z-dropdown { z-index: var(--z-dropdown); }
+@utility z-panel { z-index: var(--z-panel); }
+@utility z-modal { z-index: var(--z-modal); }
+@utility z-palette { z-index: var(--z-palette); }
+@utility z-toast { z-index: var(--z-toast); }
+@utility z-tooltip { z-index: var(--z-tooltip); }
+
+/* Focus ring standard (replaces v1's 3px ring recipe) */
+@utility focus-ring {
+  outline: none;
+  &:focus-visible {
+    box-shadow: var(--elev-focus);
+  }
+}
+
+@layer base {
+  html {
+    font-family: var(--ff-sans);
+    font-size: 100%;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--canvas);
+    color: var(--fg);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+  }
+  *,
+  ::before,
+  ::after {
+    border-color: var(--line);
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

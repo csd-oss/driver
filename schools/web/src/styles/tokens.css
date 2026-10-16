@@ -1,0 +1,418 @@
+/* ==========================================================================
+   Driver pre autoškoly — design tokens (from Stereo / Roadmaper v2, accent moved to the Driver app's indigo)
+   --------------------------------------------------------------------------
+   Copied from Roadmaper v2 (same owner): cool neutrals (hue 215–235), one teal
+   accent, Geist + Geist Mono, 13px UI base, lifted-charcoal dark theme.
+   Roadmaper-only groups (status, priority, timeline, agents, scenarios,
+   presence) are dropped; Stereo adds the money group (in / over / warn and the
+   categorical palette for categories).
+
+   Theming contract (three states):
+     :root                        light values (default)
+     prefers-color-scheme: dark   dark values unless data-theme="light"
+     :root[data-theme="dark"]     dark values, explicit choice
+     [data-theme] on an element   that theme's colours inside it (timeline
+                                  exports in the theme the user picks)
+   Components only ever reference tokens, never literals.
+
+   Naming: type, radius, shadow and easing tokens use short prefixes
+   (--ff-, --fs-, --lh-, --fw-, --ls-, --round-, --elev-, --curve-) so they
+   never collide with Tailwind v4 theme namespaces (--font-*, --text-*,
+   --radius-*, --shadow-*, --ease-*); theme.css maps them without cycles.
+   ========================================================================== */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* ---- Surfaces ----------------------------------------------------------
+     canvas         app background behind everything
+     canvas-subtle  sidebar, table headers, toolbars
+     surface        panels, cards, list rows, timeline body
+     surface-raised popovers, menus, palette, dialogs
+     surface-sunken inputs, wells, timeline gutters, code blocks
+     surface-hover  row / button hover
+     surface-selected selected row, active nav item                        */
+  --canvas: oklch(0.985 0.002 215);
+  --canvas-subtle: oklch(0.968 0.003 215);
+  --surface: oklch(1 0 0);
+  --surface-raised: oklch(1 0 0);
+  --surface-sunken: oklch(0.965 0.003 215);
+  --surface-hover: oklch(0.953 0.004 215);
+  --surface-selected: oklch(0.94 0.03 277);
+  --scrim: oklch(0.2 0.01 230 / 0.32);
+
+  /* ---- Lines -------------------------------------------------------------
+     line        default hairline (dividers, row separators, card edges)
+     line-strong emphasised dividers, grid major ticks
+     line-input  input and checkbox edges (3:1, WCAG 1.4.11)
+     line-subtle grid minor ticks, zebra separators                       */
+  --line: oklch(0.915 0.004 215);
+  --line-strong: oklch(0.855 0.006 215);
+  --line-subtle: oklch(0.945 0.003 215);
+  /* Input and checkbox edges: 3:1 against the surface they sit on (WCAG 1.4.11). */
+  --line-input: oklch(0.64 0.008 235);
+
+  /* ---- Text --------------------------------------------------------------
+     fg          primary text
+     fg-muted    secondary text, labels, metadata
+     fg-subtle   tertiary text, timestamps, column headers, hints. The
+                 lightest token for anything a user must read: AA (4.5:1)
+                 on every surface, hover and selected included.
+     fg-faint    disabled, decorative glyphs ONLY (≈2.7:1,
+                 below AA): never for values, counts, hints or empty states
+     fg-inverse  text on inverted chips (tooltips, milestone labels)
+     ink-on-*    text on a colour the user picked (milestone colour): the
+                 same in both themes, chosen per fill by lib/contrast inkOn
+
+     Contrast contract (checked by styles/tokens-contrast.test.ts in both
+     themes): text pairs ≥ 4.5:1, focus ring and state glyphs ≥ 3:1.      */
+  --fg: oklch(0.21 0.012 235);
+  --fg-muted: oklch(0.45 0.014 235);
+  --fg-subtle: oklch(0.52 0.012 235);
+  --fg-faint: oklch(0.7 0.008 235);
+  --fg-inverse: oklch(0.985 0.002 215);
+  --inverse: oklch(0.24 0.012 235);
+  --ink-on-dark: oklch(1 0 0);
+  --ink-on-light: oklch(0.1 0.005 235);
+
+  /* ---- Accent (v1 --brand teal) -------------------------------------------
+     accent       primary buttons, focus, links, selected indicators
+     accent-hover pressed / hover state of accent fills
+     accent-fg    text/icons on an accent fill
+     accent-soft  tinted backgrounds (selected chips, callouts)
+     accent-text  accent-coloured text on normal surfaces (AA on surface)  */
+  --accent: oklch(0.51 0.2 277);
+  --accent-hover: oklch(0.46 0.2 277);
+  --accent-fg: oklch(0.99 0.005 277);
+  --accent-soft: oklch(0.95 0.035 277);
+  --accent-text: oklch(0.46 0.19 277);
+  --focus-ring: oklch(0.51 0.2 277 / 0.8);
+
+  /* ---- Semantic ----------------------------------------------------------
+     base = icon / fill, soft = tinted background, text = readable on surface */
+  --success: oklch(0.6 0.14 155);
+  --success-soft: oklch(0.955 0.035 155);
+  --success-text: oklch(0.45 0.12 155);
+  --warning: oklch(0.74 0.15 75);
+  --warning-soft: oklch(0.965 0.04 85);
+  --warning-text: oklch(0.5 0.11 65);
+  --danger: oklch(0.6 0.19 27);
+  --danger-soft: oklch(0.96 0.025 27);
+  --danger-text: oklch(0.5 0.18 27);
+  --info: oklch(0.6 0.13 245);
+  --info-soft: oklch(0.96 0.025 245);
+  --info-text: oklch(0.48 0.13 245);
+
+
+
+
+
+
+
+  /* ---- Money (Stereo) ----------------------------------------------------
+     in         money in: "+" amounts, income figures (AA text on every surface)
+     in-soft    tinted background behind a money-in figure
+     in-fill    cashflow "in" bars (3:1 on surface)
+     out-fill   cashflow "out" bars: neutral, money out is the normal case
+     over       over budget: meter fill, figure text (AA)
+     over-soft  tinted background of an over-budget line
+     warn       needs attention ("Not moved yet", coverage gaps), AA text
+     warn-soft  tinted background of a needs-attention note
+     cat-0..9   categorical palette for categories. Order validated with the
+                dataviz validator (adjacent CVD dE >= 8.4, normal >= 19.3, both
+                themes). Light slots 2, 3, 4 sit under 3:1 on white: a category
+                colour is always shown beside its name, never alone.        */
+  --in: oklch(0.45 0.12 155);
+  --in-soft: oklch(0.955 0.035 155);
+  --in-fill: oklch(0.6 0.13 155);
+  --out-fill: oklch(0.63 0.012 235);
+  --over: oklch(0.5 0.18 27);
+  --over-soft: oklch(0.96 0.025 27);
+  --warn: oklch(0.5 0.11 65);
+  --warn-soft: oklch(0.965 0.04 85);
+  --cat-0: #2a78d6;
+  --cat-1: #eb6834;
+  --cat-2: #1baf7a;
+  --cat-3: #eda100;
+  --cat-4: #e87ba4;
+  --cat-5: #008300;
+  --cat-6: #6250d6;
+  --cat-7: #e34948;
+  --cat-8: #0b8fb3;
+  --cat-9: #a0612a;
+
+  /* ---- Elevation -------------------------------------------------------- */
+  --elev-xs: 0 1px 1px oklch(0.2 0.02 235 / 0.05);
+  --elev-sm: 0 1px 2px oklch(0.2 0.02 235 / 0.06), 0 0 0 1px oklch(0.2 0.02 235 / 0.03);
+  --elev-md: 0 4px 12px -2px oklch(0.2 0.02 235 / 0.1), 0 1px 3px oklch(0.2 0.02 235 / 0.06);
+  --elev-lg: 0 12px 32px -8px oklch(0.2 0.02 235 / 0.18), 0 2px 6px oklch(0.2 0.02 235 / 0.06);
+  --elev-xl: 0 24px 64px -12px oklch(0.2 0.02 235 / 0.28), 0 4px 12px oklch(0.2 0.02 235 / 0.08);
+  --elev-focus: 0 0 0 3px var(--focus-ring);
+}
+
+/* Everything below is the same in both themes. */
+:root {
+  /* ---- Typography --------------------------------------------------------
+     Geist carries over from v1. UI base is 13px; 14px for reading text
+     (descriptions, comments). Mono is used for item keys (PAY-12), dates in
+     dense grids, tokens and code.                                        */
+  --ff-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --ff-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --fs-2xs: 0.6875rem;   /* 11px  timeline ticks, kbd, counters     */
+  --fs-xs: 0.75rem;      /* 12px  metadata, badges, table headers   */
+  --fs-sm: 0.8125rem;    /* 13px  UI base: rows, buttons, inputs    */
+  --fs-base: 0.875rem;   /* 14px  reading text: descriptions, comments */
+  --fs-md: 1rem;         /* 16px  panel titles, mobile body         */
+  --fs-lg: 1.125rem;     /* 18px  dialog titles                     */
+  --fs-xl: 1.375rem;     /* 22px  item title, page titles           */
+  --fs-2xl: 1.75rem;     /* 28px  dashboard greeting, login         */
+  --fs-3xl: 2.25rem;     /* 36px  marketing / empty-state display   */
+
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.6;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --ls-tight: -0.015em;  /* titles >= 18px */
+  --ls-normal: 0;
+  --ls-wide: 0.04em;     /* small caps labels, kbd */
+
+  /* ---- Spacing (4px base, same as v1) ----------------------------------- */
+  --space-0: 0;
+  --space-px: 1px;
+  --space-0-5: 0.125rem;  /* 2  */
+  --space-1: 0.25rem;     /* 4  */
+  --space-1-5: 0.375rem;  /* 6  */
+  --space-2: 0.5rem;      /* 8  */
+  --space-2-5: 0.625rem;  /* 10 */
+  --space-3: 0.75rem;     /* 12 */
+  --space-4: 1rem;        /* 16 */
+  --space-5: 1.25rem;     /* 20 */
+  --space-6: 1.5rem;      /* 24 */
+  --space-8: 2rem;        /* 32 */
+  --space-10: 2.5rem;     /* 40 */
+  --space-12: 3rem;       /* 48 */
+  --space-16: 4rem;       /* 64 */
+
+  /* ---- Density -----------------------------------------------------------
+     Default = "cozy" (Linear-like). data-density="compact" on <html> for
+     power users; "comfortable" is used automatically on touch (<= 720px). */
+  --row-h: 2.25rem;            /* 36  list rows                      */
+  --control-h: 1.75rem;        /* 28  buttons, inputs, selects       */
+  --control-h-sm: 1.5rem;      /* 24  inline chips, icon buttons     */
+  --control-h-lg: 2.25rem;     /* 36  primary form actions, login    */
+  --touch-min: 2.75rem;        /* 44  minimum touch target on mobile */
+  --sidebar-w: 14.5rem;        /* 232 */
+  --panel-w: 26rem;            /* 416 side panels (transaction)      */
+  --tabbar-h: 3.5rem;          /* 56  phone bottom tab bar (+ safe area) */
+  --sidebar-rail-w: 3.25rem;   /* 52  collapsed sidebar              */
+  --content-max: 72rem;        /* reading-width pages (settings)     */
+
+  /* ---- Radii (tighter than v1's 10px base) ------------------------------ */
+  --round-xs: 3px;    /* kbd, tiny badges, timeline bars      */
+  --round-sm: 4px;    /* chips, checkboxes                    */
+  --round-md: 6px;    /* buttons, inputs, rows                */
+  --round-lg: 8px;    /* cards, popovers, menus               */
+  --round-xl: 12px;   /* dialogs, palette, panels             */
+  --round-2xl: 16px;  /* marketing / login card               */
+  --round-full: 9999px;
+
+  /* ---- Motion ------------------------------------------------------------
+     Short and functional. Everything is disabled under reduced motion.   */
+  --dur-instant: 80ms;   /* hover, press                        */
+  --dur-fast: 120ms;     /* menus, tooltips, row highlight      */
+  --dur-normal: 180ms;   /* panels, palette                     */
+  --dur-slow: 260ms;     /* sheets, timeline re-layout          */
+  --dur-slower: 400ms;   /* scenario switch cross-fade          */
+  --curve-standard: cubic-bezier(0.2, 0, 0, 1);
+  --curve-out: cubic-bezier(0, 0, 0.2, 1);
+  --curve-in: cubic-bezier(0.4, 0, 1, 1);
+  --curve-spring: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---- Z layers ---------------------------------------------------------- */
+  --z-base: 0;
+  --z-raised: 10;          /* sticky table headers, bar labels       */
+  --z-timeline-lines: 20;  /* today + milestone lines                */
+  --z-timeline-handles: 30;/* resize handles, lock buttons           */
+  --z-sticky: 40;          /* app top bar, timeline header           */
+  --z-panel: 200;          /* side panels (release editor)           */
+  --z-modal: 300;          /* dialogs                                */
+  --z-dropdown: 350;       /* menus, pickers, popovers: above the panel
+                              or dialog they open from               */
+  --z-palette: 400;        /* ⌘K                                     */
+  --z-toast: 500;
+  --z-tooltip: 600;
+  --z-drag: 1000;          /* drag guides + labels during a drag     */
+}
+
+/* ---- Density overrides ---------------------------------------------------- */
+:root[data-density="compact"] {
+  --row-h: 1.875rem;
+  --control-h: 1.625rem;
+}
+@media (max-width: 720px) {
+  :root {
+    --row-h: 3rem;
+    --control-h: 2.25rem;
+    --control-h-sm: 1.75rem;
+  }
+}
+/* Touch (phones and tablets): controls reach a 36 px tap target. Fine pointers keep their size. */
+@media (pointer: coarse) {
+  :root,
+  :root[data-density="compact"] {
+    --control-h: 2.25rem;
+    --control-h-sm: 2.25rem;
+  }
+}
+
+/* ---- Dark theme values ---------------------------------------------------
+   Identical in both selectors below (system preference and explicit toggle).
+   Keep them in sync: the explicit block must win in both directions.      */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --canvas: oklch(0.175 0.006 235);
+    --canvas-subtle: oklch(0.158 0.006 235);
+    --surface: oklch(0.2 0.007 235);
+    --surface-raised: oklch(0.235 0.008 235);
+    --surface-sunken: oklch(0.15 0.006 235);
+    --surface-hover: oklch(0.25 0.008 235);
+    --surface-selected: oklch(0.3 0.05 277);
+    --scrim: oklch(0.08 0.005 235 / 0.6);
+    --line: oklch(0.28 0.007 235);
+    --line-strong: oklch(0.36 0.009 235);
+    --line-input: oklch(0.54 0.01 235);
+    --line-subtle: oklch(0.235 0.006 235);
+    --fg: oklch(0.95 0.004 235);
+    --fg-muted: oklch(0.76 0.01 235);
+    --fg-subtle: oklch(0.66 0.01 235);
+    --fg-faint: oklch(0.47 0.01 235);
+    --fg-inverse: oklch(0.18 0.008 235);
+    --inverse: oklch(0.93 0.004 235);
+    --accent: oklch(0.74 0.14 277);
+    --accent-hover: oklch(0.8 0.13 277);
+    --accent-fg: oklch(0.2 0.04 277);
+    --accent-soft: oklch(0.32 0.07 277);
+    --accent-text: oklch(0.82 0.1 277);
+    --focus-ring: oklch(0.74 0.14 277 / 0.55);
+    --success: oklch(0.72 0.14 155);
+    --success-soft: oklch(0.29 0.045 155);
+    --success-text: oklch(0.8 0.13 155);
+    --warning: oklch(0.8 0.14 80);
+    --warning-soft: oklch(0.3 0.05 75);
+    --warning-text: oklch(0.85 0.12 82);
+    --danger: oklch(0.7 0.17 25);
+    --danger-soft: oklch(0.3 0.06 25);
+    --danger-text: oklch(0.78 0.14 25);
+    --info: oklch(0.72 0.12 245);
+    --info-soft: oklch(0.3 0.05 245);
+    --info-text: oklch(0.8 0.1 245);
+    --in: oklch(0.8 0.13 155);
+    --in-soft: oklch(0.29 0.045 155);
+    --in-fill: oklch(0.72 0.14 155);
+    --out-fill: oklch(0.52 0.012 235);
+    --over: oklch(0.78 0.14 25);
+    --over-soft: oklch(0.3 0.06 25);
+    --warn: oklch(0.85 0.12 82);
+    --warn-soft: oklch(0.3 0.05 75);
+    --cat-0: #3987e5;
+    --cat-1: #d95926;
+    --cat-2: #199e70;
+    --cat-3: #c98500;
+    --cat-4: #d55181;
+    --cat-5: #008300;
+    --cat-6: #9085e9;
+    --cat-7: #e66767;
+    --cat-8: #1a9cc4;
+    --cat-9: #b8783a;
+    --elev-xs: 0 1px 1px oklch(0 0 0 / 0.3);
+    --elev-sm: 0 1px 2px oklch(0 0 0 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.03);
+    --elev-md: 0 6px 16px -4px oklch(0 0 0 / 0.5), 0 0 0 1px oklch(1 0 0 / 0.05);
+    --elev-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(1 0 0 / 0.06);
+    --elev-xl: 0 28px 72px -12px oklch(0 0 0 / 0.7), 0 0 0 1px oklch(1 0 0 / 0.07);
+  }
+}
+
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: oklch(0.175 0.006 235);
+  --canvas-subtle: oklch(0.158 0.006 235);
+  --surface: oklch(0.2 0.007 235);
+  --surface-raised: oklch(0.235 0.008 235);
+  --surface-sunken: oklch(0.15 0.006 235);
+  --surface-hover: oklch(0.25 0.008 235);
+  --surface-selected: oklch(0.3 0.05 277);
+  --scrim: oklch(0.08 0.005 235 / 0.6);
+  --line: oklch(0.28 0.007 235);
+  --line-strong: oklch(0.36 0.009 235);
+  --line-input: oklch(0.54 0.01 235);
+  --line-subtle: oklch(0.235 0.006 235);
+  --fg: oklch(0.95 0.004 235);
+  --fg-muted: oklch(0.76 0.01 235);
+  --fg-subtle: oklch(0.66 0.01 235);
+  --fg-faint: oklch(0.47 0.01 235);
+  --fg-inverse: oklch(0.18 0.008 235);
+  --inverse: oklch(0.93 0.004 235);
+  --accent: oklch(0.74 0.14 277);
+  --accent-hover: oklch(0.8 0.13 277);
+  --accent-fg: oklch(0.2 0.04 277);
+  --accent-soft: oklch(0.32 0.07 277);
+  --accent-text: oklch(0.82 0.1 277);
+  --focus-ring: oklch(0.74 0.14 277 / 0.55);
+  --success: oklch(0.72 0.14 155);
+  --success-soft: oklch(0.29 0.045 155);
+  --success-text: oklch(0.8 0.13 155);
+  --warning: oklch(0.8 0.14 80);
+  --warning-soft: oklch(0.3 0.05 75);
+  --warning-text: oklch(0.85 0.12 82);
+  --danger: oklch(0.7 0.17 25);
+  --danger-soft: oklch(0.3 0.06 25);
+  --danger-text: oklch(0.78 0.14 25);
+  --info: oklch(0.72 0.12 245);
+  --info-soft: oklch(0.3 0.05 245);
+  --info-text: oklch(0.8 0.1 245);
+  --in: oklch(0.8 0.13 155);
+  --in-soft: oklch(0.29 0.045 155);
+  --in-fill: oklch(0.72 0.14 155);
+  --out-fill: oklch(0.52 0.012 235);
+  --over: oklch(0.78 0.14 25);
+  --over-soft: oklch(0.3 0.06 25);
+  --warn: oklch(0.85 0.12 82);
+  --warn-soft: oklch(0.3 0.05 75);
+  --cat-0: #3987e5;
+  --cat-1: #d95926;
+  --cat-2: #199e70;
+  --cat-3: #c98500;
+  --cat-4: #d55181;
+  --cat-5: #008300;
+  --cat-6: #9085e9;
+  --cat-7: #e66767;
+  --cat-8: #1a9cc4;
+  --cat-9: #b8783a;
+  --elev-xs: 0 1px 1px oklch(0 0 0 / 0.3);
+  --elev-sm: 0 1px 2px oklch(0 0 0 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.03);
+  --elev-md: 0 6px 16px -4px oklch(0 0 0 / 0.5), 0 0 0 1px oklch(1 0 0 / 0.05);
+  --elev-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(1 0 0 / 0.06);
+  --elev-xl: 0 28px 72px -12px oklch(0 0 0 / 0.7), 0 0 0 1px oklch(1 0 0 / 0.07);
+}
+
+/* Reduced motion: collapse every duration token. Components that animate
+   with keyframes must also guard with @media (prefers-reduced-motion).    */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-normal: 0ms;
+    --dur-slow: 0ms;
+    --dur-slower: 0ms;
+  }
+}
