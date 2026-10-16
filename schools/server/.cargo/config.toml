@@ -1,0 +1,4 @@
+# `cargo run` and `#[sqlx::test]` use the project-local cluster (schools/pg.sh, port 55436).
+# An exported DATABASE_URL wins.
+[env]
+DATABASE_URL = { value = "postgres://schools@localhost:55436/schools", force = false }

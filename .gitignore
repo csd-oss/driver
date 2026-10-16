@@ -57,3 +57,10 @@ app-example
 # App Store Connect API keys
 *.p8
 .vercel
+
+# Driver for driving schools (schools/): local Postgres cluster, Rust target, web build
+/schools/.pg/
+/schools/server/target/
+/schools/web/dist/
+/schools/web/node_modules/
+/schools/.dev-logs/

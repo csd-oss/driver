@@ -1,0 +1,103 @@
+//! Errors are RFC 9457 problem+json with a human `detail` (the web shows it as is) and a
+//! stable machine `code`:
+//!
+//! ```json
+//! {"type":"about:blank","title":"Not Found","status":404,"detail":"Student not found.","code":"not_found"}
+//! ```
+
+use axum::http::{HeaderValue, StatusCode, header};
+use axum::response::{IntoResponse, Response};
+use serde::Serialize;
+
+#[derive(Debug)]
+pub struct AppError {
+    pub status: StatusCode,
+    pub code: &'static str,
+    pub message: String,
+}
+
+pub type AppResult<T> = Result<T, AppError>;
+
+#[derive(Serialize)]
+struct Problem<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    title: &'a str,
+    status: u16,
+    detail: &'a str,
+    code: &'a str,
+}
+
+impl AppError {
+    pub fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
+        Self { status, code, message: message.into() }
+    }
+    pub fn bad_request(code: &'static str, message: impl Into<String>) -> Self {
+        Self::new(StatusCode::BAD_REQUEST, code, message)
+    }
+    /// 400 `invalid_body`.
+    pub fn invalid(message: impl Into<String>) -> Self {
+        Self::bad_request("invalid_body", message)
+    }
+    pub fn unauthorized() -> Self {
+        Self::new(StatusCode::UNAUTHORIZED, "unauthorized", "Prihlásenie vypršalo. Prihláste sa znova.")
+    }
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::FORBIDDEN, "forbidden", message)
+    }
+    /// 404 "`what` not found." (also for things the actor may not see).
+    pub fn not_found(what: &str) -> Self {
+        Self::new(StatusCode::NOT_FOUND, "not_found", format!("{what} sa nenašiel."))
+    }
+    pub fn conflict(code: &'static str, message: impl Into<String>) -> Self {
+        Self::new(StatusCode::CONFLICT, code, message)
+    }
+    pub fn internal() -> Self {
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", "Niečo sa pokazilo na našej strane.")
+    }
+
+    pub fn body(&self) -> serde_json::Value {
+        serde_json::to_value(Problem {
+            kind: "about:blank",
+            title: self.status.canonical_reason().unwrap_or("Error"),
+            status: self.status.as_u16(),
+            detail: &self.message,
+            code: self.code,
+        })
+        .expect("problem serialises")
+    }
+}
+
+impl std::fmt::Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}: {}", self.status.as_u16(), self.code, self.message)
+    }
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let mut res = (self.status, self.body().to_string()).into_response();
+        res.headers_mut()
+            .insert(header::CONTENT_TYPE, HeaderValue::from_static("application/problem+json"));
+        res
+    }
+}
+
+impl From<sqlx::Error> for AppError {
+    fn from(err: sqlx::Error) -> Self {
+        tracing::error!(error = %err, "database error");
+        AppError::internal()
+    }
+}
+
+impl From<anyhow::Error> for AppError {
+    fn from(err: anyhow::Error) -> Self {
+        tracing::error!(error = %err, "internal error");
+        AppError::internal()
+    }
+}
+
+/// True when `err` is a unique-constraint violation on `constraint`.
+pub fn is_unique_violation(err: &sqlx::Error, constraint: &str) -> bool {
+    matches!(err, sqlx::Error::Database(db) if db.constraint() == Some(constraint))
+}
