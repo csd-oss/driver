@@ -149,6 +149,7 @@ impl Progress {
 #[derive(sqlx::FromRow)]
 struct AttemptAgg {
     student_id: Uuid,
+    lang: i32,
     seen: i64,
     total: i64,
     attempts_7d: i64,
@@ -159,6 +160,7 @@ struct AttemptAgg {
 #[derive(sqlx::FromRow)]
 struct MockRow {
     student_id: Uuid,
+    lang: i32,
     score: i32,
     passed: bool,
 }
@@ -166,6 +168,7 @@ struct MockRow {
 #[derive(sqlx::FromRow)]
 struct SnapshotRow {
     student_id: Uuid,
+    lang: i32,
     received_at: OffsetDateTime,
     total_questions: i32,
     mistakes_count: i32,
@@ -202,26 +205,27 @@ pub async fn for_students(conn: &mut PgConnection, ids: &[Uuid]) -> sqlx::Result
             p.last_sync_at = last_sync;
         }
     }
+    // The app's 7-day window is the last seven local calendar days (today included).
     let aggs = sqlx::query_as::<_, AttemptAgg>(
-        "SELECT student_id,
+        "SELECT student_id, lang,
                 count(DISTINCT question_id) AS seen,
                 count(*) AS total,
-                count(*) FILTER (WHERE answered_at > now() - interval '7 days' AND mode <> 'mock') AS attempts_7d,
-                count(*) FILTER (WHERE answered_at > now() - interval '7 days' AND mode <> 'mock' AND is_correct) AS correct_7d,
+                count(*) FILTER (WHERE (answered_at AT TIME ZONE 'Europe/Bratislava')::date >= (now() AT TIME ZONE 'Europe/Bratislava')::date - 6 AND mode <> 'mock') AS attempts_7d,
+                count(*) FILTER (WHERE (answered_at AT TIME ZONE 'Europe/Bratislava')::date >= (now() AT TIME ZONE 'Europe/Bratislava')::date - 6 AND mode <> 'mock' AND is_correct) AS correct_7d,
                 max(answered_at) AS last_at
-           FROM app_attempts WHERE student_id = ANY($1) GROUP BY student_id",
+           FROM app_attempts WHERE student_id = ANY($1) GROUP BY student_id, lang",
     )
     .bind(ids)
     .fetch_all(&mut *conn)
     .await?;
     let mocks = sqlx::query_as::<_, MockRow>(
-        "SELECT student_id, score, passed FROM app_mock_exams WHERE student_id = ANY($1) ORDER BY completed_at DESC",
+        "SELECT student_id, lang, score, passed FROM app_mock_exams WHERE student_id = ANY($1) ORDER BY completed_at DESC",
     )
     .bind(ids)
     .fetch_all(&mut *conn)
     .await?;
     let snapshots = sqlx::query_as::<_, SnapshotRow>(
-        "SELECT DISTINCT ON (student_id) student_id, received_at, total_questions, mistakes_count,
+        "SELECT DISTINCT ON (student_id) student_id, lang, received_at, total_questions, mistakes_count,
                 due_mistakes_count, days_to_ready, streak
            FROM app_snapshots WHERE student_id = ANY($1) ORDER BY student_id, received_at DESC",
     )
@@ -242,13 +246,28 @@ pub async fn for_students(conn: &mut PgConnection, ids: &[Uuid]) -> sqlx::Result
     }
     let mut snapshot_by: HashMap<Uuid, SnapshotRow> = snapshots.into_iter().map(|s| (s.student_id, s)).collect();
     let mut exam_by: HashMap<Uuid, ExamRow> = exams.into_iter().map(|e| (e.student_id, e)).collect();
-    let mut agg_by: HashMap<Uuid, AttemptAgg> = aggs.into_iter().map(|a| (a.student_id, a)).collect();
+    let mut agg_by: HashMap<Uuid, Vec<AttemptAgg>> = HashMap::new();
+    for a in aggs {
+        agg_by.entry(a.student_id).or_default().push(a);
+    }
 
     for id in ids {
         let Some(p) = out.get_mut(id) else { continue };
-        let agg = agg_by.remove(id);
         let snap = snapshot_by.remove(id);
-        let history = mock_history.remove(id).unwrap_or_default();
+        let mut aggs = agg_by.remove(id).unwrap_or_default();
+        // The app scores each language on its own: use the language of the latest snapshot, else
+        // the language with the most answers.
+        let lang = snap.as_ref().map(|s| s.lang).or_else(|| aggs.iter().max_by_key(|a| a.total).map(|a| a.lang));
+        aggs.retain(|a| Some(a.lang) == lang);
+        let agg = aggs.pop();
+        // Like the app's getMockStats: the latest 50 of this language.
+        let history: Vec<MockRow> = mock_history
+            .remove(id)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|m| Some(m.lang) == lang)
+            .take(50)
+            .collect();
         if let Some(e) = exam_by.remove(id) {
             p.exam = Some(ExamOutcome { passed: e.passed, points: e.points, taken_at: e.taken_at });
         }
@@ -271,7 +290,6 @@ pub async fn for_students(conn: &mut PgConnection, ids: &[Uuid]) -> sqlx::Result
             if p.last_sync_at.is_none() {
                 p.last_sync_at = Some(s.received_at);
             }
-            p.linked = true;
         }
         p.mocks_taken = history.len() as i64;
         p.mocks_passed = history.iter().filter(|m| m.passed).count() as i64;

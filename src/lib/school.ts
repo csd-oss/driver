@@ -76,6 +76,7 @@ export interface JoinResult {
  * name the first time (the server answers 422 `name_required` without one).
  */
 export async function joinSchool(code: string, name?: { firstName: string; lastName: string }): Promise<JoinResult> {
+  if (!SCHOOLS_ENABLED) throw new SchoolApiError(0, 'disabled', 'disabled');
   const normalized = normalizeJoinCode(code);
   if (normalized.length !== 8) throw new SchoolApiError(400, 'bad_code', 'bad_code');
   const deviceId = await getDeviceId();
@@ -259,12 +260,20 @@ let syncInFlight: Promise<SyncOutcome> | null = null;
  */
 export async function syncWithSchool({ force = false }: { force?: boolean } = {}): Promise<SyncOutcome> {
   if (!SCHOOLS_ENABLED) return { status: 'not_linked' };
-  if (syncInFlight) return syncInFlight;
-  syncInFlight = doSync(force).finally(() => {
-    syncInFlight = null;
+  if (syncInFlight) {
+    if (!force) return syncInFlight;
+    // A forced sync (after a join, or the button) runs after the one in flight, never instead of it.
+    await syncInFlight.catch(() => undefined);
+  }
+  const run = doSync(force).finally(() => {
+    if (syncInFlight === run) syncInFlight = null;
   });
-  return syncInFlight;
+  syncInFlight = run;
+  return run;
 }
+
+/** How many rounds of SYNC_BATCH one sync drains at most (a long history goes up in one go). */
+const MAX_ROUNDS = 10;
 
 async function doSync(force: boolean): Promise<SyncOutcome> {
   const link = await SchoolLinkDB.getSchoolLink();
@@ -273,11 +282,6 @@ async function doSync(force: boolean): Promise<SyncOutcome> {
     return { status: 'skipped' };
   }
   const lang = await getLanguage();
-  const [attempts, mockExams, examResults] = await Promise.all([
-    SyncDB.getUnsyncedAttempts(lang),
-    SyncDB.getUnsyncedMockExams(lang),
-    SyncDB.getUnsyncedExamResults(lang),
-  ]);
   let forecast: Awaited<ReturnType<typeof getReadinessForecast>> | null = null;
   try {
     forecast = await getReadinessForecast(lang, { useConservative: await getReadinessMode() });
@@ -295,23 +299,53 @@ async function doSync(force: boolean): Promise<SyncOutcome> {
     // Thin snapshot; the server recounts from the events anyway.
   }
   const totalQuestions = Object.keys(buildQuestionIndex(lang)).length;
-  const payload = buildSyncPayload({ lang, attempts, mockExams, examResults, forecast, streak, seenCount, totalQuestions, attempts7d });
-  try {
-    const res = await call<{ synced_at: string }>('/api/v1/app/sync', payload, link.token);
-    const at = new Date(res.synced_at);
-    await SyncDB.markSynced('answer_attempts', attempts.map((a) => a.id), at);
-    await SyncDB.markSynced('mock_exams', mockExams.map((m) => m.id), at);
-    await SyncDB.markSynced('exam_results', examResults.map((e) => e.id), at);
-    await SchoolLinkDB.setSchoolLastSync(at);
-    return { status: 'synced', attempts: attempts.length, mockExams: mockExams.length, examResults: examResults.length };
-  } catch (error) {
-    if (error instanceof SchoolApiError) {
-      if (error.status === 401) {
-        await SchoolLinkDB.clearSchoolLink();
-        return { status: 'unauthorized' };
+
+  const totals = { attempts: 0, mockExams: 0, examResults: 0 };
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    const [attempts, mockExams, examResults] = await Promise.all([
+      SyncDB.getUnsyncedAttempts(lang),
+      SyncDB.getUnsyncedMockExams(lang),
+      SyncDB.getUnsyncedExamResults(lang),
+    ]);
+    // The snapshot describes the whole history; send it with the last batch only.
+    const lastRound = attempts.length < SyncDB.SYNC_BATCH && mockExams.length < SyncDB.SYNC_BATCH;
+    const payload = buildSyncPayload({
+      lang,
+      attempts,
+      mockExams,
+      examResults,
+      forecast: lastRound ? forecast : null,
+      streak,
+      seenCount,
+      totalQuestions,
+      attempts7d,
+    });
+    try {
+      const res = await call<{ synced_at: string }>('/api/v1/app/sync', payload, link.token);
+      // The link may have changed while the request was out (left, joined elsewhere): then this
+      // answer belongs to the old school and must not mark anything.
+      const current = await SchoolLinkDB.getSchoolLink();
+      if (!current || current.token !== link.token) return { status: 'not_linked' };
+      const at = new Date(res.synced_at);
+      await SyncDB.markSynced('answer_attempts', attempts.map((a) => a.id), at);
+      await SyncDB.markSynced('mock_exams', mockExams.map((m) => m.id), at);
+      await SyncDB.markSynced('exam_results', examResults.map((e) => e.id), at);
+      await SchoolLinkDB.setSchoolLastSync(at);
+      totals.attempts += attempts.length;
+      totals.mockExams += mockExams.length;
+      totals.examResults += examResults.length;
+      if (lastRound) break;
+    } catch (error) {
+      if (error instanceof SchoolApiError) {
+        if (error.status === 401) {
+          const current = await SchoolLinkDB.getSchoolLink();
+          if (current && current.token === link.token) await SchoolLinkDB.clearSchoolLink();
+          return { status: 'unauthorized' };
+        }
+        if (error.status === 0) return { status: 'offline' };
       }
-      if (error.status === 0) return { status: 'offline' };
+      return { status: 'error' };
     }
-    return { status: 'error' };
   }
+  return { status: 'synced', ...totals };
 }

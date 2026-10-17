@@ -13,6 +13,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API_PORT="${DEV_API_PORT:-8090}"
 WEB_PORT="${DEV_WEB_PORT:-5190}"
+BIND="${DEV_BIND:-127.0.0.1}"
 LOGS="$ROOT/.dev-logs"
 mkdir -p "$LOGS"
 export PATH="$HOME/.cargo/bin:$PATH"
@@ -46,7 +47,7 @@ fi
 SERVER_PID=""
 cleanup() { [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null || true; }
 trap cleanup EXIT INT TERM
-BIND_ADDR="127.0.0.1:$API_PORT" APP_URL="http://localhost:$WEB_PORT" \
+BIND_ADDR="$BIND:$API_PORT" APP_URL="http://localhost:$WEB_PORT" \
   SCHOOLS_ALLOWED_ORIGINS="${SCHOOLS_ALLOWED_ORIGINS:-http://127.0.0.1:$WEB_PORT,http://localhost:8080,http://127.0.0.1:8080}" \
   "$BIN" serve > "$LOGS/server.log" 2>&1 &
 SERVER_PID=$!
@@ -57,6 +58,11 @@ done
 curl -sf "http://127.0.0.1:$API_PORT/api/v1/health" >/dev/null || die "the server did not start: $LOGS/server.log"
 grep -m1 "seeded\|already exists" "$LOGS/server.log" | sed 's/.*schools: //' || true
 say "dashboard: http://localhost:$WEB_PORT  (API :$API_PORT, sign in as jana@demo.sk / driver)"
-say "app: EXPO_PUBLIC_SCHOOLS_ENABLED=true EXPO_PUBLIC_SCHOOLS_API_URL=http://<this Mac's IP>:$API_PORT npx expo start"
+if [ "$BIND" = 127.0.0.1 ]; then
+  say "app on a simulator: EXPO_PUBLIC_SCHOOLS_ENABLED=true EXPO_PUBLIC_SCHOOLS_API_URL=http://127.0.0.1:$API_PORT npx expo start"
+  say "app on a phone: restart with DEV_BIND=0.0.0.0 and use http://<this Mac's LAN IP>:$API_PORT"
+else
+  say "app: EXPO_PUBLIC_SCHOOLS_ENABLED=true EXPO_PUBLIC_SCHOOLS_API_URL=http://<this Mac's LAN IP>:$API_PORT npx expo start"
+fi
 cd "$ROOT/web"
 API_TARGET="http://127.0.0.1:$API_PORT" WEB_PORT="$WEB_PORT" exec npx vite --port "$WEB_PORT" --strictPort

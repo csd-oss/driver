@@ -1,7 +1,7 @@
 //! Students: the list, one student's card with app progress, enrolment, driving lessons, join
 //! codes and the generated documents.
 
-use super::groups::{self, Training};
+use super::groups::{self, Training, check_user, double_option};
 use super::{JsonBody, required};
 use crate::auth::Principal;
 use crate::error::{AppError, AppResult};
@@ -147,6 +147,7 @@ async fn create(State(state): State<AppState>, who: Principal, JsonBody(s): Json
     let last = required("last_name", &s.last_name)?;
     let mut tx = state.db.begin().await?;
     let id = Uuid::now_v7();
+    sqlx::query("SELECT id FROM schools WHERE id = $1 FOR UPDATE").bind(who.school_id).execute(&mut *tx).await?;
     let register_no: i32 = sqlx::query_scalar("SELECT coalesce(max(register_no), 0) + 1 FROM students WHERE school_id = $1")
         .bind(who.school_id)
         .fetch_one(&mut *tx)
@@ -192,6 +193,7 @@ async fn create(State(state): State<AppState>, who: Principal, JsonBody(s): Json
 pub struct StudentPatch {
     pub first_name: Option<String>,
     pub last_name: Option<String>,
+    #[serde(default, deserialize_with = "double_option")]
     pub birth_date: Option<Option<Date>>,
     pub birth_place: Option<String>,
     pub personal_id: Option<String>,
@@ -200,12 +202,17 @@ pub struct StudentPatch {
     pub phone: Option<String>,
     pub guardian_name: Option<String>,
     pub guardian_contact: Option<String>,
+    #[serde(default, deserialize_with = "double_option")]
     pub guardian_consent_on: Option<Option<Date>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub medical_ok_on: Option<Option<Date>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub psych_ok_on: Option<Option<Date>>,
     pub education_doc_ok: Option<bool>,
+    #[serde(default, deserialize_with = "double_option")]
     pub first_aid_ok_on: Option<Option<Date>>,
     pub needs_glasses: Option<bool>,
+    #[serde(default, deserialize_with = "double_option")]
     pub privacy_notice_on: Option<Option<Date>>,
     pub notes: Option<String>,
 }
@@ -252,6 +259,8 @@ async fn patch(
 
 async fn enrol_in(conn: &mut PgConnection, school_id: Uuid, student_id: Uuid, group_id: Uuid, price_cents: Option<i32>) -> AppResult<()> {
     groups::load_group(conn, school_id, group_id).await?;
+    // One active course per student: serialise moves (the partial unique index is the backstop).
+    sqlx::query("SELECT id FROM students WHERE id = $1 FOR UPDATE").bind(student_id).execute(&mut *conn).await?;
     sqlx::query("UPDATE enrolments SET status = 'transferred' WHERE student_id = $1 AND status = 'active' AND group_id <> $2")
         .bind(student_id)
         .bind(group_id)
@@ -357,6 +366,7 @@ async fn add_driving_lesson(
     }
     let mut tx = state.db.begin().await?;
     let student = load_student(&mut tx, who.school_id, id).await?;
+    check_user(&mut tx, who.school_id, l.instructor_id).await?;
     sqlx::query(
         "INSERT INTO driving_lessons (id, student_id, group_id, instructor_id, held_on, starts_at, lessons, kind, km, vehicle, notes)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
@@ -484,16 +494,17 @@ async fn detail(State(state): State<AppState>, who: Principal, Path(id): Path<Uu
                 "SELECT coalesce(sum(t.lessons) FILTER (WHERE a.present), 0),
                         (SELECT coalesce(sum(lessons), 0) FROM theory_lessons WHERE group_id = $2 AND held_on <= CURRENT_DATE)
                    FROM theory_attendance a JOIN theory_lessons t ON t.id = a.lesson_id
-                  WHERE a.student_id = $1 AND t.group_id = $2",
+                  WHERE a.student_id = $1 AND t.group_id = $2 AND t.held_on <= CURRENT_DATE",
             )
             .bind(id)
             .bind(g)
             .fetch_one(&mut *conn)
             .await?;
             let (lessons, km): (i64, i64) = sqlx::query_as(
-                "SELECT coalesce(sum(lessons), 0), coalesce(sum(km), 0) FROM driving_lessons WHERE student_id = $1 AND kind <> 'PU'",
+                "SELECT coalesce(sum(lessons), 0), coalesce(sum(km), 0) FROM driving_lessons WHERE student_id = $1 AND group_id = $2",
             )
             .bind(id)
+            .bind(g)
             .fetch_one(&mut *conn)
             .await?;
             Training { theory_present: present, theory_held: held, driving_lessons: lessons, driving_km: km }

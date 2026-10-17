@@ -195,7 +195,10 @@ fn student_name(s: &StudentRow) -> String {
 fn is_minor_at(s: &StudentRow, on: Date) -> bool {
     match s.birth_date {
         Some(b) => {
-            let eighteen = b.replace_year(b.year() + 18).unwrap_or(b);
+            // 29 February: the 18th birthday falls on 1 March of a non-leap year.
+            let eighteen = b
+                .replace_year(b.year() + 18)
+                .unwrap_or_else(|_| Date::from_calendar_date(b.year() + 18, time::Month::March, 1).expect("valid"));
             on < eighteen
         }
         None => false,
@@ -327,7 +330,8 @@ pub fn course_certificate(ctx: &StudentContext) -> PdfResult {
     let st = ctx.student;
     let category = ctx.group.map(|g| g.category.clone()).unwrap_or_else(|| "B".into());
     let course_no = ctx.group.map(|g| g.jiscd_course_no.clone()).unwrap_or_default();
-    let start = ctx.enrolment.map(|e| e.enrolled_on).or(ctx.group.and_then(|g| g.starts_on));
+    // The course's dates; a student who joined late keeps the course start (that is what the osvedčenie shows).
+    let start = ctx.group.and_then(|g| g.starts_on).or(ctx.enrolment.map(|e| e.enrolled_on));
     let end = ctx.enrolment.and_then(|e| e.finished_on).or(ctx.group.and_then(|g| g.ends_on));
     let registration = format!(
         "registrácia autoškoly č. {}; živnostenské oprávnenie č. {}",
@@ -347,7 +351,7 @@ pub fn course_certificate(ctx: &StudentContext) -> PdfResult {
     doc.push(Break::new(1.0));
     let theory_req = ctx.group.map(|g| g.theory_lessons_required).unwrap_or(32);
     let driving_req = ctx.group.map(|g| g.driving_lessons_required).unwrap_or(39);
-    let driving_done: i32 = ctx.driving.iter().filter(|d| d.kind != "PU").map(|d| d.lessons).sum();
+    let driving_done: i32 = ctx.driving.iter().map(|d| d.lessons).sum();
     doc.push(p(format!(
         "Účastník kurzu absolvoval výučbu teórie a praktický výcvik podľa učebných osnov pre skupinu {category} \
          (predpísaný rozsah: {theory_req} vyučovacích hodín teórie, {driving_req} vyučovacích hodín praktického výcviku; \
@@ -409,7 +413,7 @@ pub fn training_agreement(ctx: &StudentContext) -> PdfResult {
     )));
 
     doc.push(h2("3. Začatie, trvanie, štruktúra a obsah kurzu"));
-    let start = ctx.enrolment.map(|e| e.enrolled_on).or(ctx.group.and_then(|g| g.starts_on));
+    let start = ctx.group.and_then(|g| g.starts_on).or(ctx.enrolment.map(|e| e.enrolled_on));
     let theory_req = ctx.group.map(|g| g.theory_lessons_required).unwrap_or(32);
     let driving_req = ctx.group.map(|g| g.driving_lessons_required).unwrap_or(39);
     doc.push(p(format!(
@@ -547,7 +551,7 @@ pub fn progress_report(ctx: &StudentContext) -> PdfResult {
     }
     doc.push(Break::new(0.8));
     doc.push(h2("Jazdy"));
-    let total: i32 = ctx.driving.iter().filter(|d| d.kind != "PU").map(|d| d.lessons).sum();
+    let total: i32 = ctx.driving.iter().map(|d| d.lessons).sum();
     let required = ctx.group.map(|g| g.driving_lessons_required).unwrap_or(39);
     doc.push(p(format!("Zaznamenaných {total} z {required} vyučovacích hodín praktického výcviku.")));
     if !ctx.driving.is_empty() {
@@ -600,31 +604,45 @@ pub fn attendance_sheet(ctx: &GroupContext) -> PdfResult {
     doc.push(small(format!("kurz {} · skupina {} · {} vyučovacích hodín predpísaných", ctx.group.name, ctx.group.category, ctx.group.theory_lessons_required)).aligned(Alignment::Center));
     doc.push(Break::new(0.8));
     let held: i32 = ctx.lessons.iter().map(|l| l.lessons).sum();
-    let mut weights = vec![6usize, 2];
-    weights.extend(ctx.lessons.iter().map(|_| 1usize));
-    weights.push(2);
-    let mut t = TableLayout::new(weights);
-    t.set_cell_decorator(FrameCellDecorator::new(true, true, true));
     let hs = style::Style::new().bold().with_font_size(7);
     let cs = style::Style::new().with_font_size(8);
-    let mut head = t.row().element(p("Účastník").styled(hs).padded(1)).element(p("Č.").styled(hs).padded(1));
-    for l in ctx.lessons {
-        head = head.element(p(format!("{}\n{}\n{}h", l.held_on.format(format_description!("[day].[month]")).unwrap_or_default(), l.subject, l.lessons)).styled(hs).padded(1));
-    }
-    head.element(p("Spolu").styled(hs).padded(1)).push().map_err(|e| anyhow::anyhow!("{e}"))?;
-    for s in ctx.students {
-        let mut row = t.row().element(p(student_name(s)).styled(cs).padded(1)).element(p(s.register_no.to_string()).styled(cs).padded(1));
-        let mut present = 0;
-        for l in ctx.lessons {
-            let here = l.present_ids.contains(&s.id);
-            if here {
-                present += l.lessons;
-            }
-            row = row.element(p(if here { "✓" } else { "–" }).aligned(Alignment::Center).styled(cs).padded(1));
+    // Ten lesson columns fit a portrait page; a longer course continues in another table.
+    const PER_TABLE: usize = 10;
+    let chunks: Vec<&[Lesson]> = if ctx.lessons.is_empty() { vec![&[][..]] } else { ctx.lessons.chunks(PER_TABLE).collect() };
+    let last = chunks.len() - 1;
+    for (i, lessons) in chunks.iter().enumerate() {
+        let mut weights = vec![6usize, 2];
+        weights.extend(lessons.iter().map(|_| 1usize));
+        if i == last {
+            weights.push(2);
         }
-        row.element(p(format!("{present}/{held}")).styled(cs).padded(1)).push().map_err(|e| anyhow::anyhow!("{e}"))?;
+        let mut t = TableLayout::new(weights);
+        t.set_cell_decorator(FrameCellDecorator::new(true, true, true));
+        let mut head = t.row().element(p("Účastník").styled(hs).padded(1)).element(p("Č.").styled(hs).padded(1));
+        for l in lessons.iter() {
+            head = head.element(p(format!("{}\n{}\n{}h", l.held_on.format(format_description!("[day].[month]")).unwrap_or_default(), l.subject, l.lessons)).styled(hs).padded(1));
+        }
+        if i == last {
+            head = head.element(p("Spolu").styled(hs).padded(1));
+        }
+        head.push().map_err(|e| anyhow::anyhow!("{e}"))?;
+        for s in ctx.students {
+            let mut row = t.row().element(p(student_name(s)).styled(cs).padded(1)).element(p(s.register_no.to_string()).styled(cs).padded(1));
+            for l in lessons.iter() {
+                let here = l.present_ids.contains(&s.id);
+                row = row.element(p(if here { "✓" } else { "–" }).aligned(Alignment::Center).styled(cs).padded(1));
+            }
+            if i == last {
+                let present: i32 = ctx.lessons.iter().filter(|l| l.present_ids.contains(&s.id)).map(|l| l.lessons).sum();
+                row = row.element(p(format!("{present}/{held}")).styled(cs).padded(1));
+            }
+            row.push().map_err(|e| anyhow::anyhow!("{e}"))?;
+        }
+        doc.push(t);
+        if i != last {
+            doc.push(Break::new(0.8));
+        }
     }
-    doc.push(t);
     doc.push(Break::new(1.0));
     doc.push(small("Predmety: PCP predpisy o cestnej premávke · NVU náuka o vozidlách a ich údržba · TVV teória vedenia vozidla · ZBJ zásady bezpečnej jazdy · OP opakovanie. Záväzná evidencia účasti je elektronická triedna kniha v JISCD (§ 18 vyhlášky č. 45/2016 Z. z.)."));
     doc.push(small(format!("Vystavil(a) {} · {}", ctx.issued_by, fmt_date(today()))));

@@ -62,7 +62,11 @@ export const useLogin = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { email: string; password: string }) => api.post<Me>('/api/v1/auth/login', body),
-    onSuccess: (me) => qc.setQueryData(keys.me, me),
+    onSuccess: (me) => {
+      // Another school may have been signed in before in this tab: forget everything it loaded.
+      qc.clear()
+      qc.setQueryData(keys.me, me)
+    },
   })
 }
 
@@ -77,7 +81,7 @@ export const useCreateGroup = () =>
   useInvalidating((body: Partial<Group> & { name: string }) => api.post<Group>('/api/v1/groups', body), () => [keys.groups, keys.overview])
 
 export const usePatchGroup = (id: string) =>
-  useInvalidating((body: Record<string, unknown>) => api.patch<Group>(`/api/v1/groups/${id}`, body), () => [keys.groups, keys.group(id), keys.overview])
+  useInvalidating((body: Record<string, unknown>) => api.patch<Group>(`/api/v1/groups/${id}`, body), () => [keys.groups, keys.group(id), keys.overview, ['students']])
 
 export const useGroupJoinCode = (id: string) => useInvalidating(() => api.post<JoinCode>(`/api/v1/groups/${id}/join-code`), () => [keys.group(id)])
 
@@ -85,13 +89,13 @@ export const useAddLesson = (groupId: string) =>
   useInvalidating(
     (body: { held_on: string; starts_at?: string; lessons: number; subject: string; topic?: string; present_ids?: string[] }) =>
       api.post<Lesson>(`/api/v1/groups/${groupId}/lessons`, body),
-    () => [keys.lessons(groupId), keys.group(groupId), keys.groups],
+    () => [keys.lessons(groupId), keys.group(groupId), keys.groups, ['students']],
   )
 
 export const useSetAttendance = (groupId: string) =>
   useInvalidating(
     ({ lessonId, present_ids }: { lessonId: string; present_ids: string[] }) => api.put<Lesson>(`/api/v1/lessons/${lessonId}/attendance`, { present_ids }),
-    () => [keys.lessons(groupId), keys.group(groupId), keys.groups],
+    () => [keys.lessons(groupId), keys.group(groupId), keys.groups, ['students']],
   )
 
 export const useCreateStudent = () =>

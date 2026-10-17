@@ -341,3 +341,97 @@ impl TestApp {
         Self { url: format!("http://{addr}"), http, _server: server }
     }
 }
+
+/// The review's P1s: synced rows belong to the student who sent them, attendance edits keep former
+/// students' history, PATCH null clears a date, foreign instructors are refused.
+#[sqlx::test(migrator = "schools::MIGRATOR")]
+async fn review_fixes_hold(pool: PgPool) {
+    let app = TestApp::spawn(pool.clone()).await;
+    app.login(schools::seed::DEMO_ADMIN, schools::seed::DEMO_PASSWORD).await;
+    let groups = app.json("/api/v1/groups").await;
+    let group_id = groups[1]["id"].as_str().unwrap().to_owned();
+
+    // Two students, two tokens, the same app row id for a mock exam.
+    let mut tokens = Vec::new();
+    let mut ids = Vec::new();
+    for name in ["Prvý", "Druhý"] {
+        let s: Value = app.post("/api/v1/students", json!({ "first_name": name, "last_name": "Test", "group_id": group_id })).await.json().await.unwrap();
+        let code: Value = app.post(&format!("/api/v1/students/{}/join-code", s["id"].as_str().unwrap()), json!({})).await.json().await.unwrap();
+        let joined: Value = app
+            .app_post("/api/v1/app/join", "", json!({ "code": code["code"], "device_id": format!("dev-{name}") }))
+            .await
+            .json()
+            .await
+            .unwrap();
+        tokens.push(joined["token"].as_str().unwrap().to_owned());
+        ids.push(s["id"].as_str().unwrap().to_owned());
+    }
+    let mock_id = uuid::Uuid::new_v4();
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let mock = |score: i32| json!({ "mock_exams": [{ "id": mock_id, "score": score, "max_score": 100, "min_to_pass": 90, "passed": score >= 90, "completed_at": now }] });
+    assert_eq!(app.app_post("/api/v1/app/sync", &tokens[0], mock(95)).await.status(), StatusCode::OK);
+    assert_eq!(app.app_post("/api/v1/app/sync", &tokens[1], mock(40)).await.status(), StatusCode::OK);
+    let first = app.json(&format!("/api/v1/students/{}", ids[0])).await;
+    assert_eq!(first["mocks"][0]["score"], 95, "the second student's sync must not touch the first's exam");
+    let second = app.json(&format!("/api/v1/students/{}", ids[1])).await;
+    assert_eq!(second["mocks"][0]["score"], 40);
+
+    // Attendance history survives a student leaving the course.
+    let lesson: Value = app
+        .post(&format!("/api/v1/groups/{group_id}/lessons"), json!({ "held_on": "2026-10-01", "lessons": 2, "present_ids": [ids[0], ids[1]] }))
+        .await
+        .json()
+        .await
+        .unwrap();
+    app.post(&format!("/api/v1/students/{}/enrol", ids[1]), json!({ "group_id": group_id, "status": "withdrawn" })).await;
+    let edited: Value = app
+        .http
+        .put(format!("{}/api/v1/lessons/{}/attendance", app.url, lesson["id"].as_str().unwrap()))
+        .header("origin", "http://localhost:5190")
+        .json(&json!({ "present_ids": [ids[0]] }))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let present: Vec<&str> = edited["present_ids"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+    assert!(present.contains(&ids[1].as_str()), "the withdrawn student's attendance is history, not deleted");
+
+    // PATCH with null clears; a foreign instructor is refused.
+    app.http
+        .patch(format!("{}/api/v1/students/{}", app.url, ids[0]))
+        .header("origin", "http://localhost:5190")
+        .json(&json!({ "medical_ok_on": "2026-09-01" }))
+        .send()
+        .await
+        .unwrap();
+    let cleared: Value = app
+        .http
+        .patch(format!("{}/api/v1/students/{}", app.url, ids[0]))
+        .header("origin", "http://localhost:5190")
+        .json(&json!({ "medical_ok_on": null }))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(cleared["medical_ok_on"].is_null());
+    let other_school = uuid::Uuid::now_v7();
+    sqlx::query("INSERT INTO schools (id, name) VALUES ($1, 'Iná')").bind(other_school).execute(&pool).await.unwrap();
+    let foreign_user = uuid::Uuid::now_v7();
+    sqlx::query("INSERT INTO users (id, school_id, email, name, role, password_hash) VALUES ($1, $2, 'f@ina.sk', 'F', 'instructor', 'x')")
+        .bind(foreign_user)
+        .bind(other_school)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let refused = app.post("/api/v1/groups", json!({ "name": "X", "lead_instructor_id": foreign_user })).await;
+    assert_eq!(refused.status(), StatusCode::NOT_FOUND);
+    // A new group code retires the old one.
+    let c1: Value = app.post(&format!("/api/v1/groups/{group_id}/join-code"), json!({})).await.json().await.unwrap();
+    let _c2: Value = app.post(&format!("/api/v1/groups/{group_id}/join-code"), json!({})).await.json().await.unwrap();
+    let old = app.app_post("/api/v1/app/join", "", json!({ "code": c1["code"], "device_id": "dev-old", "first_name": "A", "last_name": "B" })).await;
+    assert_eq!(old.status(), StatusCode::NOT_FOUND);
+}

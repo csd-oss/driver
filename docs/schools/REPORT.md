@@ -90,7 +90,35 @@ The worktree reuses the main checkout's `node_modules` through a symlink (gitign
 
 ## Codex review (one round)
 
-See the section at the end of this file; the raw transcript is not committed (`schools/.dev-logs/`).
+`codex exec -m gpt-6.1-sol -c model_reasoning_effort=high -s read-only`, 8 minutes, 26 findings.
+It was a good review: three real P1s and a long tail of P2s, no false positives that I could see.
+The raw output is not committed (it sits in `schools/.dev-logs/codex-review.md` on this Mac).
+
+Fixed in the follow-up commit (with a regression test for the first four):
+- Sync upserts keyed by `(student, app id)`, so one student's sync can never touch another's rows
+  and a student who changes school brings the history along instead of hitting id conflicts.
+- Editing attendance no longer deletes rows of students who have since left the course.
+- Branch and instructor ids are checked against the school on create/patch/lesson/driving lesson.
+- Group-code recovery by device id only works over a live link and an active enrolment; codes
+  of finished or archived courses stop working; "Nový kód" retires the previous code.
+- Readiness: one language per student (the latest snapshot's), mock history capped at the app's
+  50, 7-day window on local calendar days; a retained snapshot no longer counts as "linked".
+- PATCH with JSON `null` clears dates and the instructor (omitted still means unchanged).
+- Driving totals are per course and include the practical-maintenance lesson, so 39/39 is
+  reachable; future theory lessons no longer inflate attendance; "first attempt" pass rate is
+  the first attempt; certificate and agreement print the course start, not the enrolment date;
+  29 February birthdays; the attendance sheet pages its columns ten per table.
+- Register numbers and course moves are serialised (row locks, one-active-enrolment index).
+- App: the flag now also guards the screen and `joinSchool`; a sync only marks rows if the link
+  is still the one it sent with (leave + rejoin race); a forced sync waits for the one in flight;
+  a long history is drained in batches in one go.
+- Web: the query cache is cleared on sign-out/401 and on a new login; theory and course mutations
+  refresh student queries; phones get a top navigation strip.
+- `dev.sh` takes `DEV_BIND=0.0.0.0` for a phone on the LAN and says so.
+
+Not fixed, on purpose: the app's conservative readiness mode is not mirrored server-side (the
+dashboard shows the standard score; the app's own score arrives in the snapshot), and the browser
+cookie's Max-Age is not re-issued on every sliding touch (a 30-day re-login, acceptable for now).
 
 ## Open questions for Mykhailo
 

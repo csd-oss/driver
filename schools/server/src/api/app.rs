@@ -134,10 +134,20 @@ async fn join(State(state): State<AppState>, JsonBody(req): JsonBody<JoinRequest
     let student_id = match (row.student_id, row.group_id) {
         (Some(s), _) => s,
         (None, Some(group_id)) => {
-            // The same device joining the same group again (reinstall) gets its old student back.
+            let open: bool = sqlx::query_scalar("SELECT status IN ('planned', 'running') FROM groups WHERE id = $1")
+                .bind(group_id)
+                .fetch_one(&mut *tx)
+                .await?;
+            if !open {
+                return Err(AppError::new(axum::http::StatusCode::NOT_FOUND, "bad_code", "Tento kurz už skončil. Overte si kód v autoškole."));
+            }
+            // The same device joining the same group again (reinstall over a live link) gets its
+            // old student back. A revoked link (the student left) or a closed enrolment does not
+            // qualify: then it is a new student, which the school can merge by hand.
             let existing: Option<Uuid> = sqlx::query_scalar(
                 "SELECT l.student_id FROM app_links l JOIN enrolments e ON e.student_id = l.student_id
-                  WHERE l.device_id = $1 AND e.group_id = $2 ORDER BY l.linked_at DESC LIMIT 1",
+                  WHERE l.device_id = $1 AND e.group_id = $2 AND l.revoked_at IS NULL AND e.status = 'active'
+                  ORDER BY l.linked_at DESC LIMIT 1",
             )
             .bind(&device_id)
             .bind(group_id)
@@ -156,6 +166,8 @@ async fn join(State(state): State<AppState>, JsonBody(req): JsonBody<JoinRequest
                         ));
                     }
                     let id = Uuid::now_v7();
+                    // Serialise register numbers per school (two joins at once must not collide).
+                    sqlx::query("SELECT id FROM schools WHERE id = $1 FOR UPDATE").bind(row.school_id).execute(&mut *tx).await?;
                     let register_no: i32 = sqlx::query_scalar(
                         "SELECT coalesce(max(register_no), 0) + 1 FROM students WHERE school_id = $1",
                     )
@@ -315,7 +327,7 @@ async fn sync(State(state): State<AppState>, who: AppPrincipal, JsonBody(req): J
         sqlx::query(
             "INSERT INTO app_attempts (id, student_id, lang, question_id, mode, category_text, is_correct, response_time_ms, answered_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             ON CONFLICT (id) DO NOTHING",
+             ON CONFLICT (student_id, id) DO NOTHING",
         )
         .bind(a.id)
         .bind(who.student_id)
@@ -333,7 +345,7 @@ async fn sync(State(state): State<AppState>, who: AppPrincipal, JsonBody(req): J
         sqlx::query(
             "INSERT INTO app_mock_exams (id, student_id, lang, score, max_score, min_to_pass, passed, duration_sec, completed_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             ON CONFLICT (id) DO UPDATE SET score = excluded.score, passed = excluded.passed, completed_at = excluded.completed_at",
+             ON CONFLICT (student_id, id) DO UPDATE SET score = excluded.score, passed = excluded.passed, completed_at = excluded.completed_at",
         )
         .bind(m.id)
         .bind(who.student_id)
@@ -351,7 +363,7 @@ async fn sync(State(state): State<AppState>, who: AppPrincipal, JsonBody(req): J
         sqlx::query(
             "INSERT INTO app_exam_results (id, student_id, lang, passed, points, max_points, min_to_pass, readiness_score, taken_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             ON CONFLICT (id) DO NOTHING",
+             ON CONFLICT (student_id, id) DO NOTHING",
         )
         .bind(e.id)
         .bind(who.student_id)

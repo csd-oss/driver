@@ -18,6 +18,7 @@ import {
   type SchoolLink,
 } from '@/src/lib/school';
 import { getCachedLanguage, getLanguage } from '@/src/lib/settings';
+import { SCHOOLS_ENABLED } from '@/src/lib/flags';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
@@ -42,6 +43,13 @@ export default function SchoolScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // The route exists in every build; without the flag it only shows the way back.
+  useFocusEffect(
+    useCallback(() => {
+      if (!SCHOOLS_ENABLED) router.replace('/settings');
+    }, [router])
+  );
 
   const load = useCallback(async () => {
     setLang(await getLanguage());

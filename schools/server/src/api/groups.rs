@@ -117,7 +117,7 @@ async fn training_for(
     let present = sqlx::query_as::<_, AttendanceAgg>(
         "SELECT a.student_id, coalesce(sum(t.lessons), 0) AS present
            FROM theory_attendance a JOIN theory_lessons t ON t.id = a.lesson_id
-          WHERE t.group_id = $1 AND a.present AND a.student_id = ANY($2) GROUP BY a.student_id",
+          WHERE t.group_id = $1 AND t.held_on <= CURRENT_DATE AND a.present AND a.student_id = ANY($2) GROUP BY a.student_id",
     )
     .bind(group_id)
     .bind(ids)
@@ -128,11 +128,13 @@ async fn training_for(
             t.theory_present = p.present;
         }
     }
+    // Lessons of this course only (the curriculum's 39 h for B include the practical-maintenance lesson).
     let driving = sqlx::query_as::<_, DrivingAgg>(
         "SELECT student_id, coalesce(sum(lessons), 0) AS lessons, coalesce(sum(km), 0) AS km
-           FROM driving_lessons WHERE student_id = ANY($1) AND kind <> 'PU' GROUP BY student_id",
+           FROM driving_lessons WHERE student_id = ANY($1) AND group_id = $2 GROUP BY student_id",
     )
     .bind(ids)
+    .bind(group_id)
     .fetch_all(&mut *conn)
     .await?;
     for d in driving {
@@ -165,6 +167,45 @@ fn stats_of(progress: &[&Progress], training: &[&Training]) -> GroupStats {
         avg_theory_attendance: avg_att,
         avg_driving_lessons: avg_drive,
     }
+}
+
+/// A branch id must belong to the school (a foreign key only proves it exists somewhere).
+pub async fn check_branch(conn: &mut PgConnection, school_id: Uuid, branch_id: Option<Uuid>) -> AppResult<()> {
+    if let Some(id) = branch_id {
+        let ok: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM branches WHERE id = $1 AND school_id = $2)")
+            .bind(id)
+            .bind(school_id)
+            .fetch_one(conn)
+            .await?;
+        if !ok {
+            return Err(AppError::not_found("Pobočka"));
+        }
+    }
+    Ok(())
+}
+
+/// An instructor id must be a user of the school.
+pub async fn check_user(conn: &mut PgConnection, school_id: Uuid, user_id: Option<Uuid>) -> AppResult<()> {
+    if let Some(id) = user_id {
+        let ok: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND school_id = $2)")
+            .bind(id)
+            .bind(school_id)
+            .fetch_one(conn)
+            .await?;
+        if !ok {
+            return Err(AppError::not_found("Inštruktor"));
+        }
+    }
+    Ok(())
+}
+
+/// Serde: distinguish an omitted field (`None`) from JSON `null` (`Some(None)`), so a PATCH can clear a value.
+pub fn double_option<'de, T, D>(d: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: serde::Deserialize<'de>,
+    D: serde::Deserializer<'de>,
+{
+    serde::Deserialize::deserialize(d).map(Some)
 }
 
 async fn active_student_ids(conn: &mut PgConnection, group_id: Uuid) -> sqlx::Result<Vec<Uuid>> {
@@ -220,6 +261,9 @@ async fn create(State(state): State<AppState>, who: Principal, JsonBody(g): Json
     let name = required("name", &g.name)?;
     let status = g.status.unwrap_or_else(|| "planned".into());
     check_status(&status)?;
+    let mut conn = state.db.acquire().await?;
+    check_branch(&mut conn, who.school_id, g.branch_id).await?;
+    check_user(&mut conn, who.school_id, g.lead_instructor_id).await?;
     let id = Uuid::now_v7();
     sqlx::query(
         "INSERT INTO groups (id, school_id, branch_id, name, category, jiscd_course_no, starts_on, ends_on, exam_on,
@@ -239,9 +283,8 @@ async fn create(State(state): State<AppState>, who: Principal, JsonBody(g): Json
     .bind(g.theory_lessons_required.unwrap_or(32))
     .bind(g.driving_lessons_required.unwrap_or(39))
     .bind(&status)
-    .execute(&state.db)
+    .execute(&mut *conn)
     .await?;
-    let mut conn = state.db.acquire().await?;
     Ok(Json(load_group(&mut conn, who.school_id, id).await?))
 }
 
@@ -250,9 +293,13 @@ pub struct GroupPatch {
     pub name: Option<String>,
     pub category: Option<String>,
     pub jiscd_course_no: Option<String>,
+    #[serde(default, deserialize_with = "double_option")]
     pub starts_on: Option<Option<Date>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub ends_on: Option<Option<Date>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub exam_on: Option<Option<Date>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub lead_instructor_id: Option<Option<Uuid>>,
     pub status: Option<String>,
 }
@@ -267,6 +314,9 @@ async fn patch(
     let current = load_group(&mut conn, who.school_id, id).await?;
     if let Some(s) = &p.status {
         check_status(s)?;
+    }
+    if let Some(Some(instructor)) = p.lead_instructor_id {
+        check_user(&mut conn, who.school_id, Some(instructor)).await?;
     }
     let name = match p.name {
         Some(n) => required("name", &n)?,
@@ -387,6 +437,16 @@ pub async fn new_code(
     uses_left: Option<i32>,
 ) -> AppResult<JoinCode> {
     let expires_at = OffsetDateTime::now_utc() + valid_for;
+    // A new code replaces the old ones: "Nový kód" is how a school retires a code that leaked.
+    sqlx::query(
+        "UPDATE join_codes SET expires_at = now()
+          WHERE expires_at > now() AND school_id = $1 AND group_id IS NOT DISTINCT FROM $2 AND student_id IS NOT DISTINCT FROM $3",
+    )
+    .bind(school_id)
+    .bind(group_id)
+    .bind(student_id)
+    .execute(&mut *conn)
+    .await?;
     for _ in 0..5 {
         let code = readable_code(8);
         let res = sqlx::query(
@@ -473,6 +533,7 @@ async fn add_lesson(
     }
     let mut tx = state.db.begin().await?;
     load_group(&mut tx, who.school_id, id).await?;
+    check_user(&mut tx, who.school_id, l.instructor_id).await?;
     let lesson_id = Uuid::now_v7();
     sqlx::query(
         "INSERT INTO theory_lessons (id, group_id, instructor_id, held_on, starts_at, lessons, subject, topic)
@@ -498,16 +559,32 @@ async fn add_lesson(
     lessons.into_iter().find(|x| x.id == lesson_id).map(Json).ok_or_else(AppError::internal)
 }
 
+/// Mark who was there. Active members not in `present` are marked absent; rows of students who
+/// have since left the course are kept as they were (history), unless `present` names them.
 async fn write_attendance(conn: &mut PgConnection, lesson_id: Uuid, group_id: Uuid, present: &[Uuid]) -> AppResult<()> {
     let members = active_student_ids(conn, group_id).await?;
-    sqlx::query("DELETE FROM theory_attendance WHERE lesson_id = $1").bind(lesson_id).execute(&mut *conn).await?;
-    for s in members {
-        sqlx::query("INSERT INTO theory_attendance (lesson_id, student_id, present) VALUES ($1, $2, $3)")
-            .bind(lesson_id)
-            .bind(s)
-            .bind(present.contains(&s))
-            .execute(&mut *conn)
-            .await?;
+    // Only students who were ever enrolled in this course can be marked present.
+    let eligible: Vec<Uuid> = sqlx::query_scalar("SELECT student_id FROM enrolments WHERE group_id = $1 AND student_id = ANY($2)")
+        .bind(group_id)
+        .bind(present)
+        .fetch_all(&mut *conn)
+        .await?;
+    let mut rows: Vec<(Uuid, bool)> = members.iter().map(|s| (*s, present.contains(s))).collect();
+    for s in eligible {
+        if !members.contains(&s) {
+            rows.push((s, true));
+        }
+    }
+    for (s, there) in rows {
+        sqlx::query(
+            "INSERT INTO theory_attendance (lesson_id, student_id, present) VALUES ($1, $2, $3)
+             ON CONFLICT (lesson_id, student_id) DO UPDATE SET present = excluded.present",
+        )
+        .bind(lesson_id)
+        .bind(s)
+        .bind(there)
+        .execute(&mut *conn)
+        .await?;
     }
     Ok(())
 }

@@ -34,7 +34,40 @@ function NavAnchor({ icon: Icon, className, children, ...props }: ComponentProps
 
 const NavItem = createLink(NavAnchor)
 
-/** Desktop sidebar; on phones it becomes a top strip. */
+/** Phones (under 900px): a top strip with the four screens and sign-out, since the sidebar is hidden. */
+export function MobileNav() {
+  const logout = useLogout()
+  const navigate = useNavigate()
+  return (
+    <nav aria-label="Navigácia" className="flex items-center gap-1 overflow-x-auto border-b border-line bg-canvas-subtle px-2 py-1.5 desk:hidden">
+      <Logo className="mr-1 size-6 flex-none" />
+      {SCREENS.map((s) => (
+        <NavItem key={s.path} to={s.path} icon={s.icon} className="h-9 flex-none px-2.5">
+          {s.title}
+        </NavItem>
+      ))}
+      <Button
+        variant="ghost"
+        size="sm"
+        icon
+        aria-label="Odhlásiť"
+        className="ml-auto flex-none"
+        onClick={() =>
+          logout.mutate(undefined, {
+            onSettled: () => {
+              signedOut()
+              void navigate({ to: '/prehlad' })
+            },
+          })
+        }
+      >
+        <LogOutIcon aria-hidden />
+      </Button>
+    </nav>
+  )
+}
+
+/** Desktop sidebar (900px and up). */
 export function Sidebar() {
   const auth = useAuth()
   const school = useSchool()

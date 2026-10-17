@@ -124,6 +124,8 @@ CREATE TABLE enrolments (
   UNIQUE (student_id, group_id)
 );
 CREATE INDEX enrolments_group_idx ON enrolments(group_id);
+-- One active course per student (enrol_in moves the previous one to `transferred`).
+CREATE UNIQUE INDEX enrolments_one_active_idx ON enrolments(student_id) WHERE status = 'active';
 
 -- A code the student types into the app. Group codes enrol into the group; student codes link one
 -- known student. `uses_left` NULL = unlimited until it expires.
@@ -195,7 +197,7 @@ CREATE INDEX driving_lessons_student_idx ON driving_lessons(student_id);
 -- Progress synced from the app. Raw events are copies of the app's own rows (same ids), so a
 -- resync is idempotent; `snapshots` is what the app computed at sync time.
 CREATE TABLE app_attempts (
-  id uuid PRIMARY KEY,
+  id uuid NOT NULL,
   student_id uuid NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   lang integer NOT NULL,
   question_id text NOT NULL,
@@ -203,12 +205,15 @@ CREATE TABLE app_attempts (
   category_text text,
   is_correct boolean NOT NULL,
   response_time_ms integer NOT NULL DEFAULT 0,
-  answered_at timestamptz NOT NULL
+  answered_at timestamptz NOT NULL,
+  -- The app's row id is unique per installation; a student who moves school keeps their ids, so
+  -- identity here is (student, app id) and a resync under a new student is a new row.
+  PRIMARY KEY (student_id, id)
 );
 CREATE INDEX app_attempts_student_idx ON app_attempts(student_id, answered_at);
 
 CREATE TABLE app_mock_exams (
-  id uuid PRIMARY KEY,
+  id uuid NOT NULL,
   student_id uuid NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   lang integer NOT NULL,
   score integer NOT NULL,
@@ -216,12 +221,13 @@ CREATE TABLE app_mock_exams (
   min_to_pass integer NOT NULL,
   passed boolean NOT NULL,
   duration_sec integer,
-  completed_at timestamptz NOT NULL
+  completed_at timestamptz NOT NULL,
+  PRIMARY KEY (student_id, id)
 );
 CREATE INDEX app_mock_exams_student_idx ON app_mock_exams(student_id, completed_at);
 
 CREATE TABLE app_exam_results (
-  id uuid PRIMARY KEY,
+  id uuid NOT NULL,
   student_id uuid NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   lang integer NOT NULL,
   passed boolean NOT NULL,
@@ -229,7 +235,8 @@ CREATE TABLE app_exam_results (
   max_points integer NOT NULL DEFAULT 100,
   min_to_pass integer NOT NULL DEFAULT 90,
   readiness_score integer,
-  taken_at timestamptz NOT NULL
+  taken_at timestamptz NOT NULL,
+  PRIMARY KEY (student_id, id)
 );
 
 CREATE TABLE app_snapshots (

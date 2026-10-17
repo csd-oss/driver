@@ -202,9 +202,11 @@ async fn overview(State(state): State<AppState>, who: Principal) -> AppResult<Js
     .bind(who.school_id)
     .fetch_one(&mut *conn)
     .await?;
+    // First attempt per student, as the dashboard labels it.
     let (exams_taken, exams_passed): (i64, i64) = sqlx::query_as(
-        "SELECT count(*), count(*) FILTER (WHERE r.passed) FROM app_exam_results r JOIN students s ON s.id = r.student_id
-          WHERE s.school_id = $1",
+        "SELECT count(*), count(*) FILTER (WHERE passed) FROM (
+           SELECT DISTINCT ON (r.student_id) r.passed FROM app_exam_results r JOIN students s ON s.id = r.student_id
+            WHERE s.school_id = $1 ORDER BY r.student_id, r.taken_at ASC) first",
     )
     .bind(who.school_id)
     .fetch_one(&mut *conn)
