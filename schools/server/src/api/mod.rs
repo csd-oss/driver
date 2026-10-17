@@ -8,7 +8,7 @@
 //! | `GET/PATCH /api/v1/school`, `GET /api/v1/school/overview`, `GET /api/v1/instructors`, `GET /api/v1/branches` | [`school`] |
 //! | `/api/v1/groups…` | courses, their students, join codes, theory lessons + attendance ([`groups`]) |
 //! | `/api/v1/students…` | students, enrolment, progress, driving lessons, documents ([`students`]) |
-//! | `/api/v1/documents/{id}.pdf` | a generated PDF ([`students`]) |
+//! | `/api/v1/documents/{id}/pdf` | a generated PDF ([`students`]) |
 //! | `/api/v1/app/join`, `/me`, `/sync`, `/unlink` | the mobile app ([`app`]) |
 
 pub mod app;

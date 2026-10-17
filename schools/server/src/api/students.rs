@@ -29,7 +29,7 @@ pub fn routes() -> Router<AppState> {
         .route("/api/v1/students/{id}/driving-lessons", post(add_driving_lesson))
         .route("/api/v1/students/{id}/documents", get(list_documents).post(create_document))
         .route("/api/v1/groups/{id}/documents", post(create_group_document))
-        .route("/api/v1/documents/{id}.pdf", get(document_pdf))
+        .route("/api/v1/documents/{id}/pdf", get(document_pdf))
 }
 
 #[derive(Serialize, sqlx::FromRow, Clone)]
@@ -97,7 +97,7 @@ async fn list(State(state): State<AppState>, who: Principal, Query(q): Query<Lis
     let pattern = q.q.as_deref().map(|s| format!("%{}%", s.trim().to_lowercase())).filter(|p| p.len() > 2);
     let rows = sqlx::query_as::<_, StudentRow>(sqlx::AssertSqlSafe(format!(
         "{STUDENT_SELECT} WHERE s.school_id = $1
-            AND ($2::text IS NULL OR lower(s.first_name || ' ' || s.last_name) LIKE $2 OR lower(s.email) LIKE $2 OR s.register_no::text = trim(both '%' from $2)))
+            AND ($2::text IS NULL OR lower(s.first_name || ' ' || s.last_name) LIKE $2 OR lower(s.email) LIKE $2 OR s.register_no::text = trim(both '%' from $2))
             AND ($3::uuid IS NULL OR g.id = $3)
           ORDER BY s.last_name, s.first_name"
     )))
@@ -689,7 +689,7 @@ async fn create_group_document(
     Ok(Json(GroupDocumentOut { id: doc_id, kind: d.kind, title: title.to_owned() }))
 }
 
-/// `GET /api/v1/documents/{id}.pdf`: the stored PDF, inline.
+/// `GET /api/v1/documents/{id}/pdf`: the stored PDF, inline.
 async fn document_pdf(State(state): State<AppState>, who: Principal, Path(id): Path<Uuid>) -> AppResult<Response> {
     let row: Option<(String, Vec<u8>)> =
         sqlx::query_as("SELECT title, pdf FROM documents WHERE id = $1 AND school_id = $2")

@@ -276,7 +276,7 @@ async fn documents_are_generated_stored_and_served_as_pdf(pool: PgPool) {
         let doc = app.post(&format!("/api/v1/students/{student_id}/documents"), json!({ "kind": kind, "fields": { "place": "Žiline" } })).await;
         assert_eq!(doc.status(), StatusCode::OK, "{kind}");
         let doc: Value = doc.json().await.unwrap();
-        let pdf = app.get(&format!("/api/v1/documents/{}.pdf", doc["id"].as_str().unwrap())).await;
+        let pdf = app.get(&format!("/api/v1/documents/{}/pdf", doc["id"].as_str().unwrap())).await;
         assert_eq!(pdf.status(), StatusCode::OK);
         assert_eq!(pdf.headers()["content-type"], "application/pdf");
         let bytes = pdf.bytes().await.unwrap();
@@ -289,7 +289,7 @@ async fn documents_are_generated_stored_and_served_as_pdf(pool: PgPool) {
         .await;
     assert_eq!(application.status(), StatusCode::OK);
     let application: Value = application.json().await.unwrap();
-    let pdf = app.get(&format!("/api/v1/documents/{}.pdf", application["id"].as_str().unwrap())).await;
+    let pdf = app.get(&format!("/api/v1/documents/{}/pdf", application["id"].as_str().unwrap())).await;
     assert!(pdf.bytes().await.unwrap().starts_with(b"%PDF"));
     let sheet = app.post(&format!("/api/v1/groups/{group_id}/documents"), json!({ "kind": "attendance_sheet" })).await;
     assert_eq!(sheet.status(), StatusCode::OK);
