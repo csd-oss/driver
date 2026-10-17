@@ -565,8 +565,8 @@ async fn synth_practice(
         .await?;
     }
 
-    if finished {
-        if let Some(exam_on) = exam_on {
+    if finished
+        && let Some(exam_on) = exam_on {
             let passed = rng.gen_bool(0.3 + talent * 0.65);
             let points = if passed { rng.gen_range(90..=100) } else { rng.gen_range(70..90) };
             sqlx::query(
@@ -582,6 +582,5 @@ async fn synth_practice(
             .execute(&mut *conn)
             .await?;
         }
-    }
     Ok(ids.len())
 }

@@ -608,15 +608,14 @@ async fn create_document(
     .bind(&bytes)
     .execute(&mut *tx)
     .await?;
-    if d.kind == "certificate" {
-        if let Some(e) = &enrolment {
+    if d.kind == "certificate"
+        && let Some(e) = &enrolment {
             sqlx::query("UPDATE enrolments SET certificate_issued_on = coalesce(certificate_issued_on, CURRENT_DATE) WHERE student_id = $1 AND group_id = $2")
                 .bind(id)
                 .bind(e.group_id)
                 .execute(&mut *tx)
                 .await?;
         }
-    }
     let docs = list_docs(&mut tx, id).await?;
     tx.commit().await?;
     docs.into_iter().find(|x| x.id == doc_id).map(Json).ok_or_else(AppError::internal)

@@ -264,30 +264,30 @@ pub fn exam_application(ctx: &GroupContext) -> PdfResult {
     t.set_cell_decorator(FrameCellDecorator::new(true, true, true));
     let head_style = style::Style::new().bold().with_font_size(8);
     t.row()
-        .element(p("P.č.").styled(head_style.clone()).padded(1))
-        .element(p("Meno a priezvisko").styled(head_style.clone()).padded(1))
-        .element(p("Rodné číslo").styled(head_style.clone()).padded(1))
-        .element(p("Adresa pobytu").styled(head_style.clone()).padded(1))
-        .element(p("Druh výcviku").styled(head_style.clone()).padded(1))
-        .element(p("Poznámka").styled(head_style.clone()).padded(1))
+        .element(p("P.č.").styled(head_style).padded(1))
+        .element(p("Meno a priezvisko").styled(head_style).padded(1))
+        .element(p("Rodné číslo").styled(head_style).padded(1))
+        .element(p("Adresa pobytu").styled(head_style).padded(1))
+        .element(p("Druh výcviku").styled(head_style).padded(1))
+        .element(p("Poznámka").styled(head_style).padded(1))
         .push()
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     let cell = style::Style::new().with_font_size(8);
     for (i, st) in ctx.students.iter().enumerate() {
         let note = if st.needs_glasses { "okuliare" } else { "" };
         t.row()
-            .element(p(format!("{}.", i + 1)).styled(cell.clone()).padded(1))
-            .element(p(student_name(st)).styled(cell.clone()).padded(1))
-            .element(p(if st.personal_id.is_empty() { fmt_opt_date(st.birth_date) } else { st.personal_id.clone() }).styled(cell.clone()).padded(1))
-            .element(p(st.address.clone()).styled(cell.clone()).padded(1))
-            .element(p(ctx.group.category.clone()).styled(cell.clone()).padded(1))
-            .element(p(note).styled(cell.clone()).padded(1))
+            .element(p(format!("{}.", i + 1)).styled(cell).padded(1))
+            .element(p(student_name(st)).styled(cell).padded(1))
+            .element(p(if st.personal_id.is_empty() { fmt_opt_date(st.birth_date) } else { st.personal_id.clone() }).styled(cell).padded(1))
+            .element(p(st.address.clone()).styled(cell).padded(1))
+            .element(p(ctx.group.category.clone()).styled(cell).padded(1))
+            .element(p(note).styled(cell).padded(1))
             .push()
             .map_err(|e| anyhow::anyhow!("{e}"))?;
     }
     for i in ctx.students.len()..14 {
         t.row()
-            .element(p(format!("{}.", i + 1)).styled(cell.clone()).padded(1))
+            .element(p(format!("{}.", i + 1)).styled(cell).padded(1))
             .element(p(" ").padded(1))
             .element(p(" ").padded(1))
             .element(p(" ").padded(1))
@@ -420,12 +420,10 @@ pub fn training_agreement(ctx: &StudentContext) -> PdfResult {
          zaznamenáva identifikačným zariadením do cestného informačného systému (JISCD).",
         fmt_opt_date(start)
     )));
-    doc.push(p(format!(
-        "Účastník absolvuje v autoškole najmenej 50 % predpísaných hodín teórie; zvyšok si nahradí individuálne alebo v elektronickej \
+    doc.push(p("Účastník absolvuje v autoškole najmenej 50 % predpísaných hodín teórie; zvyšok si nahradí individuálne alebo v elektronickej \
          podobe v JISCD (§ 8 ods. 6 a 8). Praktický výcvik v cestnej premávke sa začína po absolvovaní teórie vedenia vozidla a \
          najmenej polovice výučby predpisov (§ 8 ods. 15). Na prípravu na teoretickú skúšku autoškola odporúča aplikáciu Driver SK; \
-         ak sa účastník rozhodne prepojiť aplikáciu s autoškolou, autoškola vidí jeho pokrok v príprave."
-    )));
+         ak sa účastník rozhodne prepojiť aplikáciu s autoškolou, autoškola vidí jeho pokrok v príprave.".to_string()));
 
     doc.push(h2("4. Cena a platobné podmienky"));
     let price = ctx.enrolment.and_then(|e| e.price_cents).map(euro)
@@ -558,22 +556,22 @@ pub fn progress_report(ctx: &StudentContext) -> PdfResult {
         let hs = style::Style::new().bold().with_font_size(8);
         let cs = style::Style::new().with_font_size(8);
         t.row()
-            .element(p("Dátum").styled(hs.clone()).padded(1))
-            .element(p("Druh").styled(hs.clone()).padded(1))
-            .element(p("Hodiny").styled(hs.clone()).padded(1))
-            .element(p("km").styled(hs.clone()).padded(1))
-            .element(p("Inštruktor").styled(hs.clone()).padded(1))
-            .element(p("Poznámka").styled(hs.clone()).padded(1))
+            .element(p("Dátum").styled(hs).padded(1))
+            .element(p("Druh").styled(hs).padded(1))
+            .element(p("Hodiny").styled(hs).padded(1))
+            .element(p("km").styled(hs).padded(1))
+            .element(p("Inštruktor").styled(hs).padded(1))
+            .element(p("Poznámka").styled(hs).padded(1))
             .push()
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         for d in ctx.driving.iter().take(12) {
             t.row()
-                .element(p(fmt_date(d.held_on)).styled(cs.clone()).padded(1))
-                .element(p(kind_name(&d.kind)).styled(cs.clone()).padded(1))
-                .element(p(d.lessons.to_string()).styled(cs.clone()).padded(1))
-                .element(p(d.km.map(|k| k.to_string()).unwrap_or_default()).styled(cs.clone()).padded(1))
-                .element(p(d.instructor_name.clone().unwrap_or_default()).styled(cs.clone()).padded(1))
-                .element(p(d.notes.clone()).styled(cs.clone()).padded(1))
+                .element(p(fmt_date(d.held_on)).styled(cs).padded(1))
+                .element(p(kind_name(&d.kind)).styled(cs).padded(1))
+                .element(p(d.lessons.to_string()).styled(cs).padded(1))
+                .element(p(d.km.map(|k| k.to_string()).unwrap_or_default()).styled(cs).padded(1))
+                .element(p(d.instructor_name.clone().unwrap_or_default()).styled(cs).padded(1))
+                .element(p(d.notes.clone()).styled(cs).padded(1))
                 .push()
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
         }
@@ -609,22 +607,22 @@ pub fn attendance_sheet(ctx: &GroupContext) -> PdfResult {
     t.set_cell_decorator(FrameCellDecorator::new(true, true, true));
     let hs = style::Style::new().bold().with_font_size(7);
     let cs = style::Style::new().with_font_size(8);
-    let mut head = t.row().element(p("Účastník").styled(hs.clone()).padded(1)).element(p("Č.").styled(hs.clone()).padded(1));
+    let mut head = t.row().element(p("Účastník").styled(hs).padded(1)).element(p("Č.").styled(hs).padded(1));
     for l in ctx.lessons {
-        head = head.element(p(format!("{}\n{}\n{}h", l.held_on.format(format_description!("[day].[month]")).unwrap_or_default(), l.subject, l.lessons)).styled(hs.clone()).padded(1));
+        head = head.element(p(format!("{}\n{}\n{}h", l.held_on.format(format_description!("[day].[month]")).unwrap_or_default(), l.subject, l.lessons)).styled(hs).padded(1));
     }
-    head.element(p("Spolu").styled(hs.clone()).padded(1)).push().map_err(|e| anyhow::anyhow!("{e}"))?;
+    head.element(p("Spolu").styled(hs).padded(1)).push().map_err(|e| anyhow::anyhow!("{e}"))?;
     for s in ctx.students {
-        let mut row = t.row().element(p(student_name(s)).styled(cs.clone()).padded(1)).element(p(s.register_no.to_string()).styled(cs.clone()).padded(1));
+        let mut row = t.row().element(p(student_name(s)).styled(cs).padded(1)).element(p(s.register_no.to_string()).styled(cs).padded(1));
         let mut present = 0;
         for l in ctx.lessons {
             let here = l.present_ids.contains(&s.id);
             if here {
                 present += l.lessons;
             }
-            row = row.element(p(if here { "✓" } else { "–" }).aligned(Alignment::Center).styled(cs.clone()).padded(1));
+            row = row.element(p(if here { "✓" } else { "–" }).aligned(Alignment::Center).styled(cs).padded(1));
         }
-        row.element(p(format!("{present}/{held}")).styled(cs.clone()).padded(1)).push().map_err(|e| anyhow::anyhow!("{e}"))?;
+        row.element(p(format!("{present}/{held}")).styled(cs).padded(1)).push().map_err(|e| anyhow::anyhow!("{e}"))?;
     }
     doc.push(t);
     doc.push(Break::new(1.0));
