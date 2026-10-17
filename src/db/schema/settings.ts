@@ -1,4 +1,4 @@
-import { integer, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const settings = sqliteTable('settings', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -12,6 +12,13 @@ export const settings = sqliteTable('settings', {
   notificationEveningEnabled: integer('notification_evening_enabled', { mode: 'boolean' }).notNull().default(true),
   examDate: integer('exam_date', { mode: 'timestamp' }), // planned real exam date (null = not set)
   hasFinishedGuide: integer('has_finished_guide', { mode: 'boolean' }).notNull().default(false), // the crossing guide has been completed once
+  // Driving-school link (src/lib/school.ts); all null when the app is not linked to a school
+  schoolToken: text('school_token'),
+  schoolName: text('school_name'),
+  schoolGroupName: text('school_group_name'),
+  schoolStudentName: text('school_student_name'),
+  schoolLinkedAt: integer('school_linked_at', { mode: 'timestamp' }),
+  schoolLastSyncAt: integer('school_last_sync_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });

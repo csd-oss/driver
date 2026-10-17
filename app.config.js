@@ -19,6 +19,11 @@ export default ({ config }) => {
       // Pro entitlement. Used by the Maestro suite so it can navigate
       // through Smart Study / Mistakes without a sandbox purchase.
       bypassPaywall: process.env.EXPO_PUBLIC_BYPASS_PAYWALL === 'true',
+      // "Driver for driving schools" (schools/): opt-in account + progress sync. Off unless
+      // EXPO_PUBLIC_SCHOOLS_ENABLED=true at build time; the server URL defaults to the local dev
+      // server (schools/dev.sh). Release builds don't set it, so nothing changes for them.
+      schoolsEnabled: process.env.EXPO_PUBLIC_SCHOOLS_ENABLED === 'true',
+      schoolsApiUrl: process.env.EXPO_PUBLIC_SCHOOLS_API_URL || undefined,
     },
   };
 };

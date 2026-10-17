@@ -22,6 +22,8 @@ import { ScrollView, View } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 import { ensureProAccess, isPurchasesSupported, isSubscribed } from '@/src/lib/purchases';
 import { useLargeText } from '@/hooks/use-large-text';
+import { SCHOOLS_ENABLED } from '@/src/lib/flags';
+import { syncWithSchool } from '@/src/lib/school';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -89,6 +91,9 @@ export default function HomeScreen() {
     useCallback(() => {
       trackScreenView(posthog, 'Home');
       loadData();
+      // Linked to a driving school: push new progress in the background (throttled; no-op
+      // when the flag is off or nothing is linked). Never blocks the screen.
+      if (SCHOOLS_ENABLED) syncWithSchool().catch(() => {});
     }, [loadData, posthog])
   );
 

@@ -71,6 +71,23 @@ async function createTables(): Promise<void> {
     // Column already exists
   }
 
+  // Driving-school link (src/lib/school.ts): the bearer token the schools server issued, what
+  // it told us about the school, and when we last synced. All NULL when not linked.
+  for (const column of [
+    'school_token TEXT',
+    'school_name TEXT',
+    'school_group_name TEXT',
+    'school_student_name TEXT',
+    'school_linked_at INTEGER',
+    'school_last_sync_at INTEGER',
+  ]) {
+    try {
+      await database.execAsync(`ALTER TABLE settings ADD COLUMN ${column}`);
+    } catch (e) {
+      // Column already exists
+    }
+  }
+
   // Category selections table
   await database.execAsync(`
     CREATE TABLE IF NOT EXISTS category_selections (

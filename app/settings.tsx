@@ -30,6 +30,8 @@ import {
   presentRedeemCode,
 } from '@/src/lib/purchases';
 import { PRIVACY_POLICY_URL, SUPPORT_EMAIL, TERMS_OF_USE_URL } from '@/src/lib/links';
+import { SCHOOLS_ENABLED } from '@/src/lib/flags';
+import { getSchoolLink, type SchoolLink } from '@/src/lib/school';
 
 export default function SettingsScreen() {
   const posthog = usePostHog();
@@ -43,6 +45,7 @@ export default function SettingsScreen() {
   const [hasPro, setHasPro] = useState(isSubscribed);
   const [examDate, setExamDate] = useState<Date | null>(null);
   const [examResults, setExamResults] = useState<ExamResultsDB.ExamResultRow[]>([]);
+  const [schoolLink, setSchoolLink] = useState<SchoolLink | null>(null);
 
   const loadSettings = useCallback(async () => {
     setHasPro(isSubscribed());
@@ -57,6 +60,7 @@ export default function SettingsScreen() {
       setExamDate(settings.examDate ?? null);
       setExamResults(await ExamResultsDB.getExamResults(settings.lang));
     }
+    if (SCHOOLS_ENABLED) setSchoolLink(await getSchoolLink().catch(() => null));
   }, []);
 
   useFocusEffect(
@@ -391,6 +395,22 @@ export default function SettingsScreen() {
             </View>
           )}
         </Card>
+
+        {SCHOOLS_ENABLED && (
+          <Card className="gap-3" testID="settings.school">
+            <UIText variant="subtitle" className="text-indigo-600 dark:text-indigo-200">
+              {t('school.title', lang)}
+            </UIText>
+            <UIText variant="body" className="text-slate-600 dark:text-slate-300">
+              {schoolLink
+                ? tf('school.linkedTo', lang, { school: schoolLink.schoolName })
+                : t('school.settingsDescription', lang)}
+            </UIText>
+            <Button onPress={() => router.push('/school')} variant="outline" className="w-full" testID="school.open">
+              {schoolLink ? t('school.manage', lang) : t('school.join', lang)}
+            </Button>
+          </Card>
+        )}
 
         {Platform.OS !== 'web' && (
         <Card className="gap-3">
