@@ -8,6 +8,11 @@ describe('errorMessage', () => {
     expect(errorMessage(e, 'en')).toBe('Student not found.')
     const limit = toApiError(400, { code: 'bad_lesson_count', detail: 'Jeden blok má 1 až 6 vyučovacích hodín (§ 8 ods. 2 vyhl. 45/2016).' })
     expect(errorMessage(limit, 'en')).toMatch(/1 to 6 teaching hours/)
+    const over = toApiError(400, { code: 'driving_count_over_limit', detail: 'Druh CP má najviac 3 vyučovacie hodiny denne (§ 8 ods. 11 vyhl. 45/2016).', params: { kind: 'CP', max: 3 } })
+    expect(errorMessage(over, 'en')).toBe('Kind CP allows at most 3 teaching hours per day (§ 8(11) of Decree 45/2016).')
+    expect(errorMessage(over, 'sk')).toBe('Druh CP má najviac 3 vyučovacie hodiny denne (§ 8 ods. 11 vyhl. 45/2016).')
+    const missing = toApiError(400, { code: 'field_required', detail: 'Pole `name` je povinné.', params: { field: 'name', ignored: { nested: true } } })
+    expect(errorMessage(missing, 'en')).toBe('The field "name" is required.')
   })
   it('falls back to the Slovak detail only for Slovak readers, else to the status', () => {
     const e = toApiError(400, { code: 'something_new', detail: 'nový dôvod po slovensky' })

@@ -4,6 +4,9 @@
 //! ```json
 //! {"type":"about:blank","title":"Not Found","status":404,"detail":"Student not found.","code":"not_found"}
 //! ```
+//!
+//! Some codes carry `params` (the missing `field`, the driving `kind` and its `max`) so a client
+//! can word the sentence itself.
 
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
@@ -14,6 +17,7 @@ pub struct AppError {
     pub status: StatusCode,
     pub code: &'static str,
     pub message: String,
+    pub params: Option<serde_json::Value>,
 }
 
 pub type AppResult<T> = Result<T, AppError>;
@@ -26,11 +30,18 @@ struct Problem<'a> {
     status: u16,
     detail: &'a str,
     code: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    params: Option<&'a serde_json::Value>,
 }
 
 impl AppError {
     pub fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
-        Self { status, code, message: message.into() }
+        Self { status, code, message: message.into(), params: None }
+    }
+    /// Attach the values a client needs to word this error in its own language.
+    pub fn with_params(mut self, params: serde_json::Value) -> Self {
+        self.params = Some(params);
+        self
     }
     pub fn bad_request(code: &'static str, message: impl Into<String>) -> Self {
         Self::new(StatusCode::BAD_REQUEST, code, message)
@@ -64,6 +75,7 @@ impl AppError {
             status: self.status.as_u16(),
             detail: &self.message,
             code: self.code,
+            params: self.params.as_ref(),
         })
         .expect("problem serialises")
     }

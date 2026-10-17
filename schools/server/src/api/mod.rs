@@ -75,7 +75,10 @@ impl<T: DeserializeOwned, S: Send + Sync> FromRequest<S> for JsonBody<T> {
             Err(JsonRejection::MissingJsonContentType(_)) => {
                 Err(AppError::bad_request("not_json", "Pošlite telo ako JSON (content-type: application/json)."))
             }
-            Err(e) => Err(AppError::invalid(format!("Telo požiadavky nezodpovedá tejto ceste: {}", e.body_text()))),
+            Err(e) => {
+                let reason = e.body_text();
+                Err(AppError::invalid(format!("Telo požiadavky nezodpovedá tejto ceste: {reason}")).with_params(serde_json::json!({ "reason": reason })))
+            }
         }
     }
 }
@@ -84,7 +87,7 @@ impl<T: DeserializeOwned, S: Send + Sync> FromRequest<S> for JsonBody<T> {
 pub fn required(field: &str, value: &str) -> Result<String, AppError> {
     let v = value.trim();
     if v.is_empty() {
-        return Err(AppError::bad_request("field_required", format!("Pole `{field}` je povinné.")));
+        return Err(AppError::bad_request("field_required", format!("Pole `{field}` je povinné.")).with_params(serde_json::json!({ "field": field })));
     }
     Ok(v.to_owned())
 }

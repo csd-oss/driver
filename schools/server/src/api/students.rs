@@ -362,7 +362,8 @@ async fn add_driving_lesson(
     let count = l.lessons.unwrap_or(1);
     let max = match kind.as_str() { "AT" | "AC" => 2, "CP" => 3, _ => 6 };
     if !(1..=max).contains(&count) {
-        return Err(AppError::bad_request("driving_count_over_limit", format!("Druh {kind} má najviac {max} vyučovacie hodiny denne (§ 8 ods. 11 vyhl. 45/2016).")));
+        return Err(AppError::bad_request("driving_count_over_limit", format!("Druh {kind} má najviac {max} vyučovacie hodiny denne (§ 8 ods. 11 vyhl. 45/2016)."))
+            .with_params(json!({ "kind": kind, "max": max })));
     }
     let mut tx = state.db.begin().await?;
     let student = load_student(&mut tx, who.school_id, id).await?;

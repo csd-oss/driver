@@ -320,6 +320,14 @@ async fn documents_are_generated_stored_and_served_as_pdf(pool: PgPool) {
     let missing = app.get(&format!("/api/v1/students/{}", uuid::Uuid::nil())).await;
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
     assert_eq!(missing.json::<Value>().await.unwrap()["code"], "student_not_found");
+    let over: Value = app
+        .post(&format!("/api/v1/students/{student_id}/driving-lessons"), json!({ "held_on": "2026-10-01", "kind": "CP", "lessons": 4 }))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(over["code"], "driving_count_over_limit");
+    assert_eq!(over["params"], json!({ "kind": "CP", "max": 3 }));
 }
 
 #[sqlx::test(migrator = "schools::MIGRATOR")]

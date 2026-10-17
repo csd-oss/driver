@@ -613,6 +613,7 @@ pub fn progress_report(ctx: &StudentContext) -> PdfResult {
                         } else {
                             match l {
                                 Lang::Sk => format!("asi {d} dní pri súčasnom tempe"),
+                                Lang::En if d == 1 => "about 1 day at the current pace".to_owned(),
                                 Lang::En => format!("about {d} days at the current pace"),
                             }
                         }

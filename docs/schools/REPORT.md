@@ -147,6 +147,12 @@ Asked for after the first report: an SK/EN switch for the dashboard. Done on the
   bank, document titles already stored). The seed is Slovak, so the demo looks mixed in English.
 - Screenshots: `01-prehlad-en.png`, `03-kurz-ziaci-en.png`, `06-ziak-en.png` next to the Slovak
   set; `npm run screenshots` makes both.
+- Codex (same command as before, 6 minutes, because the server was touched): three findings, all
+  fixed. Mapped errors now keep what the server knew: `field_required` and
+  `driving_count_over_limit` carry `params` (`field`; `kind` + `max`, so PU's 6 h is right too)
+  and `invalid_body` carries the parse `reason`; the English report says "about 1 day".
+- Known, unchanged: the course's student table is wider than the page at 1440 px in both
+  languages and scrolls sideways (the status column is half hidden in the screenshot).
 
 ## Open questions for Mykhailo
 

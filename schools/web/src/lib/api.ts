@@ -11,13 +11,16 @@ export class ApiError extends Error {
   readonly code: string
   /** The server's own (Slovak) sentence, when it sent one. */
   readonly detail: string | null
+  /** Values for the message (`field`, `kind`, `max`, `reason`), when the code has any. */
+  readonly params: Record<string, string | number>
 
-  constructor(status: number, code: string, detail: string | null) {
+  constructor(status: number, code: string, detail: string | null, params: Record<string, string | number> = {}) {
     super(detail ?? code)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.detail = detail
+    this.params = params
   }
 }
 
@@ -30,7 +33,13 @@ export function toApiError(status: number, body: unknown): ApiError {
     const b = body as Record<string, unknown>
     const detail = str(b.detail) ?? str(b.title) ?? null
     const code = str(b.code) ?? `http_${status}`
-    return new ApiError(status, code, detail)
+    const params: Record<string, string | number> = {}
+    if (typeof b.params === 'object' && b.params !== null) {
+      for (const [k, v] of Object.entries(b.params as Record<string, unknown>)) {
+        if (typeof v === 'string' || typeof v === 'number') params[k] = v
+      }
+    }
+    return new ApiError(status, code, detail, params)
   }
   return new ApiError(status, `http_${status}`, null)
 }
@@ -50,7 +59,7 @@ const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 export function errorMessage(error: unknown, locale: Locale = getLocale()): string {
   if (isApiError(error)) {
     const key = `error.${error.code}`
-    if (hasMessage(key)) return translate(locale, key)
+    if (hasMessage(key)) return translate(locale, key, error.params)
     // An unmapped code: the server's Slovak sentence is better than nothing for a Slovak reader.
     if (locale === 'sk' && error.detail) return capitalize(error.detail)
     return statusMessage(error.status, locale)
