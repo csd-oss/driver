@@ -13,6 +13,9 @@
 //!
 //! Every template is a starting point for the school's own wording; the legal texts are quoted,
 //! the contract clauses are ours and should be read by a lawyer before a school signs them.
+//!
+//! The four official documents are Slovak only. The two internal ones ([`progress_report`],
+//! [`attendance_sheet`]) also come in English ([`Lang::En`]) for a school that works in it.
 
 use crate::api::groups::{GroupRow, Lesson};
 use crate::api::school::School;
@@ -24,7 +27,31 @@ use serde_json::Value;
 use time::macros::format_description;
 use time::{Date, OffsetDateTime};
 
+/// Language of an internal document. The official ones ignore it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Lang {
+    Sk,
+    En,
+}
+
+impl Lang {
+    /// `"en"` (any case) is English; anything else, including nothing, is Slovak.
+    pub fn parse(s: Option<&str>) -> Lang {
+        match s.map(str::trim).map(str::to_ascii_lowercase).as_deref() {
+            Some("en") => Lang::En,
+            _ => Lang::Sk,
+        }
+    }
+    fn tr<'a>(self, sk: &'a str, en: &'a str) -> &'a str {
+        match self {
+            Lang::Sk => sk,
+            Lang::En => en,
+        }
+    }
+}
+
 pub struct StudentContext<'a> {
+    pub lang: Lang,
     pub school: &'a School,
     pub student: &'a StudentRow,
     pub enrolment: Option<&'a Enrolment>,
@@ -36,6 +63,7 @@ pub struct StudentContext<'a> {
 }
 
 pub struct GroupContext<'a> {
+    pub lang: Lang,
     pub school: &'a School,
     pub group: &'a GroupRow,
     pub students: &'a [StudentRow],
@@ -56,7 +84,8 @@ fn family() -> anyhow::Result<fonts::FontFamily<fonts::FontData>> {
     })
 }
 
-fn document(title: &str) -> anyhow::Result<Document> {
+fn document(title: &str, lang: Lang) -> anyhow::Result<Document> {
+    let page_word = lang.tr("Strana", "Page");
     let mut doc = Document::new(family()?);
     doc.set_title(title);
     doc.set_minimal_conformance();
@@ -64,8 +93,8 @@ fn document(title: &str) -> anyhow::Result<Document> {
     doc.set_line_spacing(1.3);
     let mut decorator = SimplePageDecorator::new();
     decorator.set_margins(Margins::trbl(18, 20, 18, 20));
-    decorator.set_header(|page| {
-        Paragraph::new(format!("Strana {page}"))
+    decorator.set_header(move |page| {
+        Paragraph::new(format!("{page_word} {page}"))
             .aligned(Alignment::Right)
             .styled(style::Style::new().with_font_size(7).with_color(style::Color::Greyscale(120)))
     });
@@ -83,12 +112,20 @@ pub fn fmt_date(d: Date) -> String {
     d.format(format_description!("[day padding:none]. [month padding:none]. [year]")).unwrap_or_default()
 }
 
+/// `3. 10. 2026` in Slovak, `3 Oct 2026` in English.
+fn fmt_date_in(d: Date, lang: Lang) -> String {
+    match lang {
+        Lang::Sk => fmt_date(d),
+        Lang::En => d.format(format_description!("[day padding:none] [month repr:short] [year]")).unwrap_or_default(),
+    }
+}
+
 fn fmt_opt_date(d: Option<Date>) -> String {
     d.map(fmt_date).unwrap_or_else(|| "____________".into())
 }
 
-fn fmt_instant(t: OffsetDateTime) -> String {
-    fmt_date(t.date())
+fn fmt_instant(t: OffsetDateTime, lang: Lang) -> String {
+    fmt_date_in(t.date(), lang)
 }
 
 pub fn today() -> Date {
@@ -159,7 +196,7 @@ fn props(rows: &[(&str, String)]) -> anyhow::Result<TableLayout> {
     Ok(t)
 }
 
-fn school_header(doc: &mut Document, school: &School) {
+fn school_header(doc: &mut Document, school: &School, lang: Lang) {
     let name = if school.legal_name.is_empty() { &school.name } else { &school.legal_name };
     doc.push(p(name.clone()).styled(style::Style::new().bold().with_font_size(12)));
     let mut line = Vec::new();
@@ -170,7 +207,7 @@ fn school_header(doc: &mut Document, school: &School) {
         line.push(format!("IČO {}", school.ico));
     }
     if !school.registration_no.is_empty() {
-        line.push(format!("registrácia autoškoly č. {}", school.registration_no));
+        line.push(format!("{} {}", lang.tr("registrácia autoškoly č.", "driving school registration no."), school.registration_no));
     }
     if !line.is_empty() {
         doc.push(small(line.join(" · ")));
@@ -211,7 +248,7 @@ fn is_minor_at(s: &StudentRow, on: Date) -> bool {
 /// letter on page one, the list of applicants on page two, as the form lays them out.
 /// `fields`: `place`, `date`, `authority` (the okresný dopravný inšpektorát addressed).
 pub fn exam_application(ctx: &GroupContext) -> PdfResult {
-    let mut doc = document("Prihláška na skúšku z odbornej spôsobilosti")?;
+    let mut doc = document("Prihláška na skúšku z odbornej spôsobilosti", Lang::Sk)?;
     let s = ctx.school;
     doc.push(small("Príloha č. 2 k vyhláške č. 9/2009 Z. z.").aligned(Alignment::Right));
     doc.push(Break::new(0.5));
@@ -322,8 +359,8 @@ pub fn exam_application(ctx: &GroupContext) -> PdfResult {
 
 /// Potvrdenie o absolvovaní vodičského kurzu with the § 23 fields.
 pub fn course_certificate(ctx: &StudentContext) -> PdfResult {
-    let mut doc = document("Potvrdenie o absolvovaní kurzu")?;
-    school_header(&mut doc, ctx.school);
+    let mut doc = document("Potvrdenie o absolvovaní kurzu", Lang::Sk)?;
+    school_header(&mut doc, ctx.school, Lang::Sk);
     doc.push(h1("POTVRDENIE O ABSOLVOVANÍ VODIČSKÉHO KURZU"));
     doc.push(Break::new(1.2));
     let s = ctx.school;
@@ -379,8 +416,8 @@ pub fn course_certificate(ctx: &StudentContext) -> PdfResult {
 /// obsah, cena a ďalšie náležitosti sa dohodnú pred začatím kurzu). `fields`: `price_eur`,
 /// `place`, `payment_terms`, `extra_lesson_eur`.
 pub fn training_agreement(ctx: &StudentContext) -> PdfResult {
-    let mut doc = document("Zmluva o vykonaní vodičského kurzu")?;
-    school_header(&mut doc, ctx.school);
+    let mut doc = document("Zmluva o vykonaní vodičského kurzu", Lang::Sk)?;
+    school_header(&mut doc, ctx.school, Lang::Sk);
     doc.push(h1("ZMLUVA O VYKONANÍ VODIČSKÉHO KURZU"));
     doc.push(small("uzavretá podľa § 269 ods. 2 Obchodného zákonníka a § 7 ods. 3 vyhlášky č. 45/2016 Z. z.").aligned(Alignment::Center));
     doc.push(Break::new(1.0));
@@ -462,8 +499,8 @@ pub fn training_agreement(ctx: &StudentContext) -> PdfResult {
 /// Súhlas zákonného zástupcu so zaradením do kurzu (§ 2b ods. 3 písm. g) zákona 93/2005) and the
 /// GDPR art. 13 notice, with the optional consent for sharing app practice data with the school.
 pub fn guardian_consent(ctx: &StudentContext) -> PdfResult {
-    let mut doc = document("Súhlas zákonného zástupcu a informácia o spracúvaní osobných údajov")?;
-    school_header(&mut doc, ctx.school);
+    let mut doc = document("Súhlas zákonného zástupcu a informácia o spracúvaní osobných údajov", Lang::Sk)?;
+    school_header(&mut doc, ctx.school, Lang::Sk);
     let s = ctx.school;
     let st = ctx.student;
     let category = ctx.group.map(|g| g.category.clone()).unwrap_or_else(|| "B".into());
@@ -515,63 +552,107 @@ pub fn guardian_consent(ctx: &StudentContext) -> PdfResult {
 
 /// Výpis z prípravy: what the app synced, in a page the student or a parent can take home.
 pub fn progress_report(ctx: &StudentContext) -> PdfResult {
-    let mut doc = document("Výpis z prípravy na skúšku")?;
-    school_header(&mut doc, ctx.school);
-    doc.push(h1("VÝPIS Z PRÍPRAVY NA TEORETICKÚ SKÚŠKU"));
+    let l = ctx.lang;
+    let mut doc = document(l.tr("Výpis z prípravy na skúšku", "Theory exam preparation report"), l)?;
+    school_header(&mut doc, ctx.school, l);
+    doc.push(h1(l.tr("VÝPIS Z PRÍPRAVY NA TEORETICKÚ SKÚŠKU", "THEORY EXAM PREPARATION REPORT")));
     doc.push(Break::new(0.8));
     let st = ctx.student;
     let pr = ctx.progress;
     let label = match pr.label {
-        "ready" => "pripravený(á) na skúšku",
-        "almostReady" => "takmer pripravený(á)",
-        "gettingThere" => "na dobrej ceste",
-        _ => "potrebuje viac prípravy",
+        "ready" => l.tr("pripravený(á) na skúšku", "ready for the exam"),
+        "almostReady" => l.tr("takmer pripravený(á)", "almost ready"),
+        "gettingThere" => l.tr("na dobrej ceste", "getting there"),
+        _ => l.tr("potrebuje viac prípravy", "needs more practice"),
     };
     doc.push(props(&[
-        ("Účastník kurzu", format!("{} (č. {})", student_name(st), st.register_no)),
-        ("Kurz", ctx.group.map(|g| format!("{} · skupina {}", g.name, g.category)).unwrap_or_else(|| "–".into())),
-        ("Vystavené", fmt_date(today())),
+        (l.tr("Účastník kurzu", "Student"), format!("{} ({} {})", student_name(st), l.tr("č.", "no."), st.register_no)),
+        (l.tr("Kurz", "Course"), ctx.group.map(|g| format!("{} · {} {}", g.name, l.tr("skupina", "category"), g.category)).unwrap_or_else(|| "–".into())),
+        (l.tr("Vystavené", "Issued"), fmt_date_in(today(), l)),
     ])?);
     doc.push(Break::new(0.8));
     if !pr.linked {
-        doc.push(p("Aplikácia Driver SK zatiaľ nie je prepojená s autoškolou, takže o príprave na teoretickú skúšku nemáme údaje."));
+        doc.push(p(l.tr(
+            "Aplikácia Driver SK zatiaľ nie je prepojená s autoškolou, takže o príprave na teoretickú skúšku nemáme údaje.",
+            "The Driver SK app is not linked to the school yet, so there is no data about the theory exam preparation.",
+        )));
     } else {
-        doc.push(h2(&format!("Pripravenosť: {} / 100 · {label}", pr.score)));
+        doc.push(h2(&format!("{}: {} / 100 · {label}", l.tr("Pripravenosť", "Readiness"), pr.score)));
         doc.push(props(&[
-            ("Precvičené otázky", format!("{} z {} ({} %)", pr.seen_count, pr.total_questions, pr.components.coverage.round() as i64)),
-            ("Otvorené chyby", format!("{} (z toho na zopakovanie dnes: {})", pr.mistakes_count, pr.due_mistakes_count)),
-            ("Úspešnosť za 7 dní", pr.accuracy_7d.map(|a| format!("{a} % z {} odpovedí", pr.attempts_7d)).unwrap_or_else(|| "bez odpovedí v poslednom týždni".into())),
-            ("Skúšobné testy", format!("{} absolvovaných, {} úspešných{}", pr.mocks_taken, pr.mocks_passed,
-                pr.last_mock_score.map(|s| format!(", posledný {s} b.")).unwrap_or_default())),
-            ("Odhad do pripravenosti", pr.days_to_ready.map(|d| if d == 0 { "pripravený(á)".to_owned() } else { format!("asi {d} dní pri súčasnom tempe") }).unwrap_or_else(|| "–".into())),
-            ("Posledná aktivita", pr.last_activity_at.map(fmt_instant).unwrap_or_else(|| "–".into())),
+            (
+                l.tr("Precvičené otázky", "Questions practised"),
+                format!("{} {} {} ({} %)", pr.seen_count, l.tr("z", "of"), pr.total_questions, pr.components.coverage.round() as i64),
+            ),
+            (
+                l.tr("Otvorené chyby", "Open mistakes"),
+                format!("{} ({} {})", pr.mistakes_count, l.tr("z toho na zopakovanie dnes:", "due for review today:"), pr.due_mistakes_count),
+            ),
+            (
+                l.tr("Úspešnosť za 7 dní", "Accuracy, last 7 days"),
+                pr.accuracy_7d
+                    .map(|a| format!("{a} % {} {} {}", l.tr("z", "of"), pr.attempts_7d, l.tr("odpovedí", "answers")))
+                    .unwrap_or_else(|| l.tr("bez odpovedí v poslednom týždni", "no answers in the last week").into()),
+            ),
+            (
+                l.tr("Skúšobné testy", "Mock exams"),
+                format!(
+                    "{} {}, {} {}{}",
+                    pr.mocks_taken,
+                    l.tr("absolvovaných", "taken"),
+                    pr.mocks_passed,
+                    l.tr("úspešných", "passed"),
+                    pr.last_mock_score.map(|s| format!(", {} {s} {}", l.tr("posledný", "last"), l.tr("b.", "pts"))).unwrap_or_default()
+                ),
+            ),
+            (
+                l.tr("Odhad do pripravenosti", "Estimate until ready"),
+                pr.days_to_ready
+                    .map(|d| {
+                        if d == 0 {
+                            l.tr("pripravený(á)", "ready").to_owned()
+                        } else {
+                            match l {
+                                Lang::Sk => format!("asi {d} dní pri súčasnom tempe"),
+                                Lang::En => format!("about {d} days at the current pace"),
+                            }
+                        }
+                    })
+                    .unwrap_or_else(|| "–".into()),
+            ),
+            (l.tr("Posledná aktivita", "Last activity"), pr.last_activity_at.map(|t| fmt_instant(t, l)).unwrap_or_else(|| "–".into())),
         ])?);
         doc.push(Break::new(0.6));
-        doc.push(small("Skóre pripravenosti skladá aplikácia zo štyroch častí: otvorené chyby (30 %), úspešnosť za posledných 7 dní (25 %), skúšobné testy (30 %) a podiel precvičených otázok (15 %). Za pripraveného sa považuje žiak so skóre 97 a viac."));
+        doc.push(small(l.tr(
+            "Skóre pripravenosti skladá aplikácia zo štyroch častí: otvorené chyby (30 %), úspešnosť za posledných 7 dní (25 %), skúšobné testy (30 %) a podiel precvičených otázok (15 %). Za pripraveného sa považuje žiak so skóre 97 a viac.",
+            "The app builds the readiness score from four parts: open mistakes (30 %), accuracy over the last 7 days (25 %), mock exams (30 %) and the share of questions practised (15 %). A student with a score of 97 or more counts as ready.",
+        )));
     }
     doc.push(Break::new(0.8));
-    doc.push(h2("Jazdy"));
+    doc.push(h2(l.tr("Jazdy", "Driving lessons")));
     let total: i32 = ctx.driving.iter().map(|d| d.lessons).sum();
     let required = ctx.group.map(|g| g.driving_lessons_required).unwrap_or(39);
-    doc.push(p(format!("Zaznamenaných {total} z {required} vyučovacích hodín praktického výcviku.")));
+    doc.push(p(match l {
+        Lang::Sk => format!("Zaznamenaných {total} z {required} vyučovacích hodín praktického výcviku."),
+        Lang::En => format!("{total} of {required} teaching hours of practical training recorded."),
+    }));
     if !ctx.driving.is_empty() {
         let mut t = TableLayout::new(vec![3, 2, 2, 2, 4, 5]);
         t.set_cell_decorator(FrameCellDecorator::new(true, true, true));
         let hs = style::Style::new().bold().with_font_size(8);
         let cs = style::Style::new().with_font_size(8);
         t.row()
-            .element(p("Dátum").styled(hs).padded(1))
-            .element(p("Druh").styled(hs).padded(1))
-            .element(p("Hodiny").styled(hs).padded(1))
+            .element(p(l.tr("Dátum", "Date")).styled(hs).padded(1))
+            .element(p(l.tr("Druh", "Kind")).styled(hs).padded(1))
+            .element(p(l.tr("Hodiny", "Hours")).styled(hs).padded(1))
             .element(p("km").styled(hs).padded(1))
-            .element(p("Inštruktor").styled(hs).padded(1))
-            .element(p("Poznámka").styled(hs).padded(1))
+            .element(p(l.tr("Inštruktor", "Instructor")).styled(hs).padded(1))
+            .element(p(l.tr("Poznámka", "Notes")).styled(hs).padded(1))
             .push()
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         for d in ctx.driving.iter().take(12) {
             t.row()
-                .element(p(fmt_date(d.held_on)).styled(cs).padded(1))
-                .element(p(kind_name(&d.kind)).styled(cs).padded(1))
+                .element(p(fmt_date_in(d.held_on, l)).styled(cs).padded(1))
+                .element(p(kind_name(&d.kind, l)).styled(cs).padded(1))
                 .element(p(d.lessons.to_string()).styled(cs).padded(1))
                 .element(p(d.km.map(|k| k.to_string()).unwrap_or_default()).styled(cs).padded(1))
                 .element(p(d.instructor_name.clone().unwrap_or_default()).styled(cs).padded(1))
@@ -582,26 +663,37 @@ pub fn progress_report(ctx: &StudentContext) -> PdfResult {
         doc.push(t);
     }
     doc.push(Break::new(1.5));
-    doc.push(small(format!("Vystavil(a) {} · Driver pre autoškoly", ctx.issued_by)));
+    doc.push(small(format!("{} {} · {}", l.tr("Vystavil(a)", "Issued by"), ctx.issued_by, l.tr("Driver pre autoškoly", "Driver for driving schools"))));
     render(doc)
 }
 
-fn kind_name(kind: &str) -> &'static str {
-    match kind {
-        "AT" => "trenažér",
-        "AC" => "autocvičisko",
-        "CP" => "cestná premávka",
-        _ => "údržba",
+fn kind_name(kind: &str, lang: Lang) -> &'static str {
+    match (kind, lang) {
+        ("AT", Lang::Sk) => "trenažér",
+        ("AT", Lang::En) => "simulator",
+        ("AC", Lang::Sk) => "autocvičisko",
+        ("AC", Lang::En) => "practice area",
+        ("CP", Lang::Sk) => "cestná premávka",
+        ("CP", Lang::En) => "road traffic",
+        (_, Lang::Sk) => "údržba",
+        (_, Lang::En) => "maintenance",
     }
 }
 
 /// Prezenčná listina: lessons down the side, students across, a mark where present. The
 /// electronic triedna kniha lives in JISCD; this is the paper the school keeps for itself.
 pub fn attendance_sheet(ctx: &GroupContext) -> PdfResult {
-    let mut doc = document("Prezenčná listina výučby teórie")?;
-    school_header(&mut doc, ctx.school);
-    doc.push(h1("PREZENČNÁ LISTINA VÝUČBY TEÓRIE"));
-    doc.push(small(format!("kurz {} · skupina {} · {} vyučovacích hodín predpísaných", ctx.group.name, ctx.group.category, ctx.group.theory_lessons_required)).aligned(Alignment::Center));
+    let l = ctx.lang;
+    let mut doc = document(l.tr("Prezenčná listina výučby teórie", "Theory lesson attendance sheet"), l)?;
+    school_header(&mut doc, ctx.school, l);
+    doc.push(h1(l.tr("PREZENČNÁ LISTINA VÝUČBY TEÓRIE", "THEORY LESSON ATTENDANCE SHEET")));
+    doc.push(
+        small(match l {
+            Lang::Sk => format!("kurz {} · skupina {} · {} vyučovacích hodín predpísaných", ctx.group.name, ctx.group.category, ctx.group.theory_lessons_required),
+            Lang::En => format!("course {} · category {} · {} teaching hours required", ctx.group.name, ctx.group.category, ctx.group.theory_lessons_required),
+        })
+        .aligned(Alignment::Center),
+    );
     doc.push(Break::new(0.8));
     let held: i32 = ctx.lessons.iter().map(|l| l.lessons).sum();
     let hs = style::Style::new().bold().with_font_size(7);
@@ -618,22 +710,26 @@ pub fn attendance_sheet(ctx: &GroupContext) -> PdfResult {
         }
         let mut t = TableLayout::new(weights);
         t.set_cell_decorator(FrameCellDecorator::new(true, true, true));
-        let mut head = t.row().element(p("Účastník").styled(hs).padded(1)).element(p("Č.").styled(hs).padded(1));
-        for l in lessons.iter() {
-            head = head.element(p(format!("{}\n{}\n{}h", l.held_on.format(format_description!("[day].[month]")).unwrap_or_default(), l.subject, l.lessons)).styled(hs).padded(1));
+        let mut head = t.row().element(p(l.tr("Účastník", "Student")).styled(hs).padded(1)).element(p(l.tr("Č.", "No.")).styled(hs).padded(1));
+        for lesson in lessons.iter() {
+            head = head.element(
+                p(format!("{}\n{}\n{}h", lesson.held_on.format(format_description!("[day].[month]")).unwrap_or_default(), lesson.subject, lesson.lessons))
+                    .styled(hs)
+                    .padded(1),
+            );
         }
         if i == last {
-            head = head.element(p("Spolu").styled(hs).padded(1));
+            head = head.element(p(l.tr("Spolu", "Total")).styled(hs).padded(1));
         }
         head.push().map_err(|e| anyhow::anyhow!("{e}"))?;
         for s in ctx.students {
             let mut row = t.row().element(p(student_name(s)).styled(cs).padded(1)).element(p(s.register_no.to_string()).styled(cs).padded(1));
-            for l in lessons.iter() {
-                let here = l.present_ids.contains(&s.id);
+            for lesson in lessons.iter() {
+                let here = lesson.present_ids.contains(&s.id);
                 row = row.element(p(if here { "✓" } else { "–" }).aligned(Alignment::Center).styled(cs).padded(1));
             }
             if i == last {
-                let present: i32 = ctx.lessons.iter().filter(|l| l.present_ids.contains(&s.id)).map(|l| l.lessons).sum();
+                let present: i32 = ctx.lessons.iter().filter(|x| x.present_ids.contains(&s.id)).map(|x| x.lessons).sum();
                 row = row.element(p(format!("{present}/{held}")).styled(cs).padded(1));
             }
             row.push().map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -644,8 +740,11 @@ pub fn attendance_sheet(ctx: &GroupContext) -> PdfResult {
         }
     }
     doc.push(Break::new(1.0));
-    doc.push(small("Predmety: PCP predpisy o cestnej premávke · NVU náuka o vozidlách a ich údržba · TVV teória vedenia vozidla · ZBJ zásady bezpečnej jazdy · OP opakovanie. Záväzná evidencia účasti je elektronická triedna kniha v JISCD (§ 18 vyhlášky č. 45/2016 Z. z.)."));
-    doc.push(small(format!("Vystavil(a) {} · {}", ctx.issued_by, fmt_date(today()))));
+    doc.push(small(l.tr(
+        "Predmety: PCP predpisy o cestnej premávke · NVU náuka o vozidlách a ich údržba · TVV teória vedenia vozidla · ZBJ zásady bezpečnej jazdy · OP opakovanie. Záväzná evidencia účasti je elektronická triedna kniha v JISCD (§ 18 vyhlášky č. 45/2016 Z. z.).",
+        "Subjects: PCP road traffic rules · NVU vehicle construction and maintenance · TVV theory of driving · ZBJ principles of safe driving · OP revision. The binding attendance record is the electronic class register in JISCD (§ 18 of Decree No. 45/2016 Coll.).",
+    )));
+    doc.push(small(format!("{} {} · {}", l.tr("Vystavil(a)", "Issued by"), ctx.issued_by, fmt_date_in(today(), l))));
     render(doc)
 }
 
@@ -719,6 +818,7 @@ mod tests {
         let student = sample_student();
         let progress = crate::readiness::Progress::sample_for_tests(student.id);
         let ctx = StudentContext {
+            lang: Lang::Sk,
             school: &school,
             student: &student,
             enrolment: None,
@@ -750,8 +850,12 @@ mod tests {
             students_count: 1,
             theory_lessons_held: 0,
         };
-        let gctx = GroupContext { school: &school, group: &group, students: std::slice::from_ref(&student), lessons: &[], fields: &serde_json::json!({}), issued_by: "Test" };
+        let gctx = GroupContext { lang: Lang::Sk, school: &school, group: &group, students: std::slice::from_ref(&student), lessons: &[], fields: &serde_json::json!({}), issued_by: "Test" };
         assert!(exam_application(&gctx).unwrap().starts_with(b"%PDF"));
         assert!(attendance_sheet(&gctx).unwrap().starts_with(b"%PDF"));
+        let en = StudentContext { lang: Lang::En, ..ctx };
+        assert!(progress_report(&en).unwrap().starts_with(b"%PDF"));
+        let group_en = GroupContext { lang: Lang::En, ..gctx };
+        assert!(attendance_sheet(&group_en).unwrap().starts_with(b"%PDF"));
     }
 }

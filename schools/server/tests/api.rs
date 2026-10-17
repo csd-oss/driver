@@ -300,6 +300,26 @@ async fn documents_are_generated_stored_and_served_as_pdf(pool: PgPool) {
     assert_eq!(sheet.status(), StatusCode::OK);
     let docs = app.json(&format!("/api/v1/students/{student_id}/documents")).await;
     assert_eq!(docs.as_array().unwrap().len(), 4);
+
+    // The two internal documents exist in English; an official one stays Slovak whatever `lang` says.
+    let report = app.post(&format!("/api/v1/students/{student_id}/documents"), json!({ "kind": "progress_report", "lang": "en" })).await;
+    assert_eq!(report.status(), StatusCode::OK);
+    let report: Value = report.json().await.unwrap();
+    assert_eq!(report["title"], "Theory exam preparation report");
+    let pdf = app.get(&format!("/api/v1/documents/{}/pdf", report["id"].as_str().unwrap())).await;
+    assert!(pdf.bytes().await.unwrap().starts_with(b"%PDF"));
+    let sheet = app.post(&format!("/api/v1/groups/{group_id}/documents"), json!({ "kind": "attendance_sheet", "lang": "EN" })).await;
+    let sheet: Value = sheet.json().await.unwrap();
+    assert_eq!(sheet["title"], "Theory lesson attendance sheet");
+    let certificate = app.post(&format!("/api/v1/students/{student_id}/documents"), json!({ "kind": "certificate", "lang": "en" })).await;
+    let certificate: Value = certificate.json().await.unwrap();
+    assert_eq!(certificate["title"], "Potvrdenie o absolvovaní kurzu");
+    // Machine codes the dashboard maps to its own language.
+    let unknown: Value = app.post(&format!("/api/v1/students/{student_id}/documents"), json!({ "kind": "diploma" })).await.json().await.unwrap();
+    assert_eq!(unknown["code"], "unknown_document_kind");
+    let missing = app.get(&format!("/api/v1/students/{}", uuid::Uuid::nil())).await;
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    assert_eq!(missing.json::<Value>().await.unwrap()["code"], "student_not_found");
 }
 
 #[sqlx::test(migrator = "schools::MIGRATOR")]

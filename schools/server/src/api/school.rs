@@ -43,7 +43,7 @@ pub async fn load_school(conn: &mut sqlx::PgConnection, id: Uuid) -> AppResult<S
     .bind(id)
     .fetch_optional(conn)
     .await?
-    .ok_or_else(|| AppError::not_found("Autoškola"))
+    .ok_or_else(|| AppError::not_found("school_not_found", "Autoškola"))
 }
 
 async fn get_school(State(state): State<AppState>, who: Principal) -> AppResult<Json<School>> {

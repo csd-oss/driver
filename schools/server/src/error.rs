@@ -1,5 +1,5 @@
 //! Errors are RFC 9457 problem+json with a human `detail` (the web shows it as is) and a
-//! stable machine `code`:
+//! stable machine `code` (the web maps codes to its own language; `detail` is the Slovak fallback):
 //!
 //! ```json
 //! {"type":"about:blank","title":"Not Found","status":404,"detail":"Student not found.","code":"not_found"}
@@ -42,12 +42,13 @@ impl AppError {
     pub fn unauthorized() -> Self {
         Self::new(StatusCode::UNAUTHORIZED, "unauthorized", "Prihlásenie vypršalo. Prihláste sa znova.")
     }
-    pub fn forbidden(message: impl Into<String>) -> Self {
-        Self::new(StatusCode::FORBIDDEN, "forbidden", message)
+    pub fn forbidden(code: &'static str, message: impl Into<String>) -> Self {
+        Self::new(StatusCode::FORBIDDEN, code, message)
     }
-    /// 404 "`what` not found." (also for things the actor may not see).
-    pub fn not_found(what: &str) -> Self {
-        Self::new(StatusCode::NOT_FOUND, "not_found", format!("{what} sa nenašiel."))
+    /// 404 "`what` not found." (also for things the actor may not see). `code` names the
+    /// resource (`student_not_found`, …) so the client can word it.
+    pub fn not_found(code: &'static str, what: &str) -> Self {
+        Self::new(StatusCode::NOT_FOUND, code, format!("{what} sa nenašiel."))
     }
     pub fn conflict(code: &'static str, message: impl Into<String>) -> Self {
         Self::new(StatusCode::CONFLICT, code, message)

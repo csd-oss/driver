@@ -44,7 +44,7 @@ impl Principal {
         if self.is_admin() {
             Ok(())
         } else {
-            Err(AppError::forbidden("Toto môže urobiť len správca autoškoly."))
+            Err(AppError::forbidden("admin_only", "Toto môže urobiť len správca autoškoly."))
         }
     }
 }
@@ -111,7 +111,7 @@ impl FromRequestParts<AppState> for Principal {
         if !is_safe(&parts.method)
             && !crate::net::from_own_page(&parts.headers, &state.config.app_origin(), &state.config.allowed_origins)
         {
-            return Err(AppError::forbidden("Táto zmena musí prísť zo stránky aplikácie."));
+            return Err(AppError::forbidden("bad_origin", "Táto zmena musí prísť zo stránky aplikácie."));
         }
         principal_from_session(&state.db, cookie).await
     }
@@ -188,7 +188,7 @@ pub async fn login(
     Json(req): Json<LoginRequest>,
 ) -> AppResult<Response> {
     if !crate::net::from_own_page(&headers, &state.config.app_origin(), &state.config.allowed_origins) {
-        return Err(AppError::forbidden("Prihlásenie musí prísť zo stránky aplikácie."));
+        return Err(AppError::forbidden("bad_origin", "Prihlásenie musí prísť zo stránky aplikácie."));
     }
     let row = sqlx::query_as::<_, LoginRow>(
         "SELECT id, school_id, email, name, role, password_hash FROM users WHERE lower(email) = lower($1) AND active",

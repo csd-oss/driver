@@ -117,7 +117,7 @@ async fn link_info(conn: &mut PgConnection, link_id: Uuid) -> AppResult<LinkInfo
 async fn join(State(state): State<AppState>, JsonBody(req): JsonBody<JoinRequest>) -> AppResult<Json<JoinResponse>> {
     let code = normalize_code(&req.code);
     if code.len() < 6 {
-        return Err(AppError::invalid("Kód má 8 znakov."));
+        return Err(AppError::bad_request("bad_code_format", "Kód má 8 znakov."));
     }
     let device_id = super::required("device_id", &req.device_id)?;
     let lang = req.lang.unwrap_or(1).clamp(1, 3);
@@ -310,19 +310,19 @@ pub struct SyncResponse {
 const MAX_ROWS: usize = 5000;
 
 fn ts(seconds: i64) -> AppResult<OffsetDateTime> {
-    OffsetDateTime::from_unix_timestamp(seconds).map_err(|_| AppError::invalid("Neplatný čas."))
+    OffsetDateTime::from_unix_timestamp(seconds).map_err(|_| AppError::bad_request("bad_timestamp", "Neplatný čas."))
 }
 
 /// `POST /api/v1/app/sync`: rows are upserted by the app's own ids, so sending them twice is safe.
 async fn sync(State(state): State<AppState>, who: AppPrincipal, JsonBody(req): JsonBody<SyncRequest>) -> AppResult<Json<SyncResponse>> {
     if req.attempts.len() > MAX_ROWS || req.mock_exams.len() > MAX_ROWS || req.exam_results.len() > MAX_ROWS {
-        return Err(AppError::invalid(format!("Najviac {MAX_ROWS} riadkov na jednu synchronizáciu.")));
+        return Err(AppError::bad_request("too_many_rows", format!("Najviac {MAX_ROWS} riadkov na jednu synchronizáciu.")));
     }
     let lang = req.lang.unwrap_or(who.lang).clamp(1, 3);
     let mut tx = state.db.begin().await?;
     for a in &req.attempts {
         if !matches!(a.mode.as_str(), "study" | "mock" | "mistakes" | "game") {
-            return Err(AppError::invalid("Neznámy režim odpovede."));
+            return Err(AppError::bad_request("bad_attempt_mode", "Neznámy režim odpovede."));
         }
         sqlx::query(
             "INSERT INTO app_attempts (id, student_id, lang, question_id, mode, category_text, is_correct, response_time_ms, answered_at)

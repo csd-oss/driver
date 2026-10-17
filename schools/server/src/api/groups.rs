@@ -58,7 +58,7 @@ pub async fn load_group(conn: &mut PgConnection, school_id: Uuid, id: Uuid) -> A
         .bind(id)
         .fetch_optional(conn)
         .await?
-        .ok_or_else(|| AppError::not_found("Kurz"))
+        .ok_or_else(|| AppError::not_found("group_not_found", "Kurz"))
 }
 
 #[derive(Serialize)]
@@ -178,7 +178,7 @@ pub async fn check_branch(conn: &mut PgConnection, school_id: Uuid, branch_id: O
             .fetch_one(conn)
             .await?;
         if !ok {
-            return Err(AppError::not_found("Pobočka"));
+            return Err(AppError::not_found("branch_not_found", "Pobočka"));
         }
     }
     Ok(())
@@ -193,7 +193,7 @@ pub async fn check_user(conn: &mut PgConnection, school_id: Uuid, user_id: Optio
             .fetch_one(conn)
             .await?;
         if !ok {
-            return Err(AppError::not_found("Inštruktor"));
+            return Err(AppError::not_found("instructor_not_found", "Inštruktor"));
         }
     }
     Ok(())
@@ -253,7 +253,7 @@ fn check_status(s: &str) -> AppResult<()> {
     if matches!(s, "planned" | "running" | "finished" | "archived") {
         Ok(())
     } else {
-        Err(AppError::invalid("Stav kurzu musí byť planned, running, finished alebo archived."))
+        Err(AppError::bad_request("bad_group_status", "Stav kurzu musí byť planned, running, finished alebo archived."))
     }
 }
 
@@ -525,11 +525,11 @@ async fn add_lesson(
 ) -> AppResult<Json<Lesson>> {
     let subject = l.subject.unwrap_or_else(|| "PCP".into());
     if !matches!(subject.as_str(), "PCP" | "NVU" | "TVV" | "ZBJ" | "OP") {
-        return Err(AppError::invalid("Predmet musí byť PCP, NVU, TVV, ZBJ alebo OP."));
+        return Err(AppError::bad_request("bad_subject", "Predmet musí byť PCP, NVU, TVV, ZBJ alebo OP."));
     }
     let count = l.lessons.unwrap_or(1);
     if !(1..=6).contains(&count) {
-        return Err(AppError::invalid("Jeden blok má 1 až 6 vyučovacích hodín (§ 8 ods. 2 vyhl. 45/2016)."));
+        return Err(AppError::bad_request("bad_lesson_count", "Jeden blok má 1 až 6 vyučovacích hodín (§ 8 ods. 2 vyhl. 45/2016)."));
     }
     let mut tx = state.db.begin().await?;
     load_group(&mut tx, who.school_id, id).await?;
@@ -609,7 +609,7 @@ async fn set_attendance(
     .bind(who.school_id)
     .fetch_optional(&mut *tx)
     .await?
-    .ok_or_else(|| AppError::not_found("Hodina"))?;
+    .ok_or_else(|| AppError::not_found("lesson_not_found", "Hodina"))?;
     write_attendance(&mut tx, id, group_id, &a.present_ids).await?;
     let lessons = list_lessons(&mut tx, group_id).await?;
     tx.commit().await?;

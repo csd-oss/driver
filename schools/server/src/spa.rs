@@ -13,7 +13,7 @@ pub fn service(dir: PathBuf) -> ServeDir<ServeFile> {
 /// No web build: a plain 404 that says where the dashboard runs in development.
 pub async fn no_web(method: Method, uri: Uri) -> Response {
     if uri.path().starts_with("/api") || method != Method::GET {
-        return crate::error::AppError::not_found("Cesta").into_response();
+        return crate::error::AppError::not_found("path_not_found", "Cesta").into_response();
     }
     (
         StatusCode::NOT_FOUND,

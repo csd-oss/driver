@@ -76,7 +76,7 @@ pub async fn load_student(conn: &mut PgConnection, school_id: Uuid, id: Uuid) ->
         .bind(id)
         .fetch_optional(conn)
         .await?
-        .ok_or_else(|| AppError::not_found("Žiak"))
+        .ok_or_else(|| AppError::not_found("student_not_found", "Žiak"))
 }
 
 #[derive(Deserialize)]
@@ -309,7 +309,7 @@ async fn enrol(
             .execute(&mut *tx)
             .await?;
         }
-        Some(_) => return Err(AppError::invalid("Stav musí byť active, finished, withdrawn alebo transferred.")),
+        Some(_) => return Err(AppError::bad_request("bad_enrolment_status", "Stav musí byť active, finished, withdrawn alebo transferred.")),
     }
     let row = load_student(&mut tx, who.school_id, id).await?;
     tx.commit().await?;
@@ -357,12 +357,12 @@ async fn add_driving_lesson(
 ) -> AppResult<Json<Vec<DrivingLesson>>> {
     let kind = l.kind.unwrap_or_else(|| "CP".into());
     if !matches!(kind.as_str(), "AT" | "AC" | "CP" | "PU") {
-        return Err(AppError::invalid("Druh jazdy musí byť AT, AC, CP alebo PU."));
+        return Err(AppError::bad_request("bad_driving_kind", "Druh jazdy musí byť AT, AC, CP alebo PU."));
     }
     let count = l.lessons.unwrap_or(1);
     let max = match kind.as_str() { "AT" | "AC" => 2, "CP" => 3, _ => 6 };
     if !(1..=max).contains(&count) {
-        return Err(AppError::invalid(format!("Druh {kind} má najviac {max} vyučovacie hodiny denne (§ 8 ods. 11 vyhl. 45/2016).")));
+        return Err(AppError::bad_request("driving_count_over_limit", format!("Druh {kind} má najviac {max} vyučovacie hodiny denne (§ 8 ods. 11 vyhl. 45/2016).")));
     }
     let mut tx = state.db.begin().await?;
     let student = load_student(&mut tx, who.school_id, id).await?;
@@ -568,6 +568,13 @@ pub struct DocumentInput {
     /// Free fields the document needs beyond what the database holds (price, dates, place…).
     #[serde(default)]
     pub fields: Value,
+    /// `sk` (default) or `en`. Only the internal documents (`progress_report`) have an English
+    /// version; the official ones are Slovak whatever this says.
+    pub lang: Option<String>,
+}
+
+fn lang_tag(lang: pdf::Lang) -> &'static str {
+    if lang == pdf::Lang::En { "en" } else { "sk" }
 }
 
 /// `POST /api/v1/students/{id}/documents`: render the PDF, keep it, answer with its row.
@@ -595,13 +602,17 @@ async fn create_document(
     };
     let progress = readiness::for_student(&mut tx, id).await?;
     let driving = driving_lessons(&mut tx, id).await?;
-    let ctx = pdf::StudentContext { school: &school, student: &student, enrolment: enrolment.as_ref(), group: group.as_ref(), progress: &progress, driving: &driving, fields: &d.fields, issued_by: &who.name };
+    let lang = pdf::Lang::parse(d.lang.as_deref());
+    let ctx = pdf::StudentContext { lang, school: &school, student: &student, enrolment: enrolment.as_ref(), group: group.as_ref(), progress: &progress, driving: &driving, fields: &d.fields, issued_by: &who.name };
     let (title, bytes) = match d.kind.as_str() {
         "agreement" => ("Zmluva o výcviku", pdf::training_agreement(&ctx)?),
         "certificate" => ("Potvrdenie o absolvovaní kurzu", pdf::course_certificate(&ctx)?),
         "guardian_consent" => ("Súhlas zákonného zástupcu a informácia o spracúvaní osobných údajov", pdf::guardian_consent(&ctx)?),
-        "progress_report" => ("Výpis z prípravy na skúšku", pdf::progress_report(&ctx)?),
-        other => return Err(AppError::invalid(format!("Neznámy druh dokumentu `{other}`."))),
+        "progress_report" => (
+            if lang == pdf::Lang::En { "Theory exam preparation report" } else { "Výpis z prípravy na skúšku" },
+            pdf::progress_report(&ctx)?,
+        ),
+        other => return Err(AppError::bad_request("unknown_document_kind", format!("Neznámy druh dokumentu `{other}`."))),
     };
     let doc_id = Uuid::now_v7();
     sqlx::query(
@@ -615,7 +626,7 @@ async fn create_document(
     .bind(&d.kind)
     .bind(title)
     .bind(who.user_id)
-    .bind(sqlx::types::Json(json!({ "fields": d.fields, "student": student.register_no, "readiness": progress.score })))
+    .bind(sqlx::types::Json(json!({ "fields": d.fields, "lang": lang_tag(lang), "student": student.register_no, "readiness": progress.score })))
     .bind(&bytes)
     .execute(&mut *tx)
     .await?;
@@ -640,6 +651,8 @@ pub struct GroupDocumentInput {
     pub student_ids: Option<Vec<Uuid>>,
     #[serde(default)]
     pub fields: Value,
+    /// `sk` (default) or `en`; only `attendance_sheet` has an English version.
+    pub lang: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -671,14 +684,18 @@ async fn create_group_document(
         students.retain(|s| ids.contains(&s.id));
     }
     if students.is_empty() {
-        return Err(AppError::invalid("V kurze nie je nikto, koho by sme do dokumentu dali."));
+        return Err(AppError::bad_request("group_document_empty", "V kurze nie je nikto, koho by sme do dokumentu dali."));
     }
     let lessons = groups::list_lessons(&mut tx, id).await?;
-    let ctx = pdf::GroupContext { school: &school, group: &group, students: &students, lessons: &lessons, fields: &d.fields, issued_by: &who.name };
+    let lang = pdf::Lang::parse(d.lang.as_deref());
+    let ctx = pdf::GroupContext { lang, school: &school, group: &group, students: &students, lessons: &lessons, fields: &d.fields, issued_by: &who.name };
     let (title, bytes) = match d.kind.as_str() {
         "exam_application" => ("Prihláška na skúšku z odbornej spôsobilosti", pdf::exam_application(&ctx)?),
-        "attendance_sheet" => ("Prezenčná listina výučby teórie", pdf::attendance_sheet(&ctx)?),
-        other => return Err(AppError::invalid(format!("Neznámy druh dokumentu `{other}`."))),
+        "attendance_sheet" => (
+            if lang == pdf::Lang::En { "Theory lesson attendance sheet" } else { "Prezenčná listina výučby teórie" },
+            pdf::attendance_sheet(&ctx)?,
+        ),
+        other => return Err(AppError::bad_request("unknown_document_kind", format!("Neznámy druh dokumentu `{other}`."))),
     };
     let doc_id = Uuid::now_v7();
     sqlx::query(
@@ -691,7 +708,7 @@ async fn create_group_document(
     .bind(&d.kind)
     .bind(title)
     .bind(who.user_id)
-    .bind(sqlx::types::Json(json!({ "fields": d.fields, "students": students.iter().map(|s| s.id).collect::<Vec<_>>() })))
+    .bind(sqlx::types::Json(json!({ "fields": d.fields, "lang": lang_tag(lang), "students": students.iter().map(|s| s.id).collect::<Vec<_>>() })))
     .bind(&bytes)
     .execute(&mut *tx)
     .await?;
@@ -707,7 +724,7 @@ async fn document_pdf(State(state): State<AppState>, who: Principal, Path(id): P
             .bind(who.school_id)
             .fetch_optional(&state.db)
             .await?;
-    let (title, pdf) = row.ok_or_else(|| AppError::not_found("Dokument"))?;
+    let (title, pdf) = row.ok_or_else(|| AppError::not_found("document_not_found", "Dokument"))?;
     let filename: String = title.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
     let mut res = pdf.into_response();
     let h = res.headers_mut();
