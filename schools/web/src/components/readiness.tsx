@@ -1,26 +1,29 @@
 import { Badge } from '@/components/ui/badge'
 import { Meter } from '@/components/ui/meter'
+import { useT } from '@/i18n'
 import { cn } from '@/lib/cn'
-import { READINESS_LABEL, READINESS_TONE } from '@/lib/format'
+import { READINESS_TONE } from '@/lib/format'
 import type { Progress } from '@/lib/types'
 
 type MeterTone = 'in' | 'default' | 'warn' | 'over'
 const tone = (score: number): MeterTone => (score >= 97 ? 'in' : score >= 85 ? 'default' : score >= 60 ? 'warn' : 'over')
 
-/** Score bar + number; "bez aplikácie" when the student never linked the app. */
+/** Score bar + number; "no app" when the student never linked the app. */
 export function ReadinessBar({ progress, className, compact = false }: { progress: Progress; className?: string; compact?: boolean }) {
-  if (!progress.linked) return <span className={cn('text-xs text-subtle', className)}>bez aplikácie</span>
+  const t = useT()
+  if (!progress.linked) return <span className={cn('text-xs text-subtle', className)}>{t('common.noApp')}</span>
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <Meter value={progress.score} max={100} label="Pripravenosť" tone={tone(progress.score)} className={compact ? 'w-16' : 'w-24'} />
+      <Meter value={progress.score} max={100} label={t('readiness.label')} tone={tone(progress.score)} className={compact ? 'w-16' : 'w-24'} />
       <span className="w-7 text-right text-sm font-semibold tabular-nums text-fg">{progress.score}</span>
     </div>
   )
 }
 
 export function ReadinessBadge({ progress }: { progress: Progress }) {
-  if (!progress.linked) return <Badge tone="neutral">bez aplikácie</Badge>
-  return <Badge tone={READINESS_TONE[progress.label]}>{READINESS_LABEL[progress.label]}</Badge>
+  const t = useT()
+  if (!progress.linked) return <Badge tone="neutral">{t('common.noApp')}</Badge>
+  return <Badge tone={READINESS_TONE[progress.label]}>{t(`readiness.${progress.label}`)}</Badge>
 }
 
 /** A big number with a label, for the overview rows. */
@@ -37,11 +40,12 @@ export function StatTile({ label, value, hint, tone = 'default' }: { label: stri
 
 /** Four horizontal bars, one per readiness component, as the app shows them. */
 export function ComponentBars({ progress }: { progress: Progress }) {
+  const t = useT()
   const rows: { label: string; value: number; weight: string }[] = [
-    { label: 'Chyby', value: progress.components.mistakes, weight: '30 %' },
-    { label: 'Úspešnosť za 7 dní', value: progress.components.performance, weight: '25 %' },
-    { label: 'Skúšobné testy', value: progress.components.mock, weight: '30 %' },
-    { label: 'Precvičené otázky', value: progress.components.coverage, weight: '15 %' },
+    { label: t('readiness.mistakes'), value: progress.components.mistakes, weight: '30 %' },
+    { label: t('readiness.performance'), value: progress.components.performance, weight: '25 %' },
+    { label: t('readiness.mock'), value: progress.components.mock, weight: '30 %' },
+    { label: t('readiness.coverage'), value: progress.components.coverage, weight: '15 %' },
   ]
   return (
     <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 text-sm">

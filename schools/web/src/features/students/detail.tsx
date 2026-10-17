@@ -13,12 +13,14 @@ import { Meter } from '@/components/ui/meter'
 import { Property, PropertyList } from '@/components/ui/property-list'
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from '@/components/ui/table'
 import { toast } from '@/components/ui/toast'
+import { type MessageKey, useI18n, useT } from '@/i18n'
 import { errorMessage } from '@/lib/api'
-import { ageOn, DRIVING_KIND, ENROLMENT_STATUS, euro, formatAgo, formatDate, fullName, percent, plural } from '@/lib/format'
+import { ageOn, DRIVING_KINDS, euro, formatAgo, formatDate, fullName, isEnrolmentStatus, percent } from '@/lib/format'
 import { documentUrl, useAddDrivingLesson, useCreateDocument, useEnrol, useGroups, usePatchStudent, useStudent, useStudentJoinCode } from '@/lib/queries'
 import type { StudentDetail } from '@/lib/types'
 
 export default function StudentPage() {
+  const t = useT()
   const { studentId } = useParams({ from: '/app/ziaci/$studentId' })
   const student = useStudent(studentId)
   if (student.isPending) return <Loading />
@@ -29,28 +31,28 @@ export default function StudentPage() {
   return (
     <Page
       wide
-      back={{ to: '/ziaci', label: 'Žiaci' }}
+      back={{ to: '/ziaci', label: t('nav.students') }}
       title={
         <span className="flex items-center gap-3">
           {fullName(s)}
           <ReadinessBadge progress={s.progress} />
-          {minor && <Badge tone="warning">pod 18</Badge>}
+          {minor && <Badge tone="warning">{t('student.minor')}</Badge>}
         </span>
       }
       description={
         <>
-          č. {s.register_no} v matričnej knihe
+          {t('student.registerNo', { n: s.register_no })}
           {enrolment && (
             <>
               {' '}
-              · kurz{' '}
+              · {t('student.courseWord')}{' '}
               <Link to="/kurzy/$groupId" params={{ groupId: enrolment.group_id }} className="text-accent-text hover:underline">
                 {enrolment.group_name}
               </Link>{' '}
-              ({ENROLMENT_STATUS[enrolment.status]})
+              ({isEnrolmentStatus(enrolment.status) ? t(`enrolmentStatus.${enrolment.status}`) : enrolment.status})
             </>
           )}
-          {s.birth_date && <> · {ageOn(s.birth_date)} r.</>}
+          {s.birth_date && <> · {t('student.age', { n: ageOn(s.birth_date) ?? '' })}</>}
         </>
       }
     >
@@ -72,13 +74,14 @@ export default function StudentPage() {
 }
 
 function ReadinessCard({ s }: { s: StudentDetail }) {
+  const { t, tp } = useI18n()
   const p = s.progress
   if (!p.linked) {
     return (
       <Card className="p-4">
-        <h2 className="text-sm font-semibold text-fg">Príprava na teoretickú skúšku</h2>
-        <Callout className="mt-3" title="Aplikácia nie je prepojená">
-          Dajte žiakovi kód (vpravo). Keď ho zadá v aplikácii Driver SK, uvidíte tu jeho pripravenosť, chyby a skúšobné testy.
+        <h2 className="text-sm font-semibold text-fg">{t('student.readinessTitle')}</h2>
+        <Callout className="mt-3" title={t('student.notLinkedTitle')}>
+          {t('student.notLinkedHint')}
         </Callout>
       </Card>
     )
@@ -88,8 +91,8 @@ function ReadinessCard({ s }: { s: StudentDetail }) {
     <Card className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-fg">Príprava na teoretickú skúšku</h2>
-          <p className="text-xs text-muted">z aplikácie Driver SK · synchronizované {formatAgo(p.last_sync_at)}</p>
+          <h2 className="text-sm font-semibold text-fg">{t('student.readinessTitle')}</h2>
+          <p className="text-xs text-muted">{t('student.fromApp', { ago: formatAgo(p.last_sync_at) })}</p>
         </div>
         <div className="flex items-center gap-4">
           <Sparkline points={trend} />
@@ -102,28 +105,24 @@ function ReadinessCard({ s }: { s: StudentDetail }) {
       <div className="mt-4 grid grid-cols-[1fr_1fr] gap-6 max-desk:grid-cols-1">
         <ComponentBars progress={p} />
         <PropertyList labelWidth="9rem">
-          <Property label="Precvičené otázky">
-            <span className="tabular-nums">
-              {p.seen_count} z {p.total_questions}
-            </span>
+          <Property label={t('student.questionsPractised')}>
+            <span className="tabular-nums">{t('student.ofTotal', { n: p.seen_count, total: p.total_questions })}</span>
           </Property>
-          <Property label="Otvorené chyby">
-            <span className="tabular-nums">{p.mistakes_count}</span> <span className="text-xs text-subtle">({p.due_mistakes_count} na dnes)</span>
+          <Property label={t('student.openMistakes')}>
+            <span className="tabular-nums">{p.mistakes_count}</span> <span className="text-xs text-subtle">{t('student.dueToday', { n: p.due_mistakes_count })}</span>
           </Property>
-          <Property label="Úspešnosť za 7 dní">{p.accuracy_7d === null ? <span className="text-subtle">bez odpovedí</span> : <span className="tabular-nums">{p.accuracy_7d} % z {p.attempts_7d}</span>}</Property>
-          <Property label="Skúšobné testy">
-            <span className="tabular-nums">
-              {p.mocks_passed}/{p.mocks_taken} úspešných
-            </span>
-            {p.last_mock_score !== null && <span className="text-xs text-subtle"> · posledný {p.last_mock_score} b.</span>}
+          <Property label={t('student.accuracy7d')}>
+            {p.accuracy_7d === null ? <span className="text-subtle">{t('student.noAnswers')}</span> : <span className="tabular-nums">{t('student.accuracyOf', { pct: p.accuracy_7d, n: p.attempts_7d })}</span>}
           </Property>
-          <Property label="Odhad">
-            {p.days_to_ready === null ? <span className="text-subtle">–</span> : p.days_to_ready === 0 ? 'pripravený' : `asi ${plural(p.days_to_ready, 'deň', 'dni', 'dní')} pri súčasnom tempe`}
+          <Property label={t('student.mocks')}>
+            <span className="tabular-nums">{t('student.mocksPassed', { passed: p.mocks_passed, taken: p.mocks_taken })}</span>
+            {p.last_mock_score !== null && <span className="text-xs text-subtle"> {t('student.lastMock', { n: p.last_mock_score })}</span>}
           </Property>
-          <Property label="Posledná aktivita">{formatAgo(p.last_activity_at)}</Property>
+          <Property label={t('student.estimate')}>{p.days_to_ready === null ? <span className="text-subtle">–</span> : p.days_to_ready === 0 ? t('student.ready') : tp('student.estimateDays', p.days_to_ready)}</Property>
+          <Property label={t('student.lastActivity')}>{formatAgo(p.last_activity_at)}</Property>
           {p.exam && (
-            <Property label="Reálna skúška">
-              <Badge tone={p.exam.passed ? 'success' : 'danger'}>{p.exam.passed ? 'uspel' : 'neuspel'}</Badge> <span className="tabular-nums">{p.exam.points} b.</span>{' '}
+            <Property label={t('student.realExam')}>
+              <Badge tone={p.exam.passed ? 'success' : 'danger'}>{p.exam.passed ? t('student.passed') : t('student.failed')}</Badge> <span className="tabular-nums">{t('student.points', { n: p.exam.points })}</span>{' '}
               <span className="text-xs text-subtle">{formatDate(p.exam.taken_at)}</span>
             </Property>
           )}
@@ -133,7 +132,7 @@ function ReadinessCard({ s }: { s: StudentDetail }) {
         <div className="mt-4 grid grid-cols-[1fr_1fr] gap-6 border-t border-line pt-4 max-desk:grid-cols-1">
           {s.weak_categories.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold text-muted">Najslabšie okruhy</h3>
+              <h3 className="mb-2 text-xs font-semibold text-muted">{t('student.weakCategories')}</h3>
               <ul className="flex flex-col gap-1.5">
                 {s.weak_categories.map((c) => {
                   const acc = percent(Number(c.correct), Number(c.attempts)) ?? 0
@@ -152,7 +151,7 @@ function ReadinessCard({ s }: { s: StudentDetail }) {
           )}
           {s.mocks.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold text-muted">Skúšobné testy</h3>
+              <h3 className="mb-2 text-xs font-semibold text-muted">{t('student.mockHistory')}</h3>
               <ul className="flex flex-col gap-1 text-sm">
                 {s.mocks.slice(0, 6).map((m) => (
                   <li key={m.completed_at} className="flex items-center justify-between">
@@ -172,6 +171,7 @@ function ReadinessCard({ s }: { s: StudentDetail }) {
 }
 
 function DrivingCard({ s }: { s: StudentDetail }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const required = s.enrolments.find((e) => e.status === 'active')?.driving_lessons_required ?? 39
   const done = s.driving_lessons.filter((d) => d.kind !== 'PU').reduce((n, d) => n + d.lessons, 0)
@@ -180,26 +180,24 @@ function DrivingCard({ s }: { s: StudentDetail }) {
     <Card className="p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-fg">Jazdy</h2>
-          <p className="text-xs text-muted">
-            {done} z {required} vyučovacích hodín · trenažér {byKind('AT')}, autocvičisko {byKind('AC')}, premávka {byKind('CP')} · {s.training.driving_km} km
-          </p>
+          <h2 className="text-sm font-semibold text-fg">{t('student.drivingTitle')}</h2>
+          <p className="text-xs text-muted">{t('student.drivingSummary', { done, required, at: byKind('AT'), ac: byKind('AC'), cp: byKind('CP'), km: s.training.driving_km })}</p>
         </div>
         <Button size="sm" onClick={() => setOpen(true)}>
-          <PlusIcon aria-hidden /> Zapísať jazdu
+          <PlusIcon aria-hidden /> {t('student.recordDrive')}
         </Button>
       </div>
-      <Meter value={done} max={required} label="Jazdy" className="mt-3" size="md" />
+      <Meter value={done} max={required} label={t('student.drivingTitle')} className="mt-3" size="md" />
       {s.driving_lessons.length > 0 && (
         <Table className="mt-3">
           <TableHead>
             <TableRow>
-              <TableHeaderCell>Dátum</TableHeaderCell>
-              <TableHeaderCell>Druh</TableHeaderCell>
-              <TableHeaderCell className="text-right">Hodiny</TableHeaderCell>
-              <TableHeaderCell className="text-right">km</TableHeaderCell>
-              <TableHeaderCell>Inštruktor</TableHeaderCell>
-              <TableHeaderCell>Poznámka</TableHeaderCell>
+              <TableHeaderCell>{t('col.date')}</TableHeaderCell>
+              <TableHeaderCell>{t('col.kind')}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t('col.hours')}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t('col.km')}</TableHeaderCell>
+              <TableHeaderCell>{t('col.instructor')}</TableHeaderCell>
+              <TableHeaderCell>{t('col.note')}</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -208,7 +206,7 @@ function DrivingCard({ s }: { s: StudentDetail }) {
                 <TableCell>
                   {formatDate(d.held_on)} {d.starts_at && <span className="text-xs text-subtle">{d.starts_at.slice(0, 5)}</span>}
                 </TableCell>
-                <TableCell>{DRIVING_KIND[d.kind]}</TableCell>
+                <TableCell>{t(`drivingKind.${d.kind}`)}</TableCell>
                 <TableCell className="text-right tabular-nums">{d.lessons}</TableCell>
                 <TableCell className="text-right tabular-nums text-muted">{d.km ?? '–'}</TableCell>
                 <TableCell className="text-muted">{d.instructor_name ?? '–'}</TableCell>
@@ -224,6 +222,7 @@ function DrivingCard({ s }: { s: StudentDetail }) {
 }
 
 function DrivingDialog({ s, onClose }: { s: StudentDetail; onClose: () => void }) {
+  const t = useT()
   const add = useAddDrivingLesson(s.id)
   const [form, setForm] = useState({ held_on: new Date().toISOString().slice(0, 10), starts_at: '', lessons: '2', kind: 'CP', km: '', vehicle: '', notes: '' })
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -236,48 +235,48 @@ function DrivingDialog({ s, onClose }: { s: StudentDetail; onClose: () => void }
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title="Zapísať jazdu" description="Denné maximá podľa § 8 ods. 11 vyhlášky 45/2016: 2 h trenažér alebo autocvičisko, 3 h cestná premávka." size="sm">
+      <DialogContent title={t('student.recordDrive')} description={t('student.driveDialogHint')} size="sm">
         <form onSubmit={submit} className="contents">
           <DialogBody>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Dátum">
+              <Field label={t('col.date')}>
                 <Input type="date" value={form.held_on} onChange={set('held_on')} required />
               </Field>
-              <Field label="Začiatok">
+              <Field label={t('col.start')}>
                 <Input type="time" value={form.starts_at} onChange={set('starts_at')} />
               </Field>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <Field label="Druh">
+              <Field label={t('col.kind')}>
                 <Select value={form.kind} onChange={set('kind')}>
-                  {Object.entries(DRIVING_KIND).map(([k, v]) => (
+                  {DRIVING_KINDS.map((k) => (
                     <option key={k} value={k}>
-                      {v}
+                      {t(`drivingKind.${k}`)}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <Field label="Hodiny">
+              <Field label={t('col.hours')}>
                 <Input type="number" min={1} max={6} value={form.lessons} onChange={set('lessons')} required />
               </Field>
-              <Field label="km">
+              <Field label={t('col.km')}>
                 <Input type="number" min={0} value={form.km} onChange={set('km')} />
               </Field>
             </div>
-            <Field label="Vozidlo">
-              <Input value={form.vehicle} onChange={set('vehicle')} placeholder="Škoda Fabia ZA-456DE" />
+            <Field label={t('student.vehicle')}>
+              <Input value={form.vehicle} onChange={set('vehicle')} placeholder={t('student.vehiclePlaceholder')} />
             </Field>
-            <Field label="Poznámka">
-              <Textarea value={form.notes} onChange={set('notes')} placeholder="čo šlo dobre, čo precvičiť nabudúce" />
+            <Field label={t('col.note')}>
+              <Textarea value={form.notes} onChange={set('notes')} placeholder={t('student.notesPlaceholder')} />
             </Field>
             {add.isError && <p className="text-sm text-danger-text">{errorMessage(add.error)}</p>}
           </DialogBody>
           <DialogFooter>
             <Button type="button" onClick={onClose}>
-              Zrušiť
+              {t('common.cancel')}
             </Button>
             <Button type="submit" variant="primary" loading={add.isPending}>
-              Zapísať
+              {t('common.record')}
             </Button>
           </DialogFooter>
         </form>
@@ -287,74 +286,76 @@ function DrivingDialog({ s, onClose }: { s: StudentDetail; onClose: () => void }
 }
 
 function TheoryCard({ s }: { s: StudentDetail }) {
-  const t = s.training
+  const t = useT()
+  const tr = s.training
   const required = s.enrolments.find((e) => e.status === 'active')?.theory_lessons_required ?? 32
-  const att = percent(t.theory_present, t.theory_held)
+  const att = percent(tr.theory_present, tr.theory_held)
   return (
     <Card className="p-4">
-      <h2 className="text-sm font-semibold text-fg">Teória</h2>
-      <p className="text-xs text-muted">
-        {t.theory_present} z {t.theory_held} odučených hodín ({att ?? 0} %) · kurz predpisuje {required} h · v autoškole treba odsedieť aspoň 50 %, zvyšok sa nahrádza v JISCD (§ 8 ods. 6 vyhl. 45/2016)
-      </p>
-      <Meter value={t.theory_present} max={Math.max(required, t.theory_held)} label="Teória" className="mt-3" size="md" tone={att !== null && att < 50 ? 'warn' : 'default'} />
+      <h2 className="text-sm font-semibold text-fg">{t('student.theoryTitle')}</h2>
+      <p className="text-xs text-muted">{t('student.theorySummary', { present: tr.theory_present, held: tr.theory_held, pct: att ?? 0, required })}</p>
+      <Meter value={tr.theory_present} max={Math.max(required, tr.theory_held)} label={t('student.theoryTitle')} className="mt-3" size="md" tone={att !== null && att < 50 ? 'warn' : 'default'} />
     </Card>
   )
 }
 
 function AppCard({ s }: { s: StudentDetail }) {
+  const t = useT()
   const make = useStudentJoinCode(s.id)
   const code = s.join_code
   const copy = async () => {
     if (!code) return
     try {
       await navigator.clipboard.writeText(code.code)
-      toast('Kód skopírovaný', { tone: 'success' })
+      toast(t('common.codeCopied'), { tone: 'success' })
     } catch {
-      toast.error('Kód sa nepodarilo skopírovať')
+      toast.error(t('common.codeCopyFailed'))
     }
   }
   return (
     <Card className="p-4">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-fg">
-        <SmartphoneIcon aria-hidden className="size-4 text-subtle" /> Aplikácia Driver SK
+        <SmartphoneIcon aria-hidden className="size-4 text-subtle" /> {t('student.appTitle')}
       </h2>
       {s.progress.linked ? (
         <p className="mt-1 text-sm text-muted">
-          Prepojená, posledná synchronizácia {formatAgo(s.progress.last_sync_at)}.{s.app_consent_on && <> Súhlas so zdieľaním od {formatDate(s.app_consent_on)}.</>}
+          {t('student.appLinked', { ago: formatAgo(s.progress.last_sync_at) })}
+          {s.app_consent_on && <> {t('student.appConsent', { date: formatDate(s.app_consent_on) })}</>}
         </p>
       ) : (
-        <p className="mt-1 text-sm text-muted">Nie je prepojená. Osobný kód funguje raz a platí 14 dní; kód kurzu nájdete na stránke kurzu.</p>
+        <p className="mt-1 text-sm text-muted">{t('student.appNotLinked')}</p>
       )}
       {code && (
         <div className="mt-3 flex items-center gap-2">
           <code className="flex-1 rounded-md border border-line bg-sunken px-3 py-2 text-center font-mono text-xl tracking-[0.3em] text-fg">{code.code}</code>
-          <Button icon aria-label="Kopírovať kód" onClick={copy}>
+          <Button icon aria-label={t('common.copyCode')} onClick={copy}>
             <CopyIcon aria-hidden />
           </Button>
         </div>
       )}
       <Button size="sm" variant="ghost" className="mt-3" loading={make.isPending} onClick={() => make.mutate(undefined, { onError: (e) => toast.error(errorMessage(e)) })}>
-        {code ? 'Nový osobný kód' : 'Vytvoriť osobný kód'}
+        {code ? t('student.newPersonalCode') : t('student.createPersonalCode')}
       </Button>
     </Card>
   )
 }
 
-const DOCUMENTS: { kind: string; title: string; hint: string; needsPlace?: boolean }[] = [
-  { kind: 'agreement', title: 'Zmluva o vykonaní vodičského kurzu', hint: '§ 7 ods. 3 vyhl. 45/2016: začatie, trvanie, obsah a cena kurzu', needsPlace: true },
-  { kind: 'guardian_consent', title: 'Súhlas zákonného zástupcu + informácia GDPR', hint: '§ 2b ods. 3 písm. g) zákona 93/2005 a čl. 13 GDPR' },
-  { kind: 'certificate', title: 'Potvrdenie o absolvovaní kurzu', hint: 'údaje podľa § 23 vyhl. 45/2016 (osvedčenie samo vydáva JISCD)', needsPlace: true },
-  { kind: 'progress_report', title: 'Výpis z prípravy na skúšku', hint: 'pokrok z aplikácie a jazdy, pre žiaka alebo rodiča' },
+const DOCUMENTS: { kind: string; title: MessageKey; hint: MessageKey }[] = [
+  { kind: 'agreement', title: 'doc.agreement', hint: 'doc.agreementHint' },
+  { kind: 'guardian_consent', title: 'doc.guardianConsent', hint: 'doc.guardianConsentHint' },
+  { kind: 'certificate', title: 'doc.certificate', hint: 'doc.certificateHint' },
+  { kind: 'progress_report', title: 'doc.progressReport', hint: 'doc.progressReportHint' },
 ]
 
 function DocumentsCard({ s, minor }: { s: StudentDetail; minor: boolean }) {
+  const { t, locale } = useI18n()
   const create = useCreateDocument(s.id)
   const [place, setPlace] = useState('')
   const [pending, setPending] = useState<string | null>(null)
   const make = (kind: string) => {
     setPending(kind)
     create.mutate(
-      { kind, fields: { place } },
+      { kind, fields: { place }, lang: locale },
       {
         onSuccess: (d) => window.open(documentUrl(d.id), '_blank', 'noopener'),
         onError: (e) => toast.error(errorMessage(e)),
@@ -365,26 +366,27 @@ function DocumentsCard({ s, minor }: { s: StudentDetail; minor: boolean }) {
   return (
     <Card className="p-4">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-fg">
-        <FileTextIcon aria-hidden className="size-4 text-subtle" /> Dokumenty
+        <FileTextIcon aria-hidden className="size-4 text-subtle" /> {t('student.documentsTitle')}
       </h2>
-      <Field label="Miesto vystavenia" className="mt-2">
-        <Input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Žiline" />
+      <Field label={t('student.issuePlace')} className="mt-2">
+        <Input value={place} onChange={(e) => setPlace(e.target.value)} placeholder={t('course.placePlaceholder')} />
       </Field>
       <ul className="mt-3 flex flex-col divide-y divide-line-subtle">
         {DOCUMENTS.filter((d) => d.kind !== 'guardian_consent' || minor || s.guardian_name).map((d) => (
           <li key={d.kind} className="flex items-center gap-3 py-2">
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-sm text-fg">{d.title}</span>
-              <span className="text-xs text-subtle">{d.hint}</span>
+              <span className="text-sm text-fg">{t(d.title)}</span>
+              <span className="text-xs text-subtle">{t(d.hint)}</span>
             </span>
             <Button size="sm" loading={pending === d.kind} onClick={() => make(d.kind)}>
-              PDF
+              {t('common.pdf')}
             </Button>
           </li>
         ))}
       </ul>
+      <p className="mt-2 text-xs text-subtle">{t('doc.languageNote')}</p>
       {s.documents.length > 0 && (
-        <Section title="Vystavené" className="mt-4">
+        <Section title={t('student.issued')} className="mt-4">
           <ul className="flex flex-col gap-1 text-sm">
             {s.documents.map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-2">
@@ -404,23 +406,23 @@ function DocumentsCard({ s, minor }: { s: StudentDetail; minor: boolean }) {
   )
 }
 
-const TEXT_FIELDS: { key: keyof StudentDetail; label: string; type?: string; hint?: string }[] = [
-  { key: 'first_name', label: 'Meno' },
-  { key: 'last_name', label: 'Priezvisko' },
-  { key: 'birth_date', label: 'Dátum narodenia', type: 'date' },
-  { key: 'birth_place', label: 'Miesto narodenia' },
-  { key: 'personal_id', label: 'Rodné číslo', hint: 'len pre prihlášku na skúšku' },
-  { key: 'address', label: 'Adresa pobytu' },
-  { key: 'email', label: 'E-mail' },
-  { key: 'phone', label: 'Telefón' },
+const TEXT_FIELDS: { key: keyof StudentDetail; label: MessageKey; type?: string; hint?: MessageKey }[] = [
+  { key: 'first_name', label: 'field.firstName' },
+  { key: 'last_name', label: 'field.lastName' },
+  { key: 'birth_date', label: 'field.birthDate', type: 'date' },
+  { key: 'birth_place', label: 'field.birthPlace' },
+  { key: 'personal_id', label: 'field.personalId', hint: 'field.personalIdHint' },
+  { key: 'address', label: 'field.address' },
+  { key: 'email', label: 'field.email' },
+  { key: 'phone', label: 'field.phone' },
 ]
 
-const DATE_CHECKS: { key: keyof StudentDetail; label: string; hint: string }[] = [
-  { key: 'medical_ok_on', label: 'Lekárska prehliadka', hint: 'zaznamenať do JISCD pred zaradením (§ 6 ods. 1 písm. h)' },
-  { key: 'psych_ok_on', label: 'Psychologické vyšetrenie', hint: 'len ak ho skupina vyžaduje (§ 6 ods. 1 písm. i)' },
-  { key: 'first_aid_ok_on', label: 'Kurz prvej pomoci', hint: 'podmienka osvedčenia (§ 6 ods. 3)' },
-  { key: 'guardian_consent_on', label: 'Súhlas zákonného zástupcu', hint: 'pod 18 rokov (§ 2b ods. 3 písm. g)' },
-  { key: 'privacy_notice_on', label: 'Informácia o osobných údajoch odovzdaná', hint: 'čl. 13 GDPR' },
+const DATE_CHECKS: { key: keyof StudentDetail; label: MessageKey; hint: MessageKey }[] = [
+  { key: 'medical_ok_on', label: 'check.medical', hint: 'check.medicalHint' },
+  { key: 'psych_ok_on', label: 'check.psych', hint: 'check.psychHint' },
+  { key: 'first_aid_ok_on', label: 'check.firstAid', hint: 'check.firstAidHint' },
+  { key: 'guardian_consent_on', label: 'check.guardianConsent', hint: 'check.guardianConsentHint' },
+  { key: 'privacy_notice_on', label: 'check.privacyNotice', hint: 'check.privacyNoticeHint' },
 ]
 
 function initialForm(s: StudentDetail): Record<string, string | boolean | null> {
@@ -435,6 +437,7 @@ function initialForm(s: StudentDetail): Record<string, string | boolean | null> 
 }
 
 function ProfileCard({ s, minor }: { s: StudentDetail; minor: boolean }) {
+  const { t, tp } = useI18n()
   const patch = usePatchStudent(s.id)
   const [form, setForm] = useState(() => initialForm(s))
   const text = (k: string) => ({ value: (form[k] as string) ?? '', onChange: (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value })) })
@@ -443,29 +446,29 @@ function ProfileCard({ s, minor }: { s: StudentDetail; minor: boolean }) {
     const body: Record<string, unknown> = { ...form }
     for (const f of TEXT_FIELDS) if (f.type === 'date') body[f.key] = form[f.key] || null
     for (const d of DATE_CHECKS) body[d.key] = form[d.key] || null
-    patch.mutate(body, { onSuccess: () => toast('Údaje žiaka uložené', { tone: 'success' }), onError: (err) => toast.error(errorMessage(err)) })
+    patch.mutate(body, { onSuccess: () => toast(t('student.saved'), { tone: 'success' }), onError: (err) => toast.error(errorMessage(err)) })
   }
   const missing = DATE_CHECKS.filter((d) => (d.key !== 'guardian_consent_on' || minor) && d.key !== 'psych_ok_on' && !s[d.key]).length + (s.education_doc_ok ? 0 : 1)
   return (
     <Card className="p-4">
       <form onSubmit={submit} className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-fg">Údaje a doklady</h2>
-          {missing > 0 ? <Badge tone="warning">{plural(missing, 'chýbajúci doklad', 'chýbajúce doklady', 'chýbajúcich dokladov')}</Badge> : <Badge tone="success">doklady kompletné</Badge>}
+          <h2 className="text-sm font-semibold text-fg">{t('student.profileTitle')}</h2>
+          {missing > 0 ? <Badge tone="warning">{tp('student.missingDocs', missing)}</Badge> : <Badge tone="success">{t('student.docsComplete')}</Badge>}
         </div>
         <div className="grid grid-cols-2 gap-3">
           {TEXT_FIELDS.map((f) => (
-            <Field key={f.key} label={f.label} hint={f.hint} className={f.key === 'address' ? 'col-span-2' : undefined}>
+            <Field key={f.key} label={t(f.label)} hint={f.hint ? t(f.hint) : undefined} className={f.key === 'address' ? 'col-span-2' : undefined}>
               <Input type={f.type ?? 'text'} {...text(f.key)} />
             </Field>
           ))}
         </div>
         {(minor || s.guardian_name) && (
           <div className="grid grid-cols-2 gap-3 rounded-md bg-sunken p-3">
-            <Field label="Zákonný zástupca">
+            <Field label={t('student.guardian')}>
               <Input {...text('guardian_name')} />
             </Field>
-            <Field label="Kontakt na zástupcu">
+            <Field label={t('student.guardianContact')}>
               <Input {...text('guardian_contact')} />
             </Field>
           </div>
@@ -474,20 +477,20 @@ function ProfileCard({ s, minor }: { s: StudentDetail; minor: boolean }) {
           {DATE_CHECKS.map((d) => (
             <div key={d.key} className="grid grid-cols-[1fr_9rem] items-center gap-3">
               <span className="flex flex-col">
-                <span className="text-sm text-fg">{d.label}</span>
-                <span className="text-xs text-subtle">{d.hint}</span>
+                <span className="text-sm text-fg">{t(d.label)}</span>
+                <span className="text-xs text-subtle">{t(d.hint)}</span>
               </span>
-              <Input type="date" aria-label={d.label} {...text(d.key)} />
+              <Input type="date" aria-label={t(d.label)} {...text(d.key)} />
             </div>
           ))}
-          <Checkbox label="Doklad o vzdelaní predložený" description="skupina B: aspoň nižšie stredné vzdelanie (§ 2b ods. 2)" checked={Boolean(form.education_doc_ok)} onCheckedChange={(v) => setForm((f) => ({ ...f, education_doc_ok: v === true }))} />
-          <Checkbox label="Okuliare alebo iná zdravotná pomôcka pri jazde" description="zapisuje sa do matričnej knihy (§ 17 ods. 2 písm. h)" checked={Boolean(form.needs_glasses)} onCheckedChange={(v) => setForm((f) => ({ ...f, needs_glasses: v === true }))} />
+          <Checkbox label={t('student.educationDoc')} description={t('student.educationDocHint')} checked={Boolean(form.education_doc_ok)} onCheckedChange={(v) => setForm((f) => ({ ...f, education_doc_ok: v === true }))} />
+          <Checkbox label={t('student.glasses')} description={t('student.glassesHint')} checked={Boolean(form.needs_glasses)} onCheckedChange={(v) => setForm((f) => ({ ...f, needs_glasses: v === true }))} />
         </div>
-        <Field label="Poznámky">
+        <Field label={t('student.notes')}>
           <Textarea {...text('notes')} />
         </Field>
         <Button type="submit" variant="primary" loading={patch.isPending} className="self-start">
-          Uložiť
+          {t('common.save')}
         </Button>
       </form>
     </Card>
@@ -495,12 +498,13 @@ function ProfileCard({ s, minor }: { s: StudentDetail; minor: boolean }) {
 }
 
 function EnrolmentCard({ s }: { s: StudentDetail }) {
+  const t = useT()
   const groups = useGroups()
   const enrol = useEnrol(s.id)
   const [groupId, setGroupId] = useState('')
   return (
     <Card className="p-4">
-      <h2 className="text-sm font-semibold text-fg">Kurzy</h2>
+      <h2 className="text-sm font-semibold text-fg">{t('student.coursesTitle')}</h2>
       <ul className="mt-2 flex flex-col divide-y divide-line-subtle text-sm">
         {s.enrolments.map((e) => (
           <li key={e.group_id} className="flex items-center justify-between gap-2 py-2">
@@ -509,16 +513,16 @@ function EnrolmentCard({ s }: { s: StudentDetail }) {
                 {e.group_name}
               </Link>
               <span className="text-xs text-subtle">
-                od {formatDate(e.enrolled_on)} · {euro(e.price_cents)} {e.paid_on ? `· zaplatené ${formatDate(e.paid_on)}` : e.price_cents ? '· nezaplatené' : ''}
+                {t('student.enrolledFrom', { date: formatDate(e.enrolled_on) })} · {euro(e.price_cents)} {e.paid_on ? t('student.paidOn', { date: formatDate(e.paid_on) }) : e.price_cents ? t('student.unpaid') : ''}
               </span>
             </span>
             <span className="flex items-center gap-2">
-              <Badge tone={e.status === 'active' ? 'accent' : e.status === 'finished' ? 'success' : 'neutral'}>{ENROLMENT_STATUS[e.status]}</Badge>
+              <Badge tone={e.status === 'active' ? 'accent' : e.status === 'finished' ? 'success' : 'neutral'}>{isEnrolmentStatus(e.status) ? t(`enrolmentStatus.${e.status}`) : e.status}</Badge>
               {e.status === 'active' && (
-                <Select className="w-32" aria-label="Zmeniť stav" value="" onChange={(ev) => ev.target.value && enrol.mutate({ group_id: e.group_id, status: ev.target.value })}>
-                  <option value="">zmeniť…</option>
-                  <option value="finished">ukončil</option>
-                  <option value="withdrawn">odišiel</option>
+                <Select className="w-32" aria-label={t('student.changeStatus')} value="" onChange={(ev) => ev.target.value && enrol.mutate({ group_id: e.group_id, status: ev.target.value })}>
+                  <option value="">{t('student.changeEllipsis')}</option>
+                  <option value="finished">{t('student.markFinished')}</option>
+                  <option value="withdrawn">{t('student.markWithdrawn')}</option>
                 </Select>
               )}
             </span>
@@ -526,7 +530,7 @@ function EnrolmentCard({ s }: { s: StudentDetail }) {
         ))}
       </ul>
       <div className="mt-3 flex items-end gap-2">
-        <Field label="Zaradiť do kurzu" className="flex-1">
+        <Field label={t('student.enrolInto')} className="flex-1">
           <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
             <option value="">–</option>
             {groups.data
@@ -539,7 +543,7 @@ function EnrolmentCard({ s }: { s: StudentDetail }) {
           </Select>
         </Field>
         <Button disabled={!groupId} loading={enrol.isPending} onClick={() => enrol.mutate({ group_id: groupId }, { onSuccess: () => setGroupId('') })}>
-          Zaradiť
+          {t('student.enrol')}
         </Button>
       </div>
     </Card>

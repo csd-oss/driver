@@ -1,5 +1,6 @@
 /** TanStack Query hooks over the API; every write invalidates what it touched. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Locale } from '@/i18n'
 import { api } from './api'
 import type {
   Branch,
@@ -122,11 +123,11 @@ export const useAddDrivingLesson = (id: string) =>
   )
 
 export const useCreateDocument = (id: string) =>
-  useInvalidating((body: { kind: string; fields?: Record<string, string> }) => api.post<DocumentRow>(`/api/v1/students/${id}/documents`, body), () => [keys.student(id)])
+  useInvalidating((body: { kind: string; fields?: Record<string, string>; lang?: Locale }) => api.post<DocumentRow>(`/api/v1/students/${id}/documents`, body), () => [keys.student(id)])
 
 export const useCreateGroupDocument = (id: string) =>
   useInvalidating(
-    (body: { kind: string; student_ids?: string[]; fields?: Record<string, string> }) => api.post<{ id: string; kind: string; title: string }>(`/api/v1/groups/${id}/documents`, body),
+    (body: { kind: string; student_ids?: string[]; fields?: Record<string, string>; lang?: Locale }) => api.post<{ id: string; kind: string; title: string }>(`/api/v1/groups/${id}/documents`, body),
     () => [keys.group(id)],
   )
 

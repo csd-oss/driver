@@ -1,30 +1,49 @@
+/** Dates, money and numbers in the dashboard language (`getLocale()` unless told otherwise). */
+import { getLocale, INTL_TAG, type Locale, translate } from '@/i18n'
 import type { DrivingKind, GroupStatus, ReadinessLabel, Subject } from './types'
 
-const dateFmt = new Intl.DateTimeFormat('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric' })
-const shortFmt = new Intl.DateTimeFormat('sk-SK', { day: 'numeric', month: 'numeric' })
-const relFmt = new Intl.RelativeTimeFormat('sk', { numeric: 'auto' })
+type Formatter<T> = (locale: Locale) => T
+function perLocale<T>(make: Formatter<T>): (locale: Locale) => T {
+  const cache = new Map<Locale, T>()
+  return (locale) => {
+    let v = cache.get(locale)
+    if (!v) {
+      v = make(locale)
+      cache.set(locale, v)
+    }
+    return v
+  }
+}
 
-export function formatDate(iso: string | null | undefined): string {
+// Slovak writes "3. 10. 2026"; English gets "3 Oct 2026" rather than an ambiguous all-numeric date.
+const dateFmt = perLocale((l) => new Intl.DateTimeFormat(INTL_TAG[l], l === 'sk' ? { day: 'numeric', month: 'numeric', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric' }))
+const shortFmt = perLocale((l) => new Intl.DateTimeFormat(INTL_TAG[l], l === 'sk' ? { day: 'numeric', month: 'numeric' } : { day: 'numeric', month: 'short' }))
+const relFmt = perLocale((l) => new Intl.RelativeTimeFormat(INTL_TAG[l], { numeric: 'auto' }))
+const euroFmt = perLocale((l) => new Intl.NumberFormat(INTL_TAG[l], { style: 'currency', currency: 'EUR' }))
+const numberFmt = perLocale((l) => new Intl.NumberFormat(INTL_TAG[l]))
+
+const parse = (iso: string) => (iso.length <= 10 ? new Date(`${iso}T12:00:00`) : new Date(iso))
+
+export function formatDate(iso: string | null | undefined, locale: Locale = getLocale()): string {
   if (!iso) return '–'
-  const d = iso.length <= 10 ? new Date(`${iso}T12:00:00`) : new Date(iso)
-  return Number.isNaN(d.getTime()) ? '–' : dateFmt.format(d)
+  const d = parse(iso)
+  return Number.isNaN(d.getTime()) ? '–' : dateFmt(locale).format(d)
 }
 
-export function formatShortDate(iso: string): string {
-  const d = iso.length <= 10 ? new Date(`${iso}T12:00:00`) : new Date(iso)
-  return shortFmt.format(d)
+export function formatShortDate(iso: string, locale: Locale = getLocale()): string {
+  return shortFmt(locale).format(parse(iso))
 }
 
-/** "dnes", "včera", "pred 3 dňami", else the date. */
-export function formatAgo(iso: string | null | undefined, now = Date.now()): string {
-  if (!iso) return 'nikdy'
+/** "dnes", "včera", "pred 3 dňami", else the date (and the English equivalents). */
+export function formatAgo(iso: string | null | undefined, now = Date.now(), locale: Locale = getLocale()): string {
+  if (!iso) return translate(locale, 'common.never')
   const t = new Date(iso).getTime()
   if (Number.isNaN(t)) return '–'
   const days = Math.round((startOfDay(now) - startOfDay(t)) / 86_400_000)
-  if (days <= 0) return 'dnes'
-  if (days === 1) return 'včera'
-  if (days < 14) return relFmt.format(-days, 'day')
-  return formatDate(iso)
+  if (days <= 0) return translate(locale, 'common.today')
+  if (days === 1) return translate(locale, 'common.yesterday')
+  if (days < 14) return relFmt(locale).format(-days, 'day')
+  return formatDate(iso, locale)
 }
 
 const startOfDay = (t: number) => {
@@ -40,20 +59,17 @@ export function daysUntil(iso: string | null | undefined, now = Date.now()): num
   return Math.round((startOfDay(d) - startOfDay(now)) / 86_400_000)
 }
 
-export function euro(cents: number | null | undefined): string {
+export function euro(cents: number | null | undefined, locale: Locale = getLocale()): string {
   if (cents === null || cents === undefined) return '–'
-  return new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR' }).format(cents / 100)
+  return euroFmt(locale).format(cents / 100)
+}
+
+export function formatNumber(n: number, locale: Locale = getLocale()): string {
+  return numberFmt(locale).format(n)
 }
 
 export function percent(part: number, whole: number): number | null {
   return whole > 0 ? Math.round((part / whole) * 100) : null
-}
-
-export const READINESS_LABEL: Record<ReadinessLabel, string> = {
-  ready: 'Pripravený',
-  almostReady: 'Takmer pripravený',
-  gettingThere: 'Na dobrej ceste',
-  needsWork: 'Potrebuje prípravu',
 }
 
 export const READINESS_TONE: Record<ReadinessLabel, 'success' | 'accent' | 'warning' | 'danger'> = {
@@ -63,42 +79,13 @@ export const READINESS_TONE: Record<ReadinessLabel, 'success' | 'accent' | 'warn
   needsWork: 'danger',
 }
 
-export const GROUP_STATUS: Record<GroupStatus, string> = {
-  planned: 'Plánovaný',
-  running: 'Prebieha',
-  finished: 'Ukončený',
-  archived: 'Archív',
-}
-
-export const SUBJECT: Record<Subject, string> = {
-  PCP: 'Predpisy o cestnej premávke',
-  NVU: 'Náuka o vozidlách a údržba',
-  TVV: 'Teória vedenia vozidla',
-  ZBJ: 'Zásady bezpečnej jazdy',
-  OP: 'Opakovanie',
-}
-
-export const DRIVING_KIND: Record<DrivingKind, string> = {
-  AT: 'Trenažér',
-  AC: 'Autocvičisko',
-  CP: 'Cestná premávka',
-  PU: 'Praktická údržba',
-}
-
-export const ENROLMENT_STATUS: Record<string, string> = {
-  active: 'Aktívny',
-  finished: 'Ukončil',
-  withdrawn: 'Odišiel',
-  transferred: 'Presunutý',
-}
-
-/** Slovak plural: 1 žiak, 2–4 žiaci, 5+ žiakov. */
-export function plural(n: number, one: string, few: string, many: string): string {
-  const a = Math.abs(n)
-  if (a === 1) return `${n} ${one}`
-  if (a >= 2 && a <= 4) return `${n} ${few}`
-  return `${n} ${many}`
-}
+/** Enumerations in display order; their labels are `t('groupStatus.running')` and friends. */
+export const GROUP_STATUSES: readonly GroupStatus[] = ['planned', 'running', 'finished', 'archived']
+export const SUBJECTS: readonly Subject[] = ['PCP', 'NVU', 'TVV', 'ZBJ', 'OP']
+export const DRIVING_KINDS: readonly DrivingKind[] = ['AT', 'AC', 'CP', 'PU']
+export const ENROLMENT_STATUSES = ['active', 'finished', 'withdrawn', 'transferred'] as const
+export type EnrolmentStatus = (typeof ENROLMENT_STATUSES)[number]
+export const isEnrolmentStatus = (s: string | null | undefined): s is EnrolmentStatus => (ENROLMENT_STATUSES as readonly string[]).includes(s ?? '')
 
 export function fullName(s: { first_name: string; last_name: string }): string {
   return `${s.first_name} ${s.last_name}`

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Outlet } from '@tanstack/react-router'
 import { MAIN_ID } from '@/components/ui/focus-return'
+import { useT } from '@/i18n'
 import { signedIn, signedOut, useAuth } from '@/lib/auth'
 import { useMe } from '@/lib/queries'
 import { SignInScreen } from '@/features/auth/SignInScreen'
@@ -12,6 +13,7 @@ import { MobileNav, Sidebar } from './Sidebar'
  * a signed-out visit never flashes screens that would fail.
  */
 export function AppShell() {
+  const t = useT()
   const me = useMe()
   const auth = useAuth()
   const qc = useQueryClient()
@@ -24,7 +26,7 @@ export function AppShell() {
     }
   }, [me.data, me.isError, qc])
   if (auth.status === 'signed-out') return <SignInScreen />
-  if (auth.status === 'unknown') return <div aria-busy="true" aria-label="Načítava sa" className="h-dvh bg-canvas-subtle" />
+  if (auth.status === 'unknown') return <div aria-busy="true" aria-label={t('common.loading')} className="h-dvh bg-canvas-subtle" />
   return (
     <div className="flex h-dvh overflow-hidden bg-canvas-subtle">
       <Sidebar />

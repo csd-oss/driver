@@ -5,70 +5,73 @@ import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from '@/components/ui/table'
 import { toast } from '@/components/ui/toast'
+import { type MessageKey, useT } from '@/i18n'
 import { errorMessage } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useBranches, useInstructors, useSchool, useUpdateSchool } from '@/lib/queries'
 import type { School } from '@/lib/types'
 
 function SchoolForm({ school }: { school: School }) {
+  const t = useT()
   const auth = useAuth()
   const update = useUpdateSchool()
   const [form, setForm] = useState<Partial<School>>(school)
   const admin = auth.me?.role === 'admin'
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    update.mutate(form, { onSuccess: () => toast('Údaje autoškoly uložené', { tone: 'success' }), onError: (err) => toast.error(errorMessage(err)) })
+    update.mutate(form, { onSuccess: () => toast(t('school.saved'), { tone: 'success' }), onError: (err) => toast.error(errorMessage(err)) })
   }
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
-      <h2 className="text-sm font-semibold text-fg">Údaje autoškoly</h2>
+      <h2 className="text-sm font-semibold text-fg">{t('school.dataTitle')}</h2>
       {FIELDS.map((f) => (
-        <Field key={f.key} label={f.label} hint={f.hint}>
+        <Field key={f.key} label={t(f.label)} hint={f.hint ? t(f.hint) : undefined}>
           <Input value={form[f.key] ?? ''} onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))} disabled={!admin} />
         </Field>
       ))}
       {admin ? (
         <Button type="submit" variant="primary" loading={update.isPending} className="self-start">
-          Uložiť
+          {t('common.save')}
         </Button>
       ) : (
-        <p className="text-xs text-subtle">Údaje môže meniť len správca autoškoly.</p>
+        <p className="text-xs text-subtle">{t('school.adminOnly')}</p>
       )}
     </form>
   )
 }
 
-const FIELDS: { key: keyof Omit<School, 'id'>; label: string; hint?: string }[] = [
-  { key: 'name', label: 'Názov (ako ho vidia žiaci)' },
-  { key: 'legal_name', label: 'Obchodné meno', hint: 'Tlačí sa na dokumenty' },
-  { key: 'ico', label: 'IČO' },
-  { key: 'address', label: 'Sídlo' },
-  { key: 'registration_no', label: 'Číslo registrácie autoškoly', hint: 'z rozhodnutia okresného úradu v sídle kraja' },
-  { key: 'trade_licence_no', label: 'Číslo živnostenského oprávnenia' },
-  { key: 'responsible_person', label: 'Prevádzkovateľ / zodpovedný zástupca', hint: 'podpisuje osvedčenia a zmluvy' },
-  { key: 'phone', label: 'Telefón' },
-  { key: 'email', label: 'E-mail' },
+const FIELDS: { key: keyof Omit<School, 'id'>; label: MessageKey; hint?: MessageKey }[] = [
+  { key: 'name', label: 'school.name' },
+  { key: 'legal_name', label: 'school.legalName', hint: 'school.legalNameHint' },
+  { key: 'ico', label: 'school.ico' },
+  { key: 'address', label: 'school.address' },
+  { key: 'registration_no', label: 'school.registrationNo', hint: 'school.registrationNoHint' },
+  { key: 'trade_licence_no', label: 'school.tradeLicenceNo' },
+  { key: 'responsible_person', label: 'school.responsiblePerson', hint: 'school.responsiblePersonHint' },
+  { key: 'phone', label: 'school.phone' },
+  { key: 'email', label: 'school.email' },
 ]
 
 export default function SettingsPage() {
+  const t = useT()
   const school = useSchool()
   const instructors = useInstructors()
   const branches = useBranches()
   if (school.isPending) return <Loading />
   if (school.isError) return <LoadError error={school.error} />
   return (
-    <Page title="Autoškola" description="Údaje, ktoré sa tlačia na dokumenty, a ľudia, ktorí sa môžu prihlásiť.">
+    <Page title={t('school.title')} description={t('school.description')}>
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 max-desk:grid-cols-1">
         <SchoolForm key={school.dataUpdatedAt} school={school.data} />
         <div className="flex flex-col gap-6">
-          <Section title="Ľudia">
+          <Section title={t('school.people')}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell>Meno</TableHeaderCell>
-                  <TableHeaderCell>Rola</TableHeaderCell>
-                  <TableHeaderCell>Inštruktorský preukaz</TableHeaderCell>
-                  <TableHeaderCell>Skupiny</TableHeaderCell>
+                  <TableHeaderCell>{t('col.name')}</TableHeaderCell>
+                  <TableHeaderCell>{t('col.role')}</TableHeaderCell>
+                  <TableHeaderCell>{t('col.instructorCard')}</TableHeaderCell>
+                  <TableHeaderCell>{t('col.categories')}</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -79,7 +82,7 @@ export default function SettingsPage() {
                       <span className="ml-2 text-xs text-subtle">{i.email}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge tone={i.role === 'admin' ? 'accent' : 'neutral'}>{i.role === 'admin' ? 'správca' : 'inštruktor'}</Badge>
+                      <Badge tone={i.role === 'admin' ? 'accent' : 'neutral'}>{t(`role.${i.role}`)}</Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted">{i.instructor_card_no || '–'}</TableCell>
                     <TableCell className="text-muted">{i.instructor_groups || '–'}</TableCell>
@@ -87,9 +90,9 @@ export default function SettingsPage() {
                 ))}
               </TableBody>
             </Table>
-            <p className="mt-2 text-xs text-subtle">Pridávanie ľudí a zmena hesla zatiaľ nie sú v rozhraní (MVP); urobíme ich cez pozvánku e-mailom.</p>
+            <p className="mt-2 text-xs text-subtle">{t('school.peopleHint')}</p>
           </Section>
-          <Section title="Pobočky">
+          <Section title={t('school.branches')}>
             <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface">
               {branches.data?.map((b) => (
                 <li key={b.id} className="flex items-center justify-between px-3 py-2 text-sm">

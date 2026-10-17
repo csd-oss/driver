@@ -3,18 +3,20 @@ import { createLink, useNavigate } from '@tanstack/react-router'
 import { GraduationCapIcon, LayoutDashboardIcon, LogOutIcon, MoonIcon, SettingsIcon, SunIcon, UsersIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
+import { type MessageKey, useT } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { signedOut, useAuth } from '@/lib/auth'
 import { useLogout, useSchool } from '@/lib/queries'
 import { toggleTheme, useResolvedTheme } from '@/lib/theme'
+import { LocaleSwitch } from './LocaleSwitch'
 import { Logo } from './Logo'
 
-export const SCREENS = [
-  { path: '/prehlad', title: 'Prehľad', icon: LayoutDashboardIcon },
-  { path: '/kurzy', title: 'Kurzy', icon: GraduationCapIcon },
-  { path: '/ziaci', title: 'Žiaci', icon: UsersIcon },
-  { path: '/nastavenia', title: 'Autoškola', icon: SettingsIcon },
-] as const
+const SCREENS: readonly { path: '/prehlad' | '/kurzy' | '/ziaci' | '/nastavenia'; title: MessageKey; icon: ComponentType<{ className?: string }> }[] = [
+  { path: '/prehlad', title: 'nav.overview', icon: LayoutDashboardIcon },
+  { path: '/kurzy', title: 'nav.courses', icon: GraduationCapIcon },
+  { path: '/ziaci', title: 'nav.students', icon: UsersIcon },
+  { path: '/nastavenia', title: 'nav.school', icon: SettingsIcon },
+]
 
 const navItemClass = [
   'group relative flex h-8 min-w-0 items-center gap-2.5 rounded-md px-2 text-sm text-muted outline-none',
@@ -36,22 +38,24 @@ const NavItem = createLink(NavAnchor)
 
 /** Phones (under 900px): a top strip with the four screens and sign-out, since the sidebar is hidden. */
 export function MobileNav() {
+  const t = useT()
   const logout = useLogout()
   const navigate = useNavigate()
   return (
-    <nav aria-label="Navigácia" className="flex items-center gap-1 overflow-x-auto border-b border-line bg-canvas-subtle px-2 py-1.5 desk:hidden">
+    <nav aria-label={t('nav.label')} className="flex items-center gap-1 overflow-x-auto border-b border-line bg-canvas-subtle px-2 py-1.5 desk:hidden">
       <Logo className="mr-1 size-6 flex-none" />
       {SCREENS.map((s) => (
         <NavItem key={s.path} to={s.path} icon={s.icon} className="h-9 flex-none px-2.5">
-          {s.title}
+          {t(s.title)}
         </NavItem>
       ))}
+      <LocaleSwitch className="ml-auto flex-none" />
       <Button
         variant="ghost"
         size="sm"
         icon
-        aria-label="Odhlásiť"
-        className="ml-auto flex-none"
+        aria-label={t('nav.signOut')}
+        className="flex-none"
         onClick={() =>
           logout.mutate(undefined, {
             onSettled: () => {
@@ -69,24 +73,25 @@ export function MobileNav() {
 
 /** Desktop sidebar (900px and up). */
 export function Sidebar() {
+  const t = useT()
   const auth = useAuth()
   const school = useSchool()
   const logout = useLogout()
   const navigate = useNavigate()
   const dark = useResolvedTheme() === 'dark'
   return (
-    <aside aria-label="Navigácia" className="flex w-sidebar min-h-0 flex-none flex-col bg-canvas-subtle px-2 pt-3 pb-3 max-desk:hidden">
+    <aside aria-label={t('nav.label')} className="flex w-sidebar min-h-0 flex-none flex-col bg-canvas-subtle px-2 pt-3 pb-3 max-desk:hidden">
       <div className="mb-4 flex h-8 items-center gap-2 px-2">
         <Logo className="size-6 flex-none" />
         <span className="flex min-w-0 flex-col leading-tight">
-          <span className="text-sm font-semibold text-fg">Driver</span>
-          <span className="truncate text-2xs text-subtle">{school.data?.name ?? 'pre autoškoly'}</span>
+          <span className="text-sm font-semibold text-fg">{t('app.brand')}</span>
+          <span className="truncate text-2xs text-subtle">{school.data?.name ?? t('app.tagline')}</span>
         </span>
       </div>
-      <nav aria-label="Hlavná" className="flex flex-col gap-px">
+      <nav aria-label={t('nav.main')} className="flex flex-col gap-px">
         {SCREENS.map((s) => (
           <NavItem key={s.path} to={s.path} icon={s.icon}>
-            {s.title}
+            {t(s.title)}
           </NavItem>
         ))}
       </nav>
@@ -97,15 +102,16 @@ export function Sidebar() {
           </span>
           <span className="flex min-w-0 flex-col leading-tight">
             <span className="truncate text-xs font-medium text-fg">{auth.me?.name}</span>
-            <span className="truncate text-2xs text-subtle">{auth.me?.role === 'admin' ? 'správca' : 'inštruktor'}</span>
+            <span className="truncate text-2xs text-subtle">{auth.me?.role === 'admin' ? t('role.admin') : t('role.instructor')}</span>
           </span>
         </div>
         <div className="flex items-center gap-1 px-1">
-          <Tooltip content={dark ? 'Svetlý režim' : 'Tmavý režim'}>
-            <Button variant="ghost" size="sm" icon aria-label={dark ? 'Svetlý režim' : 'Tmavý režim'} onClick={toggleTheme}>
+          <Tooltip content={dark ? t('nav.lightMode') : t('nav.darkMode')}>
+            <Button variant="ghost" size="sm" icon aria-label={dark ? t('nav.lightMode') : t('nav.darkMode')} onClick={toggleTheme}>
               {dark ? <SunIcon aria-hidden /> : <MoonIcon aria-hidden />}
             </Button>
           </Tooltip>
+          <LocaleSwitch />
           <Button
             variant="ghost"
             size="sm"
@@ -119,7 +125,7 @@ export function Sidebar() {
               })
             }
           >
-            <LogOutIcon aria-hidden /> Odhlásiť
+            <LogOutIcon aria-hidden /> {t('nav.signOut')}
           </Button>
         </div>
       </div>

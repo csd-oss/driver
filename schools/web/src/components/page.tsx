@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ChevronLeftIcon } from 'lucide-react'
 import { Spinner } from '@/components/ui/loading'
+import { useT } from '@/i18n'
 import { errorMessage } from '@/lib/api'
 
 /** Page frame: reading width, title row, optional back link. */
@@ -25,10 +26,11 @@ export function Page({ title, back, description, actions, children, wide = false
   )
 }
 
-export function Loading({ label = 'Načítava sa' }: { label?: string }) {
+export function Loading({ label }: { label?: string }) {
+  const t = useT()
   return (
     <div className="grid h-40 place-items-center">
-      <Spinner label={label} size="lg" />
+      <Spinner label={label ?? t('common.loading')} size="lg" />
     </div>
   )
 }

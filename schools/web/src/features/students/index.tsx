@@ -9,11 +9,13 @@ import { Dialog, DialogBody, DialogContent, DialogFooter } from '@/components/ui
 import { EmptyState } from '@/components/ui/empty-state'
 import { Field, Input, Select } from '@/components/ui/field'
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from '@/components/ui/table'
+import { useI18n, useT } from '@/i18n'
 import { errorMessage } from '@/lib/api'
-import { ENROLMENT_STATUS, formatAgo, fullName } from '@/lib/format'
+import { formatAgo, fullName, isEnrolmentStatus } from '@/lib/format'
 import { useCreateStudent, useGroups, useStudents } from '@/lib/queries'
 
 export default function StudentsPage() {
+  const { t, tp } = useI18n()
   const search = useSearch({ from: '/app/ziaci' })
   const navigate = useNavigate({ from: '/ziaci' })
   const q = search.q ?? ''
@@ -22,11 +24,11 @@ export default function StudentsPage() {
   const [open, setOpen] = useState(false)
   return (
     <Page
-      title="Žiaci"
-      description="Všetci žiaci autoškoly. Hľadajte podľa mena, e-mailu alebo čísla v matričnej knihe."
+      title={t('students.title')}
+      description={t('students.description')}
       actions={
         <Button variant="primary" onClick={() => setOpen(true)}>
-          <PlusIcon aria-hidden /> Nový žiak
+          <PlusIcon aria-hidden /> {t('students.new')}
         </Button>
       }
     >
@@ -34,41 +36,41 @@ export default function StudentsPage() {
         <div className="relative w-72 max-desk:w-full">
           <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-subtle" />
           <Input
-            aria-label="Hľadať žiaka"
-            placeholder="Hľadať…"
+            aria-label={t('students.search')}
+            placeholder={t('students.searchPlaceholder')}
             className="pl-8"
             value={q}
             onChange={(e) => void navigate({ search: (s) => ({ ...s, q: e.target.value || undefined }), replace: true })}
           />
         </div>
-        <Select className="w-56" aria-label="Kurz" value={search.kurz ?? ''} onChange={(e) => void navigate({ search: (s) => ({ ...s, kurz: e.target.value || undefined }), replace: true })}>
-          <option value="">Všetky kurzy</option>
+        <Select className="w-56" aria-label={t('students.courseFilter')} value={search.kurz ?? ''} onChange={(e) => void navigate({ search: (s) => ({ ...s, kurz: e.target.value || undefined }), replace: true })}>
+          <option value="">{t('students.allCourses')}</option>
           {groups.data?.map((g) => (
             <option key={g.id} value={g.id}>
               {g.name}
             </option>
           ))}
         </Select>
-        {students.data && <span className="text-xs text-subtle">{students.data.length} žiakov</span>}
+        {students.data && <span className="text-xs text-subtle">{tp('students.count', students.data.length)}</span>}
       </div>
       {students.isPending ? (
         <Loading />
       ) : students.isError ? (
         <LoadError error={students.error} />
       ) : students.data.length === 0 ? (
-        <EmptyState title="Nikto sa nenašiel">Skúste iné meno, alebo pridajte žiaka.</EmptyState>
+        <EmptyState title={t('students.emptyTitle')}>{t('students.emptyHint')}</EmptyState>
       ) : (
         <Table>
           <TableHead>
             <TableRow>
-              <TableHeaderCell className="text-right">Č.</TableHeaderCell>
-              <TableHeaderCell>Meno</TableHeaderCell>
-              <TableHeaderCell>Kurz</TableHeaderCell>
-              <TableHeaderCell>Pripravenosť</TableHeaderCell>
-              <TableHeaderCell>Posledná aktivita</TableHeaderCell>
-              <TableHeaderCell className="text-right">Chyby</TableHeaderCell>
-              <TableHeaderCell className="text-right">Testy</TableHeaderCell>
-              <TableHeaderCell>Stav</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t('col.no')}</TableHeaderCell>
+              <TableHeaderCell>{t('col.name')}</TableHeaderCell>
+              <TableHeaderCell>{t('col.course')}</TableHeaderCell>
+              <TableHeaderCell>{t('col.readiness')}</TableHeaderCell>
+              <TableHeaderCell>{t('col.lastActivity')}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t('col.mistakes')}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t('col.mocks')}</TableHeaderCell>
+              <TableHeaderCell>{t('col.status')}</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -79,7 +81,7 @@ export default function StudentsPage() {
                   <Link to="/ziaci/$studentId" params={{ studentId: s.id }} className="font-medium text-fg hover:underline">
                     {fullName(s)}
                   </Link>
-                  {s.progress.linked && <SmartphoneIcon aria-label="Aplikácia prepojená" className="ml-1.5 inline size-3.5 text-accent-text" />}
+                  {s.progress.linked && <SmartphoneIcon aria-label={t('common.appLinked')} className="ml-1.5 inline size-3.5 text-accent-text" />}
                 </TableCell>
                 <TableCell className="text-muted">
                   {s.group_id ? (
@@ -98,7 +100,7 @@ export default function StudentsPage() {
                 <TableCell className="text-right tabular-nums">{s.progress.linked ? `${s.progress.mocks_passed}/${s.progress.mocks_taken}` : '–'}</TableCell>
                 <TableCell>
                   <Badge tone={s.enrolment_status === 'active' ? 'accent' : s.enrolment_status === 'finished' ? 'success' : 'neutral'}>
-                    {ENROLMENT_STATUS[s.enrolment_status ?? ''] ?? 'bez kurzu'}
+                    {isEnrolmentStatus(s.enrolment_status) ? t(`enrolmentStatus.${s.enrolment_status}`) : t('students.noCourse')}
                   </Badge>
                 </TableCell>
               </TableRow>
@@ -112,6 +114,7 @@ export default function StudentsPage() {
 }
 
 export function NewStudentDialog({ open, onOpenChange, defaultGroupId }: { open: boolean; onOpenChange: (o: boolean) => void; defaultGroupId?: string }) {
+  const t = useT()
   const groups = useGroups()
   const create = useCreateStudent()
   const navigate = useNavigate()
@@ -139,32 +142,32 @@ export function NewStudentDialog({ open, onOpenChange, defaultGroupId }: { open:
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Nový žiak" description="Ostatné údaje (adresa, rodné číslo, doklady) doplníte na karte žiaka." size="sm">
+      <DialogContent title={t('students.new')} description={t('students.newDescription')} size="sm">
         <form onSubmit={submit} className="contents">
           <DialogBody>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Meno">
+              <Field label={t('field.firstName')}>
                 <Input value={form.first_name} onChange={set('first_name')} required autoFocus />
               </Field>
-              <Field label="Priezvisko">
+              <Field label={t('field.lastName')}>
                 <Input value={form.last_name} onChange={set('last_name')} required />
               </Field>
             </div>
-            <Field label="Dátum narodenia" hint="Pod 18 rokov potrebuje súhlas zákonného zástupcu.">
+            <Field label={t('field.birthDate')} hint={t('students.birthDateHint')}>
               <Input type="date" value={form.birth_date} onChange={set('birth_date')} />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="E-mail">
+              <Field label={t('field.email')}>
                 <Input type="email" value={form.email} onChange={set('email')} />
               </Field>
-              <Field label="Telefón">
+              <Field label={t('field.phone')}>
                 <Input value={form.phone} onChange={set('phone')} />
               </Field>
             </div>
             <div className="grid grid-cols-[1fr_7rem] gap-3">
-              <Field label="Kurz">
+              <Field label={t('students.course')}>
                 <Select value={form.group_id} onChange={set('group_id')}>
-                  <option value="">Zatiaľ bez kurzu</option>
+                  <option value="">{t('students.noCourseYet')}</option>
                   {groups.data
                     ?.filter((g) => g.status !== 'archived')
                     .map((g) => (
@@ -174,7 +177,7 @@ export function NewStudentDialog({ open, onOpenChange, defaultGroupId }: { open:
                     ))}
                 </Select>
               </Field>
-              <Field label="Cena €">
+              <Field label={t('students.price')}>
                 <Input inputMode="decimal" value={form.price} onChange={set('price')} placeholder="890" />
               </Field>
             </div>
@@ -182,10 +185,10 @@ export function NewStudentDialog({ open, onOpenChange, defaultGroupId }: { open:
           </DialogBody>
           <DialogFooter>
             <Button type="button" onClick={() => onOpenChange(false)}>
-              Zrušiť
+              {t('common.cancel')}
             </Button>
             <Button type="submit" variant="primary" loading={create.isPending}>
-              Pridať žiaka
+              {t('students.add')}
             </Button>
           </DialogFooter>
         </form>
