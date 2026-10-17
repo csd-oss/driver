@@ -1,5 +1,6 @@
 // Screenshots of the dashboard for docs/schools/screenshots (run with the dev stack up:
 // schools/dev.sh, then `npm run screenshots` in schools/web). Playwright's chromium.
+// The Slovak set first; then the language switch and three English frames (`*-en.png`).
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -66,5 +67,27 @@ await shot('07-ziaci')
 await page.getByRole('link', { name: 'Autoškola' }).first().click()
 await page.getByText('Údaje autoškoly').waitFor()
 await shot('08-autoskola')
+
+// English: the SK/EN switch in the sidebar is remembered in localStorage; the tree remounts.
+await page.getByRole('radio', { name: 'English' }).click()
+await page.getByRole('link', { name: 'Overview' }).first().click()
+await page.getByText('Running courses').waitFor()
+await shot('01-prehlad-en')
+
+await page.getByRole('link', { name: 'Courses' }).first().click()
+await page.getByRole('link', { name: 'B-2026-09 Žilina', exact: true }).click()
+await page.getByText('App code').waitFor()
+await page.waitForTimeout(400)
+await shot('03-kurz-ziaci-en')
+
+await page.locator('tbody tr td:nth-child(2) a').first().click()
+await page.getByText('Theory exam preparation').waitFor()
+await page.getByText('Details and documents').waitFor()
+await page.waitForTimeout(500)
+await shot('06-ziak-en')
+
+// Back to Slovak so the next run (and a person opening this browser profile) starts as the default.
+await page.getByRole('radio', { name: 'Slovensky' }).click()
+await page.getByText('Príprava na teoretickú skúšku').waitFor()
 
 await browser.close()

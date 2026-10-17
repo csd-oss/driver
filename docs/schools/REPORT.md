@@ -120,6 +120,34 @@ Not fixed, on purpose: the app's conservative readiness mode is not mirrored ser
 dashboard shows the standard score; the app's own score arrives in the snapshot), and the browser
 cookie's Max-Age is not re-issued on every sliding touch (a 30-day re-login, acceptable for now).
 
+## Follow-up (17 Oct 2026): English dashboard
+
+Asked for after the first report: an SK/EN switch for the dashboard. Done on the same branch.
+
+- `schools/web/src/i18n`: `sk.ts` is the source of keys (strings, or `{ one, few, other }` plural
+  forms), `en.ts` is typed against it, so a missing or extra English key fails `tsc`;
+  `i18n.test.ts` checks the same at runtime plus matching `{placeholders}`. `useT()` / `useI18n()`
+  give `t` and `tp` (plurals through `Intl.PluralRules`), `translateRich` puts React nodes into a
+  message. Switching remounts the routed tree (`key={locale}` in `RootLayout`), so nothing stays
+  stale. The choice is in `localStorage` (`schools-lang`), per browser; a staff-profile field was
+  not worth a migration for this.
+- Dates, money and counts go through `Intl` for `sk-SK` / `en-GB`: `3. 10. 2026` vs `3 Oct 2026`,
+  `890,00 €` vs `€890.00`. English uses British conventions on purpose (day first).
+- Errors: every `AppError` on the server now carries a distinct code (`student_not_found`,
+  `bad_lesson_count`, `admin_only`, …), and the client maps codes to messages in both languages
+  (`errorMessage` in `lib/api.ts`). An unmapped code falls back to the server's Slovak `detail`
+  for Slovak readers and to a per-status sentence in English. The app's own codes (`bad_code`,
+  `name_required`, `unauthorized`) are unchanged.
+- PDFs: the four official documents (Prihláška, Potvrdenie, Zmluva, Súhlas) stay Slovak whatever
+  the dashboard language; the cards say so. Výpis z prípravy and Prezenčná listina take
+  `lang: "en"` and come out as "Theory exam preparation report" / "Theory lesson attendance
+  sheet", generated in the dashboard's current language. The school header's "registrácia
+  autoškoly č." and the page footer follow the language; IČO stays IČO.
+- Not translated: data (course names, categories, the weak-category names from the question
+  bank, document titles already stored). The seed is Slovak, so the demo looks mixed in English.
+- Screenshots: `01-prehlad-en.png`, `03-kurz-ziaci-en.png`, `06-ziak-en.png` next to the Slovak
+  set; `npm run screenshots` makes both.
+
 ## Open questions for Mykhailo
 
 1. Pricing and packaging: SPEC § 7 assumes 29/49 € per school per month with the app free for a

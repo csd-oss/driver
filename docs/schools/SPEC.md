@@ -67,7 +67,7 @@ Readiness on the server is computed with the app's formula (`readiness.rs`, a po
 Seen count, accuracy and mock history come from the synced events; open-mistake count, bank size,
 the forecast and the streak come from the latest snapshot (the server cannot derive them).
 
-## 4. Screens (web, Slovak UI)
+## 4. Screens (web, Slovak UI with an English switch)
 
 - **Prehľad**: active and linked students, average readiness, ready/almost counts, who studied
   this week, readiness distribution, upcoming exams, real-exam pass rate, running courses.
@@ -141,6 +141,6 @@ sync, demo seed, tests (Rust unit + integration, web vitest, app Jest), one-comm
 5. JISCD alignment: import the JISCD course number and participant list (no public API known;
    probably CSV); mark lessons "recorded in JISCD".
 6. Student web view / parent view of the Výpis.
-7. Multi-language dashboard (Hungarian schools in the south), English for Mykhailo.
+7. Hungarian dashboard (schools in the south). English is done (SK/EN switch, 17 Oct 2026); Hungarian is one more catalog in `web/src/i18n`.
 8. Hosting: one small VM or Fly machine, Postgres, backups; the binary already serves the web
    build; e-mail provider for invites.

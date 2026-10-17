@@ -118,7 +118,7 @@ The same code ships as an installable, offline PWA at `driver.smartie.team` (Ver
 
 ### Driver for driving schools (`schools/`, branch `schools-crm`)
 
-A separate product on the same repo: a Rust API (`schools/server`, axum + sqlx + Postgres, PDF documents with genpdf), a Slovak web dashboard (`schools/web`, Vite + React 19) and an opt-in "Autoškola" feature in the app (`src/lib/school.ts`, `app/school.tsx`) behind `EXPO_PUBLIC_SCHOOLS_ENABLED`. `schools/dev.sh` starts everything locally (no Docker; a project-local Postgres cluster via `schools/pg.sh`). Spec and legal research: `docs/schools/SPEC.md`; status, decisions and open questions: `docs/schools/REPORT.md`. The release app is unchanged while the flag is off.
+A separate product on the same repo: a Rust API (`schools/server`, axum + sqlx + Postgres, PDF documents with genpdf), a web dashboard (`schools/web`, Vite + React 19; Slovak by default with an SK/EN switch, strings in `src/i18n/{sk,en}.ts`, `npm test` checks key parity) and an opt-in "Autoškola" feature in the app (`src/lib/school.ts`, `app/school.tsx`) behind `EXPO_PUBLIC_SCHOOLS_ENABLED`. `schools/dev.sh` starts everything locally (no Docker; a project-local Postgres cluster via `schools/pg.sh`). Spec and legal research: `docs/schools/SPEC.md`; status, decisions and open questions: `docs/schools/REPORT.md`. The release app is unchanged while the flag is off.
 
 ### Native projects (CNG)
 
