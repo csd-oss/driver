@@ -1,4 +1,4 @@
-# Driver for driving schools — spec (MVP)
+# Driver for driving schools: spec (MVP)
 
 Online accounts and a small CRM for Slovak driving schools (autoškoly), sold directly to schools,
 with the Driver SK app as the student's side. Code: `schools/` (Rust API + web dashboard) and the
@@ -9,9 +9,9 @@ flagged "Autoškola" feature in the app. Status and how to run: `docs/schools/RE
 Sources read for this: zákon č. 93/2005 Z. z. o autoškolách (znenie účinné 1. 9. 2026,
 slov-lex PDF), vyhláška č. 45/2016 Z. z. (konsolidované znenie 23. 5. 2023, PDF mindop.sk),
 vyhláška č. 9/2009 Z. z. prílohy č. 2 a 2b (PDF forms in circulation), the JISCD operator pages and
-the JISCD curriculum table for group B. Paragraph numbers below are from those texts.
+the JISCD curriculum table for group B. Paragraph numbers below are from those texts. I read the two primary PDFs myself; the web summaries disagreed with each other on annex numbers, so trust the PDFs.
 
-**The decisive fact:** since 2016 the mandatory records are kept **in JISCD** (Jednotný
+The decisive fact. Since 2016 the mandatory records are kept in JISCD (Jednotný
 informačný systém v cestnej doprave, "cestný informačný systém"), not on paper and not in the
 school's own software:
 

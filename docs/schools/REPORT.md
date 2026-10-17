@@ -1,6 +1,6 @@
-# Driver for driving schools — report
+# Driver for driving schools: report
 
-Built overnight 17 Oct 2026 on branch `schools-crm` (worktree `~/Documents/smartie/driver-schools`),
+Built overnight on 17 Oct 2026 on branch `schools-crm` (worktree `~/Documents/smartie/driver-schools`),
 from the task in `/tmp/glassy-driver-schools.txt`. `main`, the release build and the stores were
 not touched. Spec and legal research: [`SPEC.md`](SPEC.md). Screenshots: [`screenshots/`](screenshots/).
 
