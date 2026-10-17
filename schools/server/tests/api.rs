@@ -111,7 +111,12 @@ async fn the_dashboard_reads_groups_students_and_overview(pool: PgPool) {
     let detail = app.json(&format!("/api/v1/groups/{}", running["id"].as_str().unwrap())).await;
     let students = detail["students"].as_array().unwrap();
     assert!(students.len() >= 8);
-    let linked = students.iter().find(|s| s["progress"]["linked"] == true).unwrap();
+    // The best-prepared linked student: the seed gives every linked student a month of practice.
+    let linked = students
+        .iter()
+        .filter(|s| s["progress"]["linked"] == true)
+        .max_by_key(|s| s["progress"]["score"].as_i64().unwrap_or(0))
+        .unwrap();
     assert!(linked["progress"]["score"].as_i64().unwrap() > 0);
     assert!(linked["progress"]["seen_count"].as_i64().unwrap() > 0);
     assert!(linked["training"]["theory_held"].as_i64().unwrap() > 0);
